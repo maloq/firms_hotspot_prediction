@@ -1,0 +1,82 @@
+# For historical data
+
+
+year:
+- "2018"
+
+month:
+- "08"
+
+day:
+- "01"
+
+
+# This works for the latest forecast
+dataset: "seasonal-original-single-levels"
+originating_centre: "ecmwf"
+system: "51"
+variable:
+- "soil_temperature_level_1"
+- "2m_dewpoint_temperature"
+- "2m_temperature"
+- "total_precipitation"
+
+area: 
+- 35
+- 1
+- 75
+- 179
+
+data_format: "grib"
+data_path: "data/raw_climate/ECMWF"
+data_path_prediction: "data/raw_climate/ECMWF_prediction"
+
+leadtime_hours:
+- "0"
+- "24"
+- "48"
+- "72"
+- "96"
+- "120"
+- "144"
+- "168"
+- "192"
+- "216"
+- "240"
+- "264"
+- "288"
+- "312"
+- "336"
+- "360"
+- "384"
+- "408"
+- "432"
+- "456"
+- "480"
+- "504"
+- "528"
+- "552"
+- "576"
+- "600"
+- "624"
+- "648"
+- "672"
+- "696"
+- "720"
+- "744"
+
+icon_settings:
+  icon_url_base: "https://opendata.dwd.de/weather/nwp/icon/grib"
+  icon_times_to_download: ["12"]
+  icon_variables_to_download: ["t_2m", "td_2m", "tot_prec"]
+  icon_url_level_type_tag: "icon_global_icosahedral_single-level"
+  icon_disk_storage_base: "data/raw_climate/ICON" 
+  icon_description_file: "data/WeightsAndGrid/grid_world_0125.txt" 
+  icon_weights_file: "data/WeightsAndGrid/icon_weights.nc"
+  icon_zarr_ecmwf_format_dir: "data/climate_data_files/ICON_ECMWF_Format"
+  n_cpu: 2
+  forecast_days_to_process: 1
+  cleanup_intermediate: False
+  area: [35, 25, 80, 179]
+
+

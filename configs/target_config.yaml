@@ -1,0 +1,9 @@
+# Target generation from MODIS:
+spatial_coarseness: 0.1
+brightness_threshold: 380
+confidence_threshold: 0.85
+brightness_threshold_high_lat: 360
+confidence_threshold_high_lat: 0.70
+filter_stationary_points: true
+stationary_points_dir: data/modis_stationary_points
+use_high_latitude_filter: false

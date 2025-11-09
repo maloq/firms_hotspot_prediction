@@ -1,0 +1,523 @@
+import os
+import sys
+import time
+import argparse
+import yaml
+import pandas as pd
+
+sys.path.append(os.getcwd()) 
+
+from src.target_generation.prepare_target_new import load_modis_data, prepare_target_data
+from src.feature_generation.prepare_climate_data import prepare_data as prepare_climate_data_func
+from src.feature_generation.prepare_land import (
+    get_elevation_stats,
+    prepare_land_data,
+    assign_ecoregion,
+    landsea_distance,
+)
+from src.feature_generation.prepare_road_features import get_road_features_for_coords
+from src.feature_generation.prepare_fire_index_features import get_fire_index_features
+
+
+# --- TARGET DATA GENERATION ---
+def crop_target_df(df, coordinate_bounds):
+    min_lat, min_lon, max_lat, max_lon = coordinate_bounds[0], coordinate_bounds[1], coordinate_bounds[2], coordinate_bounds[3]
+    
+    df_cropped = df[
+        (df['lat_rounded'] >= min_lat) & (df['lat_rounded'] <= max_lat) &
+        (df['lon_rounded'] >= min_lon) & (df['lon_rounded'] <= max_lon)
+    ]
+    print(f'Target df shape: {df.shape[0]} rows -> after cropping: {df_cropped.shape[0]} rows for bounds {coordinate_bounds}')
+    return df_cropped
+
+def generate_target_data(
+    modis_data_path,
+    modis_countries,
+    target_samples_per_area_per_year,
+    coordinate_bounds, # [min_lat, min_lon, max_lat, max_lon]
+    start_date,
+    end_date,
+    use_cached: bool = False,
+    cache_path: str | None = None,
+):
+    print(f"--- Generating Target Data ({start_date} to {end_date}) ---")
+
+    if use_cached and cache_path and os.path.exists(cache_path):
+        print(f"Loading cached target data from '{cache_path}'...")
+        t_start = time.time()
+        df_target_sorted = pd.read_parquet(cache_path)
+        print(f"Loaded target data from cache. Shape: {df_target_sorted.shape}. Time: {time.time() - t_start:.2f}s")
+        return df_target_sorted
+
+    t_start = time.time()
+    df_modis = load_modis_data(modis_data_path, modis_countries, start_date, end_date)
+    print(f"Loaded MODIS data shape: {df_modis.shape}")
+    
+    df_target = prepare_target_data(df_modis, modis_countries, samples_per_area_per_year=target_samples_per_area_per_year)
+    print(f"Target data shape after adding negative samples: {df_target.shape}")
+    
+    df_target_cropped = crop_target_df(df_target, coordinate_bounds)
+    df_target_sorted = df_target_cropped.sort_values(by='datetime').reset_index(drop=True)
+    
+    print(f"Final target data shape: {df_target_sorted.shape}")
+    print(f"Target data generation took {time.time() - t_start:.2f} seconds.")
+
+    if cache_path:
+        print(f"Saving target data to '{cache_path}'...")
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        df_target_sorted.to_parquet(cache_path)
+
+    return df_target_sorted
+
+# --- INDIVIDUAL FEATURE PREPARATION WRAPPERS (largely as in original) ---
+def prepare_elevation_features_wrapper(target_df: pd.DataFrame, elevation_file: str, window_sizes: list[float]):
+    df_elevation, elevation_feature_names = get_elevation_stats(elevation_file, target_df, window_sizes)
+    return df_elevation, elevation_feature_names
+
+def prepare_road_features_wrapper(target_df: pd.DataFrame, feature_map_path: str):
+    coords_array = target_df[['lat_rounded', 'lon_rounded']].to_numpy()
+    df_road = get_road_features_for_coords(coords=coords_array.T, npz_path=feature_map_path)
+    road_feature_names = [col for col in df_road.columns if col not in ['lat_rounded', 'lon_rounded']]
+    return df_road, road_feature_names
+
+def prepare_land_features_wrapper(target_df: pd.DataFrame, land_data_files: list[str]):
+    df_land, land_feature_names = prepare_land_data(land_data_files=land_data_files, target_df=target_df, radius_meters=10000)
+    return df_land, land_feature_names
+
+def prepare_fire_index_features_wrapper(target_df: pd.DataFrame, fire_index_npz_path: str):
+    df_fire_index, fire_index_feature_names = get_fire_index_features(fire_index_npz_path, target_df)
+    return df_fire_index, fire_index_feature_names
+
+def prepare_ecoregion_wrapper(target_df: pd.DataFrame, wwf_shp_path: str):
+    df_ecoregion, ecoregion_feature_names = assign_ecoregion(df=target_df, wwf_shp=wwf_shp_path)
+    return df_ecoregion, ecoregion_feature_names
+
+def prepare_landsea_distance_wrapper(target_df: pd.DataFrame):
+    df_landsea_distance, landsea_distance_feature_names = landsea_distance(target_df)
+    return df_landsea_distance, landsea_distance_feature_names
+
+def merge_features(
+    df_with_climate_features_and_target_anchors: pd.DataFrame | None,
+    all_climate_feature_names: list[str],
+    elevation_features: pd.DataFrame | None, 
+    elevation_feature_names: list[str], 
+    road_features: pd.DataFrame | None, 
+    road_feature_names: list[str], 
+    fire_index_features: pd.DataFrame | None,
+    fire_index_feature_names: list[str],
+    land_df: pd.DataFrame | None, 
+    land_feature_names: list[str], 
+    ecoregion_features: pd.DataFrame | None,
+    ecoregion_feature_names: list[str],
+    landsea_distance_features: pd.DataFrame | None,
+    landsea_distance_feature_names: list[str],
+    anchor_cols: list[str],
+    drop_by_sea_mask: bool = True
+):
+    all_dataframes_to_concat = []
+    final_feature_columns_ordered = []
+
+    if df_with_climate_features_and_target_anchors is not None:
+        df_anchors = df_with_climate_features_and_target_anchors[anchor_cols].reset_index(drop=True)
+        all_dataframes_to_concat.append(df_anchors)
+        final_feature_columns_ordered.extend(anchor_cols)
+
+        if all_climate_feature_names:
+            df_clim_feats_only = df_with_climate_features_and_target_anchors[all_climate_feature_names].reset_index(drop=True)
+            all_dataframes_to_concat.append(df_clim_feats_only)
+            final_feature_columns_ordered.extend(all_climate_feature_names)
+    else:
+        raise ValueError("Warning: df_with_climate_features_and_target_anchors is None. This shouldn't happen if handled correctly by caller.")
+
+
+    feature_sets = [
+        (elevation_features, elevation_feature_names),
+        (road_features, road_feature_names),
+        (fire_index_features, fire_index_feature_names),
+        (land_df, land_feature_names), 
+        (ecoregion_features, ecoregion_feature_names),
+        (landsea_distance_features, landsea_distance_feature_names),
+    ]
+
+    for features_df, feature_names_list in feature_sets:
+        if feature_names_list and features_df is not None and not features_df.empty:
+            all_dataframes_to_concat.append(features_df[feature_names_list].reset_index(drop=True))
+            final_feature_columns_ordered.extend(feature_names_list)
+
+    if not all_dataframes_to_concat:
+        print("Warning: No feature dataframes available for merging.")
+        return pd.DataFrame()
+    
+    final_features_df = pd.concat(all_dataframes_to_concat, axis=1)
+    final_features_df = final_features_df.loc[:, ~final_features_df.columns.duplicated(keep='first')]
+    
+    existing_cols_in_order = [col for col in final_feature_columns_ordered if col in final_features_df.columns]
+    final_features_df = final_features_df[existing_cols_in_order]
+
+    if drop_by_sea_mask:
+        if 'landseamask' not in final_features_df.columns:
+            print("WARNING: 'landseamask' column not found in final features df. Skipping sea mask drop.")
+        else:
+            rows_before_sea_mask_drop = final_features_df.shape[0]
+            final_features_df = final_features_df[final_features_df['landseamask'] < 70].reset_index(drop=True)
+            rows_after_sea_mask_drop = final_features_df.shape[0]
+            print(f"🌊 Using landseamask, dropped {rows_before_sea_mask_drop - rows_after_sea_mask_drop} rows due to sea_mask < 70% "
+                f"Final features df shape: {final_features_df.shape}")
+            
+    if 'count' not in final_features_df.columns and 'count' in anchor_cols:
+        print("Warning: 'count' column specified in anchor_cols is missing from the final merged DataFrame.")
+    
+    return final_features_df
+
+
+def generate_all_features(
+    df_target: pd.DataFrame,
+    # Climate data loading params
+    climate_data_dir: str,
+    climate_variables: list[str],
+    climate_n_days: int,
+    # Climate feature generation params
+    generate_climate_max_length: int,
+    generate_climate_lags: list[int],
+    generate_climate_windows: list[int],
+    generate_climate_spans: list[int],
+    generate_climate_trend_window: int,
+    generate_climate_features_to_include: dict,
+    # Elevation params
+    elevation_file_path: str,
+    elevation_window_sizes: list[float],
+    # Road params
+    road_feature_map_path: str,
+    use_road_features: bool,
+    # Fire index params
+    fire_index_npz_path: str,
+    # Land data params
+    land_data_files: list[str],
+    # Ecoregion params
+    wwf_shp_path: str,
+    # Other controls
+    anchor_cols: list[str],
+    test_mode: bool = False,
+    skip_climate: bool = False,
+    use_cached_files: bool = False,
+    cache_dir: str = 'data/saved_features/climate_features_cache'
+) -> pd.DataFrame:
+    """
+    Orchestrates the full feature generation pipeline.
+    """
+    total_script_start_time = time.time()
+    print(f"--- Starting Full Feature Generation ---")
+    
+    df_processed_target_with_climate: pd.DataFrame | None = None
+    all_climate_feature_names_list: list[str] = []
+
+    if not skip_climate:
+        print("--- Generating Climate Features ---")
+        climate_start_time = time.time()
+        df_processed_target_with_climate, all_climate_feature_names_list, ts_matrix = prepare_climate_data_func(
+            climate_data_dir=climate_data_dir,
+            climate_variables=climate_variables,
+            target_df=df_target.copy(), # Pass a copy
+            n_days=climate_n_days,
+            test_mode=test_mode,
+            max_length_features=generate_climate_max_length,
+            lags_features=generate_climate_lags,
+            windows_features=generate_climate_windows,
+            spans_features=generate_climate_spans,
+            trend_window_features=generate_climate_trend_window,
+            features_to_include_config=generate_climate_features_to_include,
+            use_cached_files=use_cached_files,
+            cache_dir=cache_dir,
+            return_features_df=True,
+        )
+        assert ts_matrix.shape[0] == len(df_target)
+        print(
+            f"Climate features generated ({len(all_climate_feature_names_list)} columns). "
+            f"Time: {time.time() - climate_start_time:.2f}s"
+        )
+        print(f"DataFrame shape after climate processing: {df_processed_target_with_climate.shape}")
+    else:
+        print("--- Skipping Climate Feature Generation ---")
+        # df_target already contains anchor columns. This will be the base.
+        df_processed_target_with_climate = df_target.copy()
+        all_climate_feature_names_list = []
+
+    # Generate other features using the original df_target for coordinate references
+    # These functions are expected to return DataFrames that can be aligned (e.g., via index or merge keys)
+    # or just the feature columns that are row-aligned.
+    # The merge_features function expects feature DFs that might include lat/lon, and it selects only new feature columns.
+
+    print("--- Generating Elevation Features ---")
+    elev_start_time = time.time()
+    df_elevation, elevation_feature_names = prepare_elevation_features_wrapper(
+        target_df=df_target.copy(), # Use original target for geo-ref
+        elevation_file=elevation_file_path, 
+        window_sizes=elevation_window_sizes
+    )
+    print(f"Elevation features generated ({len(elevation_feature_names)} columns). Shape: {df_elevation.shape}. Time: {time.time() - elev_start_time:.2f}s")
+
+    df_road, road_feature_names = None, []
+    use_road_features = False
+    if use_road_features:
+        print("--- Generating Road Features ---")
+        road_start_time = time.time()
+        df_road, road_feature_names = prepare_road_features_wrapper(
+            target_df=df_target.copy(), # Use original target for geo-ref
+            feature_map_path=road_feature_map_path
+        )
+        print(f"Road features generated ({len(road_feature_names)} columns). Shape: {df_road.shape}. Time: {time.time() - road_start_time:.2f}s")
+    else:
+        print("--- Skipping Road Features ---")
+        
+    print("--- Generating Land Data Features ---")
+    land_start_time = time.time()
+    df_land, land_feature_names = prepare_land_features_wrapper(
+        target_df=df_target.copy(), # Use original target for geo-ref
+        land_data_files=land_data_files
+    )
+    print(f"Land features generated ({len(land_feature_names)} columns). Shape: {df_land.shape}. Time: {time.time() - land_start_time:.2f}s")
+
+    print("--- Generating Fire Index Features ---")
+    fire_idx_start_time = time.time()
+    df_fire_index, fire_index_feature_names = prepare_fire_index_features_wrapper(
+        target_df=df_target.copy(), # Use original target for geo-ref
+        fire_index_npz_path=fire_index_npz_path
+    )
+    print(f"Fire index features generated ({len(fire_index_feature_names)} columns). Shape: {df_fire_index.shape}. Time: {time.time() - fire_idx_start_time:.2f}s")
+    
+    print("--- Generating Ecoregions ---")
+    ecoregion_start_time = time.time()
+    df_ecoregion, ecoregion_feature_names = prepare_ecoregion_wrapper(
+        target_df=df_target.copy(), # Use original target for geo-ref
+        wwf_shp_path=wwf_shp_path
+    )
+    print(f"Ecoregions generated ({len(ecoregion_feature_names)} columns). Shape: {df_ecoregion.shape}. Time: {time.time() - ecoregion_start_time:.2f}s")
+
+    print("--- Generating Landsea Distance ---")
+    landsea_distance_start_time = time.time()
+    df_landsea_distance, landsea_distance_feature_names = prepare_landsea_distance_wrapper(
+        target_df=df_target.copy()
+    )
+    print(f"Landsea distance features generated ({len(landsea_distance_feature_names)} columns). Shape: {df_landsea_distance.shape}. Time: {time.time() - landsea_distance_start_time:.2f}s")
+
+    print("--- Merging All Features ---")
+    merge_start_time = time.time()
+    final_df = merge_features(
+        df_with_climate_features_and_target_anchors=df_processed_target_with_climate,
+        all_climate_feature_names=all_climate_feature_names_list,
+        elevation_features=df_elevation, 
+        elevation_feature_names=elevation_feature_names,
+        road_features=df_road, 
+        road_feature_names=road_feature_names,
+        fire_index_features=df_fire_index,
+        fire_index_feature_names=fire_index_feature_names,
+        land_df=df_land, 
+        land_feature_names=land_feature_names, 
+        ecoregion_features=df_ecoregion,
+        ecoregion_feature_names=ecoregion_feature_names,
+        landsea_distance_features=df_landsea_distance,
+        landsea_distance_feature_names=landsea_distance_feature_names,
+        anchor_cols=anchor_cols,
+        drop_by_sea_mask=True
+    )
+    print(f"Merging took {time.time() - merge_start_time:.2f}s")
+    
+    # Drop temporary 'id' column if it exists and is not an anchor_col
+    temp_id_col = 'id' # Assuming 'id' is the name of the temporary column from climate processing
+    if temp_id_col in final_df.columns and (anchor_cols is None or temp_id_col not in anchor_cols):
+        print(f"Dropping temporary '{temp_id_col}' column.")
+        final_df = final_df.drop(columns=[temp_id_col])
+        
+    print(f"Final merged DataFrame shape: {final_df.shape}")
+    total_script_duration = time.time() - total_script_start_time
+    print(f"Total feature generation pipeline took {total_script_duration:.2f} seconds ({total_script_duration/60:.2f} minutes).")
+
+    float_cols = final_df.select_dtypes(include=["float64"]).columns
+    int_cols = final_df.select_dtypes(include=["int64"]).columns
+    final_df[float_cols] = final_df[float_cols].astype("float32")
+    final_df[int_cols] = final_df[int_cols].astype("int32")
+
+    return final_df
+
+
+def make_features_and_save(config_or_path: str | dict, output_file: str, test_mode: bool, use_cached_files: bool = False, cache_dir: str = 'climate_features_cache', use_cached_target: bool = False):
+    """
+    Loads configuration, generates target data, generates features, and saves the result.
+    """
+    if isinstance(config_or_path, str):
+        with open(config_or_path, 'r') as f:
+            config = yaml.safe_load(f)
+        print(f"Using loaded config file: {config_or_path}")
+    elif isinstance(config_or_path, dict):
+        config = config_or_path
+        print(f"Using config dictionary: {config}")
+    else:
+        raise TypeError("config_or_path must be a string path or a config dictionary.")
+
+    # Target data parameters
+    modis_data_path = config['modis_data_path']
+    modis_countries = config['modis_countries']
+    target_samples_per_area_per_year = config['target_samples_per_area_per_year']
+    coordinate_bounds_cfg = tuple(config['coordinate_bounds']) # [min_lat, min_lon, max_lat, max_lon]
+    
+    target_start_date_cfg = config['target_start_date']
+    target_end_date_cfg = config['target_end_date']
+    test_start_date_cfg = config.get('test_start_date', "2020-01-01")
+    test_end_date_cfg = config.get('test_end_date', "2020-12-31")
+
+    # Determine date range for target generation
+    current_start_date = test_start_date_cfg if test_mode else target_start_date_cfg
+    current_end_date = test_end_date_cfg if test_mode else target_end_date_cfg
+
+    target_cache_path = config.get('target_cache_path', 'data/saved_features/target_data.parquet')
+
+    df_target_processed = generate_target_data(
+        modis_data_path=modis_data_path,
+        modis_countries=modis_countries,
+        target_samples_per_area_per_year=target_samples_per_area_per_year,
+        coordinate_bounds=coordinate_bounds_cfg,
+        start_date=current_start_date,
+        end_date=current_end_date,
+        use_cached=use_cached_target,
+        cache_path=target_cache_path,
+    )
+
+    # df_target_processed = df_target_processed[:1000] # For quick testing
+    # print(f"DEBUG: Using subset of df_target for testing: {df_target_processed.shape[0]} rows")
+
+    # Feature generation parameters
+    current_climate_params = config.get('climate_data_params_test', config['climate_data_params']) \
+        if test_mode else config['climate_data_params']
+    
+    generate_climate_params_cfg = config['generate_climate_params']
+    # Get trend_window from config, with fallback to default if not specified
+    trend_window_for_climate = generate_climate_params_cfg.get('trend_window', [21, 90])
+    if 'trend_window' not in generate_climate_params_cfg:
+         print(f"Using default trend_window: {trend_window_for_climate} for climate features generation.")
+
+
+    elevation_params_cfg = config['elevation_data_params']
+    road_params_cfg = config['road_data_params']
+    fire_params_cfg = config['fire_data_params'] # Contains fire_index_npz_path or default is used
+    land_params_cfg = config['land_data_params']
+    
+    skip_climate_cfg = config.get('skip_climate', False)
+    
+    # Anchor columns to preserve from the target data
+    # Ensure 'year' is generated by prepare_target_data or add it if needed
+    # Example: df_target_processed['year'] = pd.to_datetime(df_target_processed['datetime']).dt.year
+    # For now, assuming 'year' is present if listed.
+    anchor_columns = ['datetime', 'lat_rounded', 'lon_rounded', 'month', 'day', 'year', 'count']
+    # Verify all anchor columns are in df_target_processed
+    for col in anchor_columns:
+        if col not in df_target_processed.columns:
+            if col == 'year' and 'datetime' in df_target_processed.columns:
+                print(f"Generating 'year' column from 'datetime' for anchors.")
+                df_target_processed['year'] = pd.to_datetime(df_target_processed['datetime']).dt.year
+            else:
+                # Raise error if essential anchor columns are missing and cannot be derived
+                # For now, just a warning, but strict mode might raise an error.
+                print(f"Warning: Anchor column '{col}' not found in df_target_processed. It will be missing if not generated by features.")
+
+
+    final_features_df = generate_all_features(
+        df_target=df_target_processed,
+        # Climate data loading
+        climate_data_dir=current_climate_params["climate_data_dir"],
+        climate_variables=current_climate_params["climate_variables"],
+        climate_n_days=current_climate_params["n_days"],
+        # Climate feature generation
+        generate_climate_max_length=generate_climate_params_cfg["max_length"],
+        generate_climate_lags=generate_climate_params_cfg["lags"],
+        generate_climate_windows=generate_climate_params_cfg["windows"],
+        generate_climate_spans=generate_climate_params_cfg["spans"],
+        generate_climate_trend_window=trend_window_for_climate,
+        generate_climate_features_to_include=generate_climate_params_cfg["features_to_include"],
+        # Elevation
+        elevation_file_path=elevation_params_cfg["elevation_file"],
+        elevation_window_sizes=elevation_params_cfg.get("window_size", [0.25]),
+        # Road
+        road_feature_map_path=road_params_cfg["feature_map_path"],
+        use_road_features=road_params_cfg.get("use_road_features", False),
+        # Fire Index
+        fire_index_npz_path=land_params_cfg.get("fire_index_npz_path", "data/land_features/fire_index_features.npz"),
+        # Land
+        land_data_files=land_params_cfg["land_data_files"],
+        # Ecoregion
+        wwf_shp_path=land_params_cfg["wwf_shp_path"],
+        # Other controls
+        anchor_cols=anchor_columns,
+        test_mode=test_mode,
+        skip_climate=skip_climate_cfg,
+        use_cached_files=use_cached_files,
+        cache_dir=cache_dir
+    )
+
+    print(f"Final features DataFrame shape before saving: {final_features_df.shape}")
+    if not final_features_df.empty:
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        final_features_df.to_parquet(output_file)
+        print(f"Final features saved to '{output_file}'.")
+    else:
+        print(f"Warning: Final features DataFrame is empty. Not saving to '{output_file}'.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate features for fire prediction model.")
+    parser.add_argument(
+        "--config", 
+        type=str, 
+        default="configs/features_config_30d.yaml", # Assuming your config file is YAML
+        help="Path to the YAML configuration file."
+    )
+    parser.add_argument(
+        "--output", 
+        type=str, 
+        default="data/saved_features_boost/train_features_boost_30d.parquet",
+        help="Path to save the final features Parquet file."
+    )
+    parser.add_argument(
+        "--test_mode",
+        action="store_true",
+        help="Run in test mode (uses test_start_date, test_end_date from config)."
+    )
+    parser.add_argument(
+        "--use_cached_target",
+        action="store_true",
+        help="Load target data from cache if available."
+    )
+    parser.add_argument(
+        "--use_cached_climate_files",
+        action="store_true",
+        help="Use cached climate feature files if available."
+    )
+    
+    args = parser.parse_args()
+    
+    # Example: If your src modules are in a directory 'src' at the same level as this script's dir
+    # current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    # project_root = os.path.dirname(current_script_dir) 
+    # sys.path.append(project_root) # Add project root to allow `from src. ...`
+    # This sys.path.append might be needed if you run this script directly and `src` is not in PYTHONPATH
+    # If `src` is a package installed in your environment, this is not needed.
+
+    # For direct execution, ensure current working directory allows finding `src`
+    # This is often handled by running python -m your_module.make_features or setting PYTHONPATH
+    if os.getcwd() not in sys.path: # A common way to ensure local modules are found
+        sys.path.append(os.getcwd())
+
+
+    print(f"Running feature generation with config: {args.config}")
+    print(f"Output will be saved to: {args.output}")
+    print(f"Test mode: {args.test_mode}")
+    print(f"Use cached target: {args.use_cached_target}")
+    print(f"Use cached climate files: {args.use_cached_climate_files}")
+
+    make_features_and_save(
+        config_or_path=args.config,
+        output_file=args.output,
+        test_mode=args.test_mode,
+        use_cached_target=args.use_cached_target,
+        use_cached_files=args.use_cached_climate_files
+    )

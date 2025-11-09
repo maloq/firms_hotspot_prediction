@@ -1,0 +1,927 @@
+import json
+import math
+import os, sys
+from typing import Any
+
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
+import torch
+import yaml
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+)
+from sklearn.utils import class_weight
+from torch.utils.data import DataLoader, Dataset
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
+import sys
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+from src.neural_net.models.lightning import SequenceStaticLightningModule
+from src.utils.prediction_adjustments import adjust_probabilities_for_prior
+
+torch.set_float32_matmul_precision('high')
+
+print("PyTorch version:", torch.__version__)
+print("CUDA available:", torch.cuda.is_available())
+if torch.cuda.is_available():
+    for idx in range(torch.cuda.device_count()):
+        props = torch.cuda.get_device_properties(idx)
+        print(f"GPU {idx}: {props.name}, memory {props.total_memory / (1024 ** 3):.1f} GB")
+
+
+class FireDataset(Dataset):
+    """Dataset that returns dynamic, static, categorical features, labels, and sample weights."""
+
+    def __init__(self, x_dyn, x_stat, x_cat, y, sample_weight=None):
+        self.x_dyn = torch.as_tensor(x_dyn, dtype=torch.float32)
+        self.x_stat = torch.as_tensor(x_stat, dtype=torch.float32)
+        if x_cat is None:
+            x_cat = np.zeros((self.x_dyn.shape[0], 0), dtype=np.int64)
+        self.x_cat = torch.as_tensor(x_cat, dtype=torch.long)
+        self.y = torch.as_tensor(y, dtype=torch.float32).view(-1)
+        if sample_weight is None:
+            self.sample_weight = torch.ones_like(self.y)
+        else:
+            self.sample_weight = torch.as_tensor(sample_weight, dtype=torch.float32).view(-1)
+
+    def __len__(self):
+        return self.x_dyn.shape[0]
+
+    def __getitem__(self, idx):
+        return (
+            self.x_dyn[idx],
+            self.x_stat[idx],
+            self.x_cat[idx],
+            self.y[idx],
+            self.sample_weight[idx],
+        )
+
+class HistoryCallback(pl.Callback):
+    """Collects epoch-level metrics for later plotting."""
+
+    def __init__(self):
+        super().__init__()
+        self.history = {
+            "train_loss": [],
+            "val_loss": [],
+            "val_ap": [],
+        }
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        train_loss = metrics.get("train_loss")
+        if train_loss is not None:
+            self.history["train_loss"].append(float(train_loss.cpu().item()))
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        val_loss = metrics.get("val_loss")
+        if val_loss is not None:
+            self.history["val_loss"].append(float(val_loss.cpu().item()))
+        val_ap = metrics.get("val_ap")
+        if val_ap is not None:
+            value = float(val_ap.cpu().item()) if isinstance(val_ap, torch.Tensor) else float(val_ap)
+            self.history["val_ap"].append(value)
+
+
+def compute_class_weight(y_train):
+    classes = np.unique(y_train)
+    cw = class_weight.compute_class_weight(class_weight="balanced", classes=classes, y=y_train)
+    cw_dict = {int(c): float(w) for c, w in zip(classes, cw)}
+    sample_w = np.array([cw_dict[int(v)] for v in y_train], dtype=float)
+    return cw_dict, sample_w
+
+
+def plot_loss(history, out_path=None):
+    if hasattr(history, "history"):
+        hist = history.history
+    else:
+        hist = history
+    train_loss = hist.get("train_loss") or hist.get("loss", [])
+    val_loss = hist.get("val_loss", [])
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_loss, label="train loss")
+    plt.plot(val_loss, label="val loss")
+    plt.title("Loss")
+    plt.legend()
+    if out_path:
+        plt.savefig(out_path, dpi=150)
+    plt.close()
+
+
+def plot_recall_precision(y_true, y_scores, out_path=None, title="PR curve"):
+    precision, recall, _ = precision_recall_curve(y_true, y_scores)
+    ap = average_precision_score(y_true, y_scores)
+    plt.figure(figsize=(12, 10))
+    plt.step(recall, precision, where="post", label=f"AP={ap:.4f}")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"{title} (AP={ap:.4f})")
+    plt.legend()
+    plt.grid(True)
+    if out_path:
+        plt.savefig(out_path, dpi=150)
+    plt.close()
+    return ap
+
+
+def choose_threshold_f1(y_true, y_scores, sample_weight=None):
+    precision, recall, thresholds = precision_recall_curve(y_true, y_scores, sample_weight=sample_weight)
+    if thresholds.size == 0:
+        return 0.5, None
+    f1 = (2 * precision * recall) / (precision + recall + 1e-12)
+    f1 = f1[:-1]
+    if f1.size == 0:
+        return 0.5, None
+    idx = np.nanargmax(f1)
+    return float(thresholds[idx]), float(f1[idx])
+
+
+def predict_probs(model, x_dyn, x_stat, x_cat=None, batch_size=256, device=None):
+    model.eval()
+    device = device or next(model.parameters()).device
+    if x_cat is None:
+        x_cat = np.zeros((len(x_dyn), 0), dtype=np.int64)
+    dataset = FireDataset(x_dyn, x_stat, x_cat, np.zeros(len(x_dyn), dtype=np.float32))
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    preds = []
+    with torch.no_grad():
+        for dyn, stat, cat, _, _ in loader:
+            dyn = dyn.to(device)
+            stat = stat.to(device)
+            cat = cat.to(device)
+            logits = model(dyn, stat, cat if cat.numel() else None)
+            probs = torch.sigmoid(logits).cpu().numpy()
+            preds.append(probs)
+    return np.concatenate(preds)
+
+
+def train_pipeline(
+    x_dyn_train,
+    x_stat_train,
+    y_train,
+    x_dyn_val,
+    x_stat_val,
+    y_val,
+    *,
+    x_cat_train=None,
+    x_cat_val=None,
+    x_cat_test=None,
+    batch_size=1024,
+    epochs=50,
+    model_path=None,
+    plot_path=None,
+    num_workers=4,
+    model_name="lstm_mlp",
+    model_config=None,
+    lightning_config=None,
+    trainer_kwargs=None,
+    class_weights=None,
+    selection_metric: str = "sel_ap",
+):
+    n_train = x_dyn_train.shape[0]
+    steps_per_epoch = math.ceil(n_train / batch_size)
+    lr_decay_epochs = 5
+    decay_steps = lr_decay_epochs * steps_per_epoch
+
+    if x_cat_train is None:
+        x_cat_train = np.zeros((x_dyn_train.shape[0], 0), dtype=np.int64)
+    if x_cat_val is None:
+        x_cat_val = np.zeros((x_dyn_val.shape[0], 0), dtype=np.int64)
+    if x_cat_test is None:
+        cat_dim = x_cat_train.shape[1] if x_cat_train.ndim == 2 else 0
+        x_cat_test = np.zeros((0, cat_dim), dtype=np.int64)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("Using device:", device)
+
+    # Handle class weights: use config if provided, otherwise calculate
+    if class_weights is not None:
+        # Config-provided weights
+        cw_dict = dict(class_weights)
+        sample_w_train = np.array([cw_dict.get(int(v), 1.0) for v in y_train], dtype=float)
+        # Print in requested format
+        weight_0 = cw_dict.get(0, 1.0)
+        weight_1 = cw_dict.get(1, 1.0)
+        print(f"Class weights (from config): 1:{weight_1/weight_0:.4f} [actual]")
+        print(f"Class weights (calculated): 1:{cw_dict.get(1, 1.0)/cw_dict.get(0, 1.0):.4f}")
+    else:
+        # Calculate balanced weights
+        cw_dict, sample_w_train = compute_class_weight(y_train)
+        # Print in requested format
+        weight_0 = 1
+        weight_1 = 1
+        print(f"Class weights default: 1:{weight_1/weight_0:.4f}")
+
+    model_kwargs = dict(model_config or {})
+    model_kwargs.setdefault("seq_len", x_dyn_train.shape[1])
+    model_kwargs.setdefault("n_channels", x_dyn_train.shape[2])
+    model_kwargs.setdefault("n_static", x_stat_train.shape[1])
+    print(f"Using architecture: {model_name} with params: {model_kwargs}")
+
+    lightning_kwargs = dict(lightning_config or {})
+    # Support alias `weight_decay` in config; map to module arg `l2`
+    if "weight_decay" in lightning_kwargs and "l2" not in lightning_kwargs:
+        try:
+            lightning_kwargs["l2"] = float(lightning_kwargs.pop("weight_decay"))
+        except Exception:
+            lightning_kwargs["l2"] = lightning_kwargs.pop("weight_decay")
+    lightning_kwargs.setdefault("decay_steps", decay_steps)
+
+    # Learning rate scheduler configuration
+    # Supported schedulers:
+    # - "lambda": Exponential decay (default)
+    # - "step": Step decay
+    # - "cosine": Cosine annealing
+    # - "reduce_on_plateau": Reduce LR on plateau
+    scheduler_config = lightning_kwargs.pop("scheduler_config", None)
+    scheduler_alias = lightning_kwargs.pop("scheduler", None)
+    if scheduler_alias is not None:
+        if scheduler_config is not None:
+            raise ValueError(
+                "Provide only one of 'scheduler' or 'scheduler_config' in lightning configuration."
+            )
+        scheduler_config = scheduler_alias
+
+    if scheduler_config is None:
+        scheduler_config = {
+            "type": "lambda",
+            "interval": "step",
+            "frequency": 1,
+            "params": {
+                "decay_rate": lightning_kwargs.get("decay_rate", 0.5),
+                "decay_steps": lightning_kwargs.get("decay_steps", decay_steps),
+            },
+        }
+    else:
+        if not isinstance(scheduler_config, dict):
+            raise ValueError("Expected scheduler configuration to be a mapping")
+        scheduler_config = dict(scheduler_config)
+        scheduler_config.setdefault("params", {})
+        scheduler_type = str(scheduler_config.get("type", "")).lower()
+        scheduler_config.setdefault("interval", "epoch" if scheduler_type == "reduce_on_plateau" else "step")
+        scheduler_config.setdefault("frequency", 1)
+        if scheduler_type == "reduce_on_plateau":
+            scheduler_config.setdefault("monitor", "val_ap")
+            scheduler_config["interval"] = "epoch"
+
+    lightning_kwargs["scheduler_config"] = scheduler_config
+
+    # Resolve which metric to monitor for checkpointing/early stopping
+    metric_alias = str(selection_metric or "").lower()
+    if metric_alias in {"sel_ap", "sum", "sum_ap", "train_plus_val", "train+val"}:
+        monitor_metric = "sel_ap"
+    elif metric_alias in {"val_ap", "ap", "validation_ap"}:
+        monitor_metric = "val_ap"
+    else:
+        print(f"Unknown selection_metric '{selection_metric}', defaulting to 'sel_ap'.")
+        monitor_metric = "sel_ap"
+
+    # Check for empty datasets
+    if len(x_dyn_train) == 0:
+        raise ValueError(f"Training set is empty! x_dyn_train shape: {x_dyn_train.shape}")
+    if len(x_dyn_val) == 0:
+        raise ValueError(f"Validation set is empty! x_dyn_val shape: {x_dyn_val.shape}")
+    
+    print(f"Dataset sizes - Train: {len(x_dyn_train)}, Val: {len(x_dyn_val)}")
+    
+    train_dataset = FireDataset(
+        x_dyn_train,
+        x_stat_train,
+        x_cat_train,
+        y_train,
+        sample_weight=sample_w_train,
+    )
+    val_dataset = FireDataset(x_dyn_val, x_stat_val, x_cat_val, y_val)
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=(device == "cuda"),
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=(device == "cuda"),
+    )
+
+    model = SequenceStaticLightningModule(
+        model_name=model_name,
+        model_config=model_kwargs,
+        **lightning_kwargs,
+    )
+
+    callbacks = []
+    history_cb = HistoryCallback()
+    callbacks.append(history_cb)
+    callbacks.append(LearningRateMonitor(logging_interval="step"))
+
+    checkpoint_path = None
+    if model_path is not None:
+        model_dir = os.path.dirname(model_path)
+        os.makedirs(model_dir, exist_ok=True)
+        base_name = os.path.splitext(os.path.basename(model_path))[0]
+        safe_arch = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in model_name)
+        metric_tag = monitor_metric
+        filename_tmpl = f"{base_name}-{safe_arch}-{{epoch:02d}}-{{{metric_tag}:.4f}}"
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=model_dir,
+            filename=filename_tmpl,
+            monitor=monitor_metric,
+            mode="max",
+            save_top_k=1,
+        )
+        callbacks.append(checkpoint_callback)
+    else:
+        checkpoint_callback = None
+
+    callbacks.append(
+        EarlyStopping(
+            monitor=monitor_metric,
+            patience=10,
+            mode="max",
+            verbose=True,
+        )
+    )
+
+    trainer_params = {
+        "max_epochs": epochs,
+        "callbacks": callbacks,
+        "accelerator": "auto",
+        "devices": "auto",
+        "log_every_n_steps": 50,
+        "precision": "16-mixed",
+        "enable_checkpointing": checkpoint_callback is not None,
+    }
+    if trainer_kwargs:
+        trainer_params.update(trainer_kwargs)
+
+    trainer = pl.Trainer(**trainer_params)
+
+    trainer.fit(model, train_loader, val_loader)
+
+    best_model = model
+    if checkpoint_callback and checkpoint_callback.best_model_path:
+        print("Loaded best model from checkpoint:", checkpoint_callback.best_model_path)
+        best_model = SequenceStaticLightningModule.load_from_checkpoint(
+            checkpoint_callback.best_model_path,
+            model_name=model_name,
+            model_config=model_kwargs,
+            **lightning_kwargs,
+        )
+        checkpoint_path = checkpoint_callback.best_model_path
+    else:
+        print("No checkpoint saved; using the last trained weights.")
+
+    best_model.eval()
+    best_model.to(device)
+
+    results = {
+        "history": history_cb.history,
+        "model": best_model,
+        "class_weight": cw_dict,
+        "sample_w_train": sample_w_train,
+        "checkpoint_path": checkpoint_path,
+        "model_architecture": model_name,
+        "model_config": model_kwargs,
+    }
+
+    if plot_path is not None:
+        os.makedirs(plot_path, exist_ok=True)
+        plot_loss(history_cb.history, out_path=os.path.join(plot_path, "loss.png"))
+
+    # Compute APs for validation and training to report selection metric
+    y_val_probs = predict_probs(
+        best_model,
+        x_dyn_val,
+        x_stat_val,
+        x_cat_val,
+        batch_size=batch_size,
+        device=device,
+    )
+    val_ap = plot_recall_precision(
+        y_val,
+        y_val_probs,
+        out_path=os.path.join(plot_path, "pr_validation.png") if plot_path is not None else None,
+        title="Validation PR",
+    )
+    # train AP using the same best model
+    y_train_probs_for_sel = predict_probs(
+        best_model,
+        x_dyn_train,
+        x_stat_train,
+        x_cat_train,
+        batch_size=batch_size,
+        device=device,
+    )
+    train_ap = float(average_precision_score(y_train, y_train_probs_for_sel))
+    sel_ap = float(val_ap) + float(train_ap)
+    results.update({
+        "y_val_probs": y_val_probs,
+        "val_ap": float(val_ap),
+        "train_ap": train_ap,
+        "sel_ap": sel_ap,
+        "selection_metric": monitor_metric,
+    })
+
+    return results
+
+
+def calculate_metrics(y_true, y_probs, threshold=0.5, sample_weight=None):
+    y_pred = (y_probs >= threshold).astype(int)
+
+    precision = precision_score(y_true, y_pred, zero_division=0, sample_weight=sample_weight)
+    recall = recall_score(y_true, y_pred, zero_division=0, sample_weight=sample_weight)
+    f1 = f1_score(y_true, y_pred, zero_division=0, sample_weight=sample_weight)
+    ap = average_precision_score(y_true, y_probs, sample_weight=sample_weight)
+
+    return {
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "ap": ap,
+        "threshold": threshold,
+    }
+
+
+def print_metrics(metrics_train, metrics_val, metrics_test):
+    print("\nМетрики классификации:")
+    print(
+        f"Train: Precision = {metrics_train['precision']:.4f}, Recall = {metrics_train['recall']:.4f}, F1 = {metrics_train['f1']:.4f}"
+    )
+    print(
+        f"Val:   Precision = {metrics_val['precision']:.4f}, Recall = {metrics_val['recall']:.4f}, F1 = {metrics_val['f1']:.4f}"
+    )
+    print(
+        f"Test:  Precision = {metrics_test['precision']:.4f}, Recall = {metrics_test['recall']:.4f}, F1 = {metrics_test['f1']:.4f}"
+    )
+
+    print("\nAUC-PR:")
+    print(f"Train: {metrics_train['ap']:.4f}")
+    print(f"Val:   {metrics_val['ap']:.4f}")
+    print(f"Test:  {metrics_test['ap']:.4f}")
+
+
+if __name__ == "__main__":
+    DATA_DIR = "data/saved_features/nn_train_data"
+    DATA_PATH = os.path.join(DATA_DIR, "prepared_data.npz")
+    MODEL_PATH = "models/lstm_ml_fire.ckpt"
+    PLOT_PATH = "outputs/plots_nn"
+    CONFIG_PATH = "configs/features_config_30d_LSTM_early_fusion.yaml"
+
+    # Load configuration
+    with open(CONFIG_PATH, 'r') as f:
+        config = yaml.safe_load(f)
+    # Deterministic seeding for reproducibility across runs
+    # Set `seed:` in YAML to override (defaults to 17)
+    try:
+        pl.seed_everything(int(config.get("seed", 17)), workers=True)
+    except Exception:
+        pl.seed_everything(17, workers=True)
+
+    metadata_path = os.path.join(DATA_DIR, "prepared_metadata.json")
+    metadata: dict[str, Any] = {}
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as handle:
+                metadata = json.load(handle)
+        except Exception as exc:
+            print(f"Warning: failed to load metadata from '{metadata_path}': {exc}")
+            metadata = {}
+    else:
+        print(
+            f"Warning: metadata file '{metadata_path}' not found; categorical embeddings and resplitting may be unavailable."
+        )
+
+    data = np.load(DATA_PATH)
+    x_dyn_train = data["x_dyn_train"]
+    x_dyn_val = data["x_dyn_val"]
+    x_dyn_test = data["x_dyn_test"]
+    x_stat_train = data["x_stat_train"]
+    x_stat_val = data["x_stat_val"]
+    x_stat_test = data["x_stat_test"]
+    y_train = data["y_train"]
+    y_val = data["y_val"]
+    y_test = data["y_test"]
+    if "x_cat_train" in data:
+        x_cat_train = data["x_cat_train"].astype(np.int64)
+        x_cat_val = data["x_cat_val"].astype(np.int64)
+        x_cat_test = data["x_cat_test"].astype(np.int64)
+    else:
+        x_cat_train = np.zeros((x_dyn_train.shape[0], 0), dtype=np.int64)
+        x_cat_val = np.zeros((x_dyn_val.shape[0], 0), dtype=np.int64)
+        x_cat_test = np.zeros((x_dyn_test.shape[0], 0), dtype=np.int64)
+
+    train_end_cfg = config.get("train_end")
+    val_end_cfg = config.get("val_end")
+    if train_end_cfg is not None and val_end_cfg is not None:
+        def _load_indices_from_npz(key: str) -> np.ndarray:
+            if key not in data:
+                return np.empty(0, dtype=int)
+            return np.asarray(data[key], dtype=int)
+
+        # Preserve original references in case we need to fall back.
+        orig_x_dyn_train, orig_x_dyn_val, orig_x_dyn_test = x_dyn_train, x_dyn_val, x_dyn_test
+        orig_x_stat_train, orig_x_stat_val, orig_x_stat_test = x_stat_train, x_stat_val, x_stat_test
+        orig_x_cat_train, orig_x_cat_val, orig_x_cat_test = x_cat_train, x_cat_val, x_cat_test
+        orig_y_train, orig_y_val, orig_y_test = y_train, y_val, y_test
+
+        train_idx_orig = _load_indices_from_npz("train_idx")
+        val_idx_orig = _load_indices_from_npz("val_idx")
+        test_idx_orig = _load_indices_from_npz("test_idx")
+
+        def _attempt_proportional_fallback():
+            """Fallback: Re-split by retaining the original proportions and ordering."""
+            split_specs = [
+                ("train", train_idx_orig, orig_x_dyn_train, orig_x_stat_train, orig_x_cat_train, orig_y_train),
+                ("val", val_idx_orig, orig_x_dyn_val, orig_x_stat_val, orig_x_cat_val, orig_y_val),
+                ("test", test_idx_orig, orig_x_dyn_test, orig_x_stat_test, orig_x_cat_test, orig_y_test),
+            ]
+            dyn_parts, stat_parts, cat_parts, target_parts, idx_parts = [], [], [], [], []
+            total_samples = 0
+            for _, indices, dyn, stat, cat, target in split_specs:
+                if dyn.shape[0] == 0:
+                    continue
+                total_samples += dyn.shape[0]
+                dyn_parts.append(dyn)
+                stat_parts.append(stat)
+                cat_parts.append(cat)
+                target_parts.append(target)
+                idx_parts.append(indices)
+
+            if total_samples == 0:
+                return None
+
+            dyn_all = np.concatenate(dyn_parts, axis=0)
+            stat_all = np.concatenate(stat_parts, axis=0)
+            cat_all = np.concatenate(cat_parts, axis=0) if cat_parts else np.zeros((total_samples, 0), dtype=np.int64)
+            target_all = np.concatenate(target_parts, axis=0)
+
+            combined_idx = np.concatenate(idx_parts, axis=0) if idx_parts else np.arange(total_samples)
+            if combined_idx.size == total_samples:
+                order = np.argsort(combined_idx)
+                dyn_all = dyn_all[order]
+                stat_all = stat_all[order]
+                cat_all = cat_all[order]
+                target_all = target_all[order]
+
+            train_count = min(orig_x_dyn_train.shape[0], total_samples)
+            val_count = min(orig_x_dyn_val.shape[0], total_samples - train_count)
+            test_count = total_samples - train_count - val_count
+
+            if train_count == 0 or val_count == 0:
+                return None
+
+            cut1 = train_count
+            cut2 = train_count + val_count
+
+            return {
+                "x_dyn_train": dyn_all[:cut1],
+                "x_dyn_val": dyn_all[cut1:cut2],
+                "x_dyn_test": dyn_all[cut2:],
+                "x_stat_train": stat_all[:cut1],
+                "x_stat_val": stat_all[cut1:cut2],
+                "x_stat_test": stat_all[cut2:],
+                "x_cat_train": cat_all[:cut1],
+                "x_cat_val": cat_all[cut1:cut2],
+                "x_cat_test": cat_all[cut2:],
+                "y_train": target_all[:cut1],
+                "y_val": target_all[cut1:cut2],
+                "y_test": target_all[cut2:],
+                "message": (
+                    "Applied proportional fallback split based on stored split sizes "
+                    f"(train={train_count}, val={val_count}, test={test_count})."
+                ),
+            }
+
+        new_splits = None
+
+        try:
+            if not metadata:
+                raise ValueError("Prepared metadata not available for dataset re-splitting.")
+            dataset_meta = metadata.get("dataset") or {}
+            coord_meta = (metadata.get("coordinates") or {}).get("columns") or []
+
+            datetime_col_name = dataset_meta.get("datetime_column", "datetime")
+            datetime_meta = next(
+                (item for item in coord_meta if item.get("name") == datetime_col_name),
+                None,
+            )
+
+            datetime_series = None
+            if datetime_meta:
+                npz_key = datetime_meta.get("npz_key")
+                if npz_key and npz_key in data:
+                    unit = datetime_meta.get("unit", "ns")
+                    raw_values = np.asarray(data[npz_key], dtype=np.int64)
+                    datetime_series = pd.to_datetime(raw_values, unit=unit, errors="coerce")
+                    if datetime_series.isna().any():
+                        raise ValueError(
+                            f"Unable to parse datetime values using metadata column '{datetime_col_name}'."
+                        )
+
+            if datetime_series is None:
+                raise ValueError(
+                    "Datetime information not available in metadata; cannot rebuild dataset splits."
+                )
+
+            datetime_values = datetime_series.to_numpy(copy=False)
+            if datetime_values.size == 0:
+                raise ValueError("No datetime values available; cannot rebuild dataset splits.")
+
+            split_specs = [
+                ("train", train_idx_orig, orig_x_dyn_train, orig_x_stat_train, orig_x_cat_train, orig_y_train),
+                ("val", val_idx_orig, orig_x_dyn_val, orig_x_stat_val, orig_x_cat_val, orig_y_val),
+                ("test", test_idx_orig, orig_x_dyn_test, orig_x_stat_test, orig_x_cat_test, orig_y_test),
+            ]
+
+            idx_parts, dyn_parts, stat_parts, cat_parts, target_parts = [], [], [], [], []
+            for split_name, indices, dyn, stat, cat, target in split_specs:
+                if dyn.shape[0] == 0:
+                    continue
+                if indices.size != dyn.shape[0]:
+                    raise ValueError(
+                        f"Split '{split_name}' index size ({indices.size}) does not match feature rows ({dyn.shape[0]})."
+                    )
+                idx_parts.append(indices)
+                dyn_parts.append(dyn)
+                stat_parts.append(stat)
+                cat_parts.append(cat)
+                target_parts.append(target)
+
+            if not idx_parts:
+                raise ValueError("No samples available across stored splits; cannot rebuild dataset.")
+
+            combined_idx = np.concatenate(idx_parts, axis=0)
+            if np.unique(combined_idx).size != combined_idx.size:
+                raise ValueError("Duplicate sample indices detected across stored splits.")
+
+            if combined_idx.size and (
+                combined_idx.min() < 0 or combined_idx.max() >= datetime_values.shape[0]
+            ):
+                raise ValueError(
+                    "Original split indices fall outside valid range for datetime reconstruction."
+                )
+
+            order = np.argsort(combined_idx)
+            sorted_indices = combined_idx[order]
+
+            dyn_all = np.concatenate(dyn_parts, axis=0)[order]
+            stat_all = np.concatenate(stat_parts, axis=0)[order]
+            cat_all = np.concatenate(cat_parts, axis=0)[order] if cat_parts else np.zeros((order.size, 0), dtype=np.int64)
+            target_all = np.concatenate(target_parts, axis=0)[order]
+
+            datetime_subset = datetime_values[sorted_indices]
+
+            train_cutoff = pd.to_datetime(train_end_cfg)
+            val_cutoff = pd.to_datetime(val_end_cfg)
+            if val_cutoff < train_cutoff:
+                raise ValueError("val_end must be on or after train_end.")
+
+            train_cutoff_np = np.datetime64(train_cutoff)
+            val_cutoff_np = np.datetime64(val_cutoff)
+
+            train_mask = datetime_subset <= train_cutoff_np
+            val_mask = (datetime_subset > train_cutoff_np) & (datetime_subset <= val_cutoff_np)
+            test_mask = datetime_subset > val_cutoff_np
+
+            new_train_idx = np.where(train_mask)[0]
+            new_val_idx = np.where(val_mask)[0]
+            new_test_idx = np.where(test_mask)[0]
+
+            if new_train_idx.size == 0:
+                raise ValueError(
+                    f"Resplit produced empty training set using train_end={train_end_cfg}."
+                )
+            if new_val_idx.size == 0:
+                raise ValueError(
+                    f"Resplit produced empty validation set using val_end={val_end_cfg}."
+                )
+            if new_test_idx.size == 0:
+                print(
+                    f"Warning: Resplit produced empty test set with val_end={val_end_cfg}; continuing without test samples."
+                )
+
+            new_splits = {
+                "x_dyn_train": dyn_all[new_train_idx],
+                "x_dyn_val": dyn_all[new_val_idx],
+                "x_dyn_test": dyn_all[new_test_idx],
+                "x_stat_train": stat_all[new_train_idx],
+                "x_stat_val": stat_all[new_val_idx],
+                "x_stat_test": stat_all[new_test_idx],
+                "x_cat_train": cat_all[new_train_idx],
+                "x_cat_val": cat_all[new_val_idx],
+                "x_cat_test": cat_all[new_test_idx],
+                "y_train": target_all[new_train_idx],
+                "y_val": target_all[new_val_idx],
+                "y_test": target_all[new_test_idx],
+                "message": (
+                    f"Re-split dataset using train_end={train_end_cfg} and val_end={val_end_cfg}. "
+                    f"New split sizes -> train: {new_train_idx.size}, val: {new_val_idx.size}, test: {new_test_idx.size}"
+                ),
+            }
+
+            samples_available = datetime_values.shape[0]
+            if samples_available != sorted_indices.size:
+                print(
+                    f"Warning: Rebuild covered {sorted_indices.size}/{samples_available} samples present in metadata; "
+                    "proceeding with resplit on available subset."
+                )
+
+        except Exception as exc:
+            print(f"Warning: Failed to re-split dataset using config boundaries: {exc}")
+            proportional = _attempt_proportional_fallback()
+            if proportional is not None:
+                new_splits = proportional
+            else:
+                print("Falling back to original splits stored in prepared_data.npz.")
+
+        if new_splits is not None:
+            x_dyn_train = new_splits["x_dyn_train"]
+            x_dyn_val = new_splits["x_dyn_val"]
+            x_dyn_test = new_splits["x_dyn_test"]
+            x_stat_train = new_splits["x_stat_train"]
+            x_stat_val = new_splits["x_stat_val"]
+            x_stat_test = new_splits["x_stat_test"]
+            x_cat_train = new_splits["x_cat_train"]
+            x_cat_val = new_splits["x_cat_val"]
+            x_cat_test = new_splits["x_cat_test"]
+            y_train = new_splits["y_train"]
+            y_val = new_splits["y_val"]
+            y_test = new_splits["y_test"]
+            print(new_splits["message"])
+
+    print("Shapes:")
+    print("x_dyn_train:", x_dyn_train.shape)
+    print("x_dyn_val:", x_dyn_val.shape)
+    print("x_dyn_test:", x_dyn_test.shape)
+    print("x_stat_train:", x_stat_train.shape)
+    print("x_stat_val:", x_stat_val.shape)
+    print("x_stat_test:", x_stat_test.shape)
+    print("y_train mean:", float(y_train.mean()), "shape:", y_train.shape)
+    print("y_val mean:", float(y_val.mean()), "shape:", y_val.shape)
+    print("y_test mean:", float(y_test.mean()), "shape:", y_test.shape)
+
+    nn_model_cfg = config.get("nn_model") or {}
+    if nn_model_cfg and not isinstance(nn_model_cfg, dict):
+        raise ValueError("Expected 'nn_model' section in config to be a mapping")
+
+    model_name = nn_model_cfg.get("architecture", "lstm_mlp")
+    model_params = dict(nn_model_cfg.get("params") or {})
+    lightning_params = nn_model_cfg.get("lightning") or {}
+    trainer_params = nn_model_cfg.get("trainer") or {}
+
+    categorical_embeddings_meta = metadata.get("categorical_embeddings") or []
+    if categorical_embeddings_meta:
+        model_params["categorical_embeddings"] = categorical_embeddings_meta
+
+    if not isinstance(model_params, dict):
+        raise ValueError("Expected 'nn_model.params' to be a mapping")
+    if not isinstance(lightning_params, dict):
+        raise ValueError("Expected 'nn_model.lightning' to be a mapping")
+    if not isinstance(trainer_params, dict):
+        raise ValueError("Expected 'nn_model.trainer' to be a mapping")
+
+    # Extract class weights from config if provided
+    class_weights_cfg = config.get('class_weights', None)
+    
+    # Selection metric can be configured in YAML: selection_metric: "sel_ap" or "val_ap"
+    selection_metric = str(config.get("selection_metric", "sel_ap"))
+    results = train_pipeline(
+        x_dyn_train,
+        x_stat_train,
+        y_train,
+        x_dyn_val,
+        x_stat_val,
+        y_val,
+        x_cat_train=x_cat_train,
+        x_cat_val=x_cat_val,
+        x_cat_test=x_cat_test,
+        batch_size=config['batch_size'],
+        epochs=config['epochs'],
+        num_workers=config['num_workers'],
+        model_path=MODEL_PATH,
+        plot_path=PLOT_PATH,
+        model_name=model_name,
+        model_config=model_params,
+        lightning_config=lightning_params,
+        trainer_kwargs=trainer_params,
+        class_weights=class_weights_cfg,
+        selection_metric=selection_metric,
+    )
+
+    model = results["model"]
+    sample_w_train = results.get("sample_w_train", None)
+    device = next(model.parameters()).device
+
+    y_train_probs = predict_probs(
+        model,
+        x_dyn_train,
+        x_stat_train,
+        x_cat_train,
+        batch_size=config['batch_size'],
+        device=device,
+    )
+    y_val_probs = results["y_val_probs"]
+    y_test_probs = predict_probs(
+        model,
+        x_dyn_test,
+        x_stat_test,
+        x_cat_test,
+        batch_size=config['batch_size'],
+        device=device,
+    )
+
+    thr, best_f1_val = choose_threshold_f1(y_val, y_val_probs)
+    print("Val threshold for F1:", thr, "val_f1:", best_f1_val)
+
+    metrics_train = calculate_metrics(
+        y_train,
+        y_train_probs,
+        threshold=thr,
+        sample_weight=sample_w_train,
+    )
+    metrics_val = calculate_metrics(y_val, y_val_probs, threshold=thr)
+    metrics_test = calculate_metrics(y_test, y_test_probs, threshold=thr)
+
+    print_metrics(metrics_train, metrics_val, metrics_test)
+
+    plot_recall_precision(
+        y_train,
+        y_train_probs,
+        out_path=os.path.join(PLOT_PATH, "pr_train.png"),
+        title="Train PR",
+    )
+
+    plot_recall_precision(
+        y_test,
+        y_test_probs,
+        out_path=os.path.join(PLOT_PATH, "pr_test.png"),
+        title="Test PR",
+    )
+
+    # Optional: prior-shift correction to reduce validation→test gap
+    # Configure in YAML:
+    # prior_adjustment:
+    #   enabled: true
+    #   # For offline evaluation, use ground-truth test prior:
+    #   use_true_test_prior: true
+    #   # Or set an explicit expected deploy prior (e.g., 0.005):
+    #   # deploy_prior: 0.005
+    prior_cfg = dict(config.get("prior_adjustment", {}) or {})
+    if prior_cfg.get("enabled", False):
+        train_prior = float(np.clip(y_train.mean(), 1e-9, 1 - 1e-9))
+        deploy_prior = prior_cfg.get("deploy_prior")
+        if deploy_prior is None and bool(prior_cfg.get("use_true_test_prior", False)):
+            deploy_prior = float(np.clip(y_test.mean(), 1e-9, 1 - 1e-9))
+        if deploy_prior is not None:
+            deploy_prior = float(np.clip(deploy_prior, 1e-9, 1 - 1e-9))
+
+        if deploy_prior is None:
+            print("[prior_adjustment] Skipped: no deploy_prior provided and use_true_test_prior is False.")
+        else:
+            # Adjust both validation and test to the same target prior
+            y_val_probs_adj = adjust_probabilities_for_prior(
+                y_val_probs, train_prior=train_prior, deploy_prior=deploy_prior
+            )
+            y_test_probs_adj = adjust_probabilities_for_prior(
+                y_test_probs, train_prior=train_prior, deploy_prior=deploy_prior
+            )
+
+            thr_adj, best_f1_val_adj = choose_threshold_f1(y_val, y_val_probs_adj)
+            print("[prior_adjustment] Deploy prior:", deploy_prior)
+            print("[prior_adjustment] Val threshold for F1 (adjusted):", thr_adj, "val_f1:", best_f1_val_adj)
+
+            metrics_val_adj = calculate_metrics(y_val, y_val_probs_adj, threshold=thr_adj)
+            metrics_test_adj = calculate_metrics(y_test, y_test_probs_adj, threshold=thr_adj)
+
+            print("\n[prior_adjustment] Metrics with prior shift correction:")
+            print_metrics(metrics_train, metrics_val_adj, metrics_test_adj)
+
+            plot_recall_precision(
+                y_val,
+                y_val_probs_adj,
+                out_path=os.path.join(PLOT_PATH, "pr_validation_adjusted.png"),
+                title="Validation PR (adjusted)",
+            )
+            plot_recall_precision(
+                y_test,
+                y_test_probs_adj,
+                out_path=os.path.join(PLOT_PATH, "pr_test_adjusted.png"),
+                title="Test PR (adjusted)",
+            )
