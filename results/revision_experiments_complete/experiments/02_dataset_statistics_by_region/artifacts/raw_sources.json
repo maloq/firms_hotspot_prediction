@@ -1,0 +1,10 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json"
+  ],
+  "plots": [],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/dataset_statistics_by_year.jsonl.gz"
+  ]
+}

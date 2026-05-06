@@ -3,7 +3,6 @@ import datetime
 import logging
 import sys
 from pathlib import Path
-import yaml
 import os
 from dateutil.relativedelta import relativedelta
 import cdsapi

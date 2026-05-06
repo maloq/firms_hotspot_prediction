@@ -4,11 +4,9 @@ import os
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from shapely.vectorized import contains
-from shapely.errors import GEOSException
 import yaml
 from tqdm import tqdm
 import datetime
-import copy
 from datetime import timedelta
 import itertools
 from pathlib import Path
@@ -370,6 +368,20 @@ def filter_negative_neighbors(data: pd.DataFrame,
     return result.reset_index(drop=True)
 
 
+def _initial_positive_counts(latitude, longitude) -> np.ndarray:
+    """Return target weights for positive detections before cell/date grouping."""
+
+    lat = np.asarray(latitude)
+    lon = np.asarray(longitude)
+    special_region_mask_NW = (lat > 60) & (lon < 45)
+    special_region_mask_W = (lat > 55) & (lon < 60)
+    return np.select(
+        [special_region_mask_NW, special_region_mask_W],
+        [3, 2],
+        default=1,
+    ).astype(int)
+
+
 
 def prepare_target_data(data: pd.DataFrame, countries: list, samples_per_area_per_year: float):
     '''Prepares target data: aggregates positives, EXPANDS high-count positives, adds negatives, filters negatives near positives.'''
@@ -397,10 +409,9 @@ def prepare_target_data(data: pd.DataFrame, countries: list, samples_per_area_pe
     # Initialize count: 1 for normal points, 2 for points in the special region
     special_region_mask_NW = (data['latitude'] > 60) & (data['longitude'] < 45)
     special_region_mask_W = (data['latitude'] > 55) & (data['longitude'] < 60)
-    data['count'] = np.where(special_region_mask_NW, 3, 1)
-    data['count'] = np.where(special_region_mask_W,  2, 1)
+    data['count'] = _initial_positive_counts(data['latitude'], data['longitude'])
     print(f"\nTriple base count for {special_region_mask_NW.sum()} points in the special region (lat>60, lon<45).")
-    print(f"\nDoubled base count for {special_region_mask_W.sum()} points in the special region (lat>55, lon<60).")
+    print(f"\nDoubled base count for {(special_region_mask_W & ~special_region_mask_NW).sum()} points in the special region (lat>55, lon<60).")
 
     # --- Step 1: Group positive points ---
     data_grouped = data.groupby(['lat_rounded', 'lon_rounded', 'acq_date'], observed=True).agg(
@@ -462,28 +473,43 @@ def prepare_target_data(data: pd.DataFrame, countries: list, samples_per_area_pe
     if valid_countries_for_neg_samples:
         print("\nAdding negative samples using ProcessPoolExecutor...")
         futures = []
+        executor = None
         try:
-            with ProcessPoolExecutor() as executor:
-                for country in valid_countries_for_neg_samples:
-                    mapped_country_name = country_mapping.get(country, country)
-                    world_subset = world[world['SOVEREIGNT'] == mapped_country_name].iloc[0:1].copy()
+            executor = ProcessPoolExecutor()
+            for country in valid_countries_for_neg_samples:
+                mapped_country_name = country_mapping.get(country, country)
+                world_subset = world[world['SOVEREIGNT'] == mapped_country_name].iloc[0:1].copy()
 
-                    futures.append(executor.submit(
-                        add_negative_samples,
-                        date_start=date_start, # Use original start/end for neg sampling range
-                        date_end=date_end,
-                        size=country_sizes[country],
-                        world_data_subset=world_subset,
-                        country_name=country
-                    ))
+                futures.append(executor.submit(
+                    add_negative_samples,
+                    date_start=date_start, # Use original start/end for neg sampling range
+                    date_end=date_end,
+                    size=country_sizes[country],
+                    world_data_subset=world_subset,
+                    country_name=country
+                ))
 
-                for future in tqdm(as_completed(futures), total=len(futures), desc="Negative Sampling"):
-                    result_df = future.result() # Raises exceptions from worker
-                    if result_df is not None and not result_df.empty:
-                        random_data_list.append(result_df)
+            for future in tqdm(as_completed(futures), total=len(futures), desc="Negative Sampling"):
+                result_df = future.result() # Raises exceptions from worker
+                if result_df is not None and not result_df.empty:
+                    random_data_list.append(result_df)
+        except KeyboardInterrupt:
+            print("\nInterrupted by user. Cancelling negative sampling workers.")
+            for future in futures:
+                future.cancel()
+            if executor is not None:
+                executor.shutdown(wait=False, cancel_futures=True)
+            raise
         except Exception as e:
+            for future in futures:
+                future.cancel()
+            if executor is not None:
+                executor.shutdown(wait=False, cancel_futures=True)
             print(f"\nError during parallel processing for negative samples: {e}")
             raise RuntimeError("Failed to generate negative samples.") from e
+        else:
+            if executor is not None:
+                executor.shutdown()
 
     if random_data_list:
          negative_samples_df = pd.concat(random_data_list, ignore_index=True)

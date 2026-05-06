@@ -1,0 +1,133 @@
+catboost_tune:
+  feature_config_path: "configs/features_config_30d.yaml"
+
+  run:
+    output_root: "outputs"
+    run_prefix: "catboost_tune"
+
+  data:
+    features_path: "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb.parquet"
+    rebuild_features: false
+    per_country_features_dir: "data/saved_features"
+    per_country_pattern: "train_test_features_30d_{country}.parquet"
+    limit_rows: null
+    countries:
+      - "Dem_Rep_Korea"
+      - "Russian_Federation"
+      - "Finland"
+      - "Norway"
+      - "Sweden"
+      - "Denmark"
+      - "Lithuania"
+      - "Latvia"
+      - "Estonia"
+      - "Poland"
+      - "Czech_Republic"
+      - "Germany"
+      - "Hungary"
+      - "Slovakia"
+      - "Belarus"
+      - "Ukraine"
+      - "Moldova"
+      - "Romania"
+      - "Bulgaria"
+      - "Albania"
+      - "Montenegro"
+      - "Macedonia_Former_Yugoslav_Republic_of"
+      - "Kosovo"
+      - "Serbia"
+      - "Croatia"
+      - "Bosnia_and_Herzegovina"
+      - "Slovenia"
+      - "Greece"
+      - "Turkey"
+      - "Georgia"
+      - "Azerbaijan"
+      - "Armenia"
+      - "Kazakhstan"
+      - "Kyrgyzstan"
+      - "Tajikistan"
+      - "Mongolia"
+      - "China"
+      - "Japan"
+      - "Republic_of_Korea"
+
+  target:
+    column: "count"
+    positive_threshold: 0.0
+
+  split:
+    date_column: "datetime"
+    validation_start_date: "2021-01-01"
+    test_start_date: "2023-01-01"
+    validation_size: 0.15
+    test_size: 0.15
+    shuffle: false
+    random_state: 42
+
+  features:
+    selected_features_path: null
+    selected_feature_filter: true
+    ignored: ["datetime", "day", "latitude", "longitude", "year"]
+    drop_features: []
+    drop_feature_prefixes: []
+    drop_feature_groups: []
+    feature_weights:
+      ecoregion_name: 0.3
+      lat_rounded: 0.3
+      lon_rounded: 0.3
+
+  search:
+    strategy: "random"
+    max_trials: 40
+    seed: 17
+    fail_fast: false
+    space:
+      iterations: [200, 400, 600, 900]
+      learning_rate: [0.015, 0.02, 0.03, 0.04, 0.06]
+      depth: [3, 4, 5, 6]
+      l2_leaf_reg: [5.0, 10.0, 20.0, 40.0, 80.0]
+      min_data_in_leaf: [200, 300, 500, 800, 1200]
+      random_strength: [3.0, 5.0, 8.0, 12.0, 20.0]
+      bagging_temperature: [0.5, 1.0, 2.0, 4.0, 8.0]
+      class_weight_positive: [2.5, 3.0, 4.0, 5.0, 6.0]
+
+  model:
+    loss_function: "Logloss"
+    eval_metric: "F1"
+    early_stopping_rounds: 150
+    verbose: 0
+
+  hardware:
+    task_type: "GPU"
+    devices: null
+    thread_count: null
+    gpu_ram_part: null
+
+  sampling:
+    train_sample_frac: 1.0
+    max_train_rows: null
+
+  feature_search:
+    mode: "both"
+    importance_csv: null
+    top_k_choices: "60,80,120,160,all"
+    top_k_probability: 0.65
+    max_drop_groups: 3
+    drop_group_probability: 0.45
+    protected_features: []
+
+  objective:
+    split: "test"
+    metric: "average_precision"
+    train_test_gap_weight: 0.7
+    validation_test_gap_weight: 0.5
+    train_validation_gap_weight: 0.2
+
+  thresholding:
+    prediction_threshold: null
+    min_precision: null
+    min_recall: null
+
+  persistence:
+    save_every_model: false

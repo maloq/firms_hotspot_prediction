@@ -3,11 +3,12 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import xarray as xr
 
 # Add the src directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.feature_generation.prepare_land import get_elevation_stats
+from src.feature_generation.prepare_land import get_elevation_stats, landsea_distance
 
 def test_generate_elevation_maps_for_region():
     """
@@ -96,5 +97,43 @@ def test_generate_elevation_maps_for_region():
 
     print("\nTest completed. Check the 'tests/output' directory for map images.")
 
+
+def test_landsea_distance_binarizes_non_binary_mask(tmp_path):
+    mask_path = tmp_path / "mask.nc"
+    dist_path = tmp_path / "distances.nc"
+    mask = xr.Dataset(
+        {
+            "landseamask": (
+                ("lat", "lon"),
+                np.array(
+                    [
+                        [100.0, 100.0, 100.0],
+                        [100.0, 1.0, 100.0],
+                        [100.0, 100.0, 100.0],
+                    ],
+                    dtype=np.float32,
+                ),
+            )
+        },
+        coords={"lat": np.array([0.0, 1.0, 2.0]), "lon": np.array([0.0, 1.0, 2.0])},
+    )
+    mask.to_netcdf(mask_path)
+    points = pd.DataFrame(
+        {
+            "lat_rounded": [1.0, 0.0],
+            "lon_rounded": [1.0, 0.0],
+        }
+    )
+
+    distances, feature_names = landsea_distance(
+        points,
+        mask_path=str(mask_path),
+        dist_path=str(dist_path),
+    )
+
+    assert feature_names == ["distance_to_coast_km", "distance_to_coast_dilated_km"]
+    assert distances.loc[0, "distance_to_coast_km"] > 0
+    assert distances.loc[1, "distance_to_coast_km"] < 0
+
 if __name__ == "__main__":
-    test_generate_elevation_maps_for_region() 
+    test_generate_elevation_maps_for_region()

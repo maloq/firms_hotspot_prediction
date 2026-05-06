@@ -1,0 +1,36 @@
+# Complete revision evaluation config.
+#
+# This is the single config for the all-model evaluation run. The workflow runs
+# the tabular revision experiments, follow-up sensitivity experiments, each NN
+# model config separately, imports the NN metrics into the ablation tables, then
+# organizes results into results/revision_experiments_complete/experiments.
+
+output_dir: results/revision_experiments_complete
+python:
+overwrite_output_dir: false
+
+run_main_tabular: true
+run_followups: true
+run_new_nn_models: true
+import_nn_metrics: true
+run_organizer: true
+
+features_path: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb.parquet
+feature_config: configs/features_config_30d.yaml
+target_config: configs/target_config.yaml
+catboost_config: configs/catboost_train_config.yaml
+regions_file: configs/regions_example.yaml
+era5_dir: /home/ids/vmorozov/era5
+
+catboost_iterations: 450
+followup_catboost_iterations: 260
+catboost_task_type: GPU
+
+nn_metrics_glob: outputs/nn_global_full_*/metrics.json
+new_nn_models:
+  - minimal_mlp
+  - ft_transformer
+  - tsn
+  - lstm_static_concat
+  - lstm_attention
+  - lstm_gated_moe

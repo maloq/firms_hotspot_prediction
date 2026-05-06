@@ -1,0 +1,92 @@
+{
+  "config_path": "configs/nn_global_full_tsn.yaml",
+  "data_path": "data/saved_features/nn_train_data/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_tsn-tsn_mlp-epoch=00-val_f1=0.7237.ckpt",
+  "architecture": "tsn_mlp",
+  "model_config": {
+    "tcn_units": 256,
+    "num_blocks": 3,
+    "kernel_sizes": [
+      2,
+      3,
+      5
+    ],
+    "dilations": [
+      1,
+      2,
+      4
+    ],
+    "dropout_tcn": 0.12,
+    "pooling": "attention",
+    "static_units": 512,
+    "dropout_static": 0.05,
+    "merge_units": 384,
+    "dropout_merged": 0.15,
+    "categorical_mode": "embedding",
+    "seq_len": 5,
+    "n_channels": 6,
+    "n_static": 86,
+    "n_categorical": 6,
+    "categorical_embeddings": [
+      {
+        "name": "cat_0",
+        "cardinality": 131,
+        "embedding_dim": 14
+      },
+      {
+        "name": "cat_1",
+        "cardinality": 3,
+        "embedding_dim": 5
+      },
+      {
+        "name": "cat_2",
+        "cardinality": 8,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_3",
+        "cardinality": 11,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_4",
+        "cardinality": 8,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_5",
+        "cardinality": 8,
+        "embedding_dim": 7
+      }
+    ]
+  },
+  "selection_metric": "val_f1",
+  "validation_threshold": 0.4943273067474365,
+  "validation_best_f1": 0.7237574331409784,
+  "train": {
+    "precision": NaN,
+    "recall": NaN,
+    "f1": NaN,
+    "ap": NaN,
+    "threshold": 0.4943273067474365
+  },
+  "validation": {
+    "precision": 0.6775019348693219,
+    "recall": 0.7767918088737201,
+    "f1": 0.7237574331414761,
+    "ap": 0.7598139754988192,
+    "threshold": 0.4943273067474365
+  },
+  "test": {
+    "precision": 0.6333672071753634,
+    "recall": 0.8477399515070275,
+    "f1": 0.7250396196513471,
+    "ap": 0.8220101032938826,
+    "threshold": 0.4943273067474365
+  },
+  "split_sizes": {
+    "train": 1590400,
+    "validation": 186142,
+    "test": 409985
+  }
+}

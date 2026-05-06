@@ -1,0 +1,17 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/models/catboost_full.cbm",
+    "shared_artifacts/models/catboost_full_duplicate_2.cbm",
+    "shared_artifacts/models/catboost_full_features.json",
+    "shared_artifacts/models/catboost_full_features_duplicate_2.json"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/native_feature_importance_top30.png",
+    "shared_artifacts/source_plots_mixed/native_feature_importance_top30.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/feature_importance_native.jsonl.gz"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "imported_models": [
+    {
+      "architecture": "ft_transformer",
+      "experiment_id": "nn_global_full_ft_transformer",
+      "key": "ft_transformer",
+      "label": "FT-Transformer (global full)",
+      "metrics_path": "/home/infres/vmorozov/Misc/outputs/nn_global_full_ft_transformer/metrics.json",
+      "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_ft_transformer-ft_transformer-epoch=00-val_f1=0.6977.ckpt"
+    },
+    {
+      "architecture": "lstm_attention",
+      "experiment_id": "nn_global_full_lstm_attention",
+      "key": "lstm_attention",
+      "label": "LSTM attention (global full)",
+      "metrics_path": "/home/infres/vmorozov/Misc/outputs/nn_global_full_lstm_attention/metrics.json",
+      "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_lstm_attention-lstm_attention-epoch=01-val_f1=0.7087.ckpt"
+    },
+    {
+      "architecture": "lstm_gated_moe",
+      "experiment_id": "nn_global_full_lstm_gated_moe",
+      "key": "lstm_gated_moe",
+      "label": "LSTM gated MoE (global full)",
+      "metrics_path": "/home/infres/vmorozov/Misc/outputs/nn_global_full_lstm_gated_moe/metrics.json",
+      "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_lstm_gated_moe-lstm_gated_moe-epoch=01-val_f1=0.7232.ckpt"
+    },
+    {
+      "architecture": "lstm_mlp",
+      "experiment_id": "nn_global_full_lstm_static_concat",
+      "key": "lstm_static_concat",
+      "label": "LSTM static concat (global full)",
+      "metrics_path": "/home/infres/vmorozov/Misc/outputs/nn_global_full_lstm_static_concat/metrics.json",
+      "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_lstm_static_concat-lstm_mlp-epoch=01-val_f1=0.6834.ckpt"
+    },
+    {
+      "architecture": "minimal_mlp",
+      "experiment_id": "nn_global_full_minimal_mlp",
+      "key": "minimal_mlp",
+      "label": "Minimal MLP (global full)",
+      "metrics_path": "/home/infres/vmorozov/Misc/outputs/nn_global_full_minimal_mlp/metrics.json",
+      "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_minimal_mlp-minimal_mlp-epoch=04-val_f1=0.7024.ckpt"
+    }
+  ],
+  "missing_models": [
+    "tsn"
+  ]
+}

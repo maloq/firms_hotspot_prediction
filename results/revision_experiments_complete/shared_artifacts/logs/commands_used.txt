@@ -1,0 +1,14 @@
+conda run -n pointnet python /home/infres/vmorozov/Misc/scripts/run_revision_experiments.py --output-dir results/revision_experiments_complete --catboost-verbose 0 --catboost-task-type GPU
+conda run -n pointnet python scripts/complete_revision_followups.py --output-dir results/revision_experiments_complete --catboost-iterations 260 --catboost-task-type GPU --neural-train-rows 300000 --neural-epochs 3 --neural-batch-size 4096
+conda run -n pointnet bash -lc 'python -m py_compile scripts/complete_revision_followups.py && python - <<"PY"
+import sys
+from pathlib import Path
+sys.path.insert(0, "scripts")
+import complete_revision_followups as f
+f.OUT = Path("results/revision_experiments_complete")
+failures = []
+f.write_era5_schema_and_status(failures)
+f.write_failures(failures)
+f.regenerate_report(failures, "conda run -n pointnet python - <<FINALIZE (write_era5_schema_and_status/write_failures/regenerate_report)")
+print("finalized", len(failures))
+PY'

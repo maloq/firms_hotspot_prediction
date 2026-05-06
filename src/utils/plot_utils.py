@@ -1,7 +1,6 @@
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
-from shapely import ops
 import numpy as np
 
 country_mapping = {

@@ -16,6 +16,7 @@ from src.feature_generation.prepare_land import (
     assign_ecoregion,
     landsea_distance,
 )
+from src.feature_generation.prepare_night_light_features import get_night_light_features_for_coords
 from src.feature_generation.prepare_road_features import get_road_features_for_coords
 from src.feature_generation.prepare_fire_index_features import get_fire_index_features
 
@@ -78,8 +79,20 @@ def prepare_elevation_features_wrapper(target_df: pd.DataFrame, elevation_file: 
 def prepare_road_features_wrapper(target_df: pd.DataFrame, feature_map_path: str):
     coords_array = target_df[['lat_rounded', 'lon_rounded']].to_numpy()
     df_road = get_road_features_for_coords(coords=coords_array.T, npz_path=feature_map_path)
-    road_feature_names = [col for col in df_road.columns if col not in ['lat_rounded', 'lon_rounded']]
+    road_feature_names = [
+        col for col in df_road.columns
+        if col not in ['lat', 'lon', 'latitude', 'longitude', 'lat_rounded', 'lon_rounded']
+    ]
     return df_road, road_feature_names
+
+def prepare_night_light_features_wrapper(target_df: pd.DataFrame, feature_map_path: str):
+    coords_array = target_df[['lat_rounded', 'lon_rounded']].to_numpy()
+    df_lights = get_night_light_features_for_coords(coords=coords_array.T, feature_map_path=feature_map_path)
+    light_feature_names = [
+        col for col in df_lights.columns
+        if col not in ['lat', 'lon', 'latitude', 'longitude', 'lat_rounded', 'lon_rounded']
+    ]
+    return df_lights, light_feature_names
 
 def prepare_land_features_wrapper(target_df: pd.DataFrame, land_data_files: list[str]):
     df_land, land_feature_names = prepare_land_data(land_data_files=land_data_files, target_df=target_df, radius_meters=10000)
@@ -93,8 +106,20 @@ def prepare_ecoregion_wrapper(target_df: pd.DataFrame, wwf_shp_path: str):
     df_ecoregion, ecoregion_feature_names = assign_ecoregion(df=target_df, wwf_shp=wwf_shp_path)
     return df_ecoregion, ecoregion_feature_names
 
-def prepare_landsea_distance_wrapper(target_df: pd.DataFrame):
-    df_landsea_distance, landsea_distance_feature_names = landsea_distance(target_df)
+def prepare_landsea_distance_wrapper(
+    target_df: pd.DataFrame,
+    mask_path: str | None = None,
+    dist_path: str | None = None,
+):
+    landsea_kwargs = {}
+    if mask_path:
+        landsea_kwargs["mask_path"] = mask_path
+    if dist_path:
+        landsea_kwargs["dist_path"] = dist_path
+    df_landsea_distance, landsea_distance_feature_names = landsea_distance(
+        target_df,
+        **landsea_kwargs,
+    )
     return df_landsea_distance, landsea_distance_feature_names
 
 def merge_features(
@@ -104,6 +129,8 @@ def merge_features(
     elevation_feature_names: list[str], 
     road_features: pd.DataFrame | None, 
     road_feature_names: list[str], 
+    night_light_features: pd.DataFrame | None,
+    night_light_feature_names: list[str],
     fire_index_features: pd.DataFrame | None,
     fire_index_feature_names: list[str],
     land_df: pd.DataFrame | None, 
@@ -134,6 +161,7 @@ def merge_features(
     feature_sets = [
         (elevation_features, elevation_feature_names),
         (road_features, road_feature_names),
+        (night_light_features, night_light_feature_names),
         (fire_index_features, fire_index_feature_names),
         (land_df, land_feature_names), 
         (ecoregion_features, ecoregion_feature_names),
@@ -190,6 +218,9 @@ def generate_all_features(
     # Road params
     road_feature_map_path: str,
     use_road_features: bool,
+    # Night-light params
+    night_light_feature_map_path: str | None,
+    use_night_light_features: bool,
     # Fire index params
     fire_index_npz_path: str,
     # Land data params
@@ -198,6 +229,8 @@ def generate_all_features(
     wwf_shp_path: str,
     # Other controls
     anchor_cols: list[str],
+    landsea_mask_path: str | None = None,
+    landsea_distance_path: str | None = None,
     test_mode: bool = False,
     skip_climate: bool = False,
     use_cached_files: bool = False,
@@ -250,6 +283,33 @@ def generate_all_features(
     print(f"Elevation features generated ({len(elevation_feature_names)} columns). Shape: {df_elevation.shape}. Time: {time.time() - elev_start_time:.2f}s")
 
     df_road, road_feature_names = None, []
+    if use_road_features:
+        print("--- Generating Road Features ---")
+        road_start_time = time.time()
+        df_road, road_feature_names = prepare_road_features_wrapper(
+            target_df=df_target.copy(),
+            feature_map_path=road_feature_map_path
+        )
+        print(f"Road features generated ({len(road_feature_names)} columns). Shape: {df_road.shape}. Time: {time.time() - road_start_time:.2f}s")
+    else:
+        print("--- Skipping Road Features ---")
+
+    df_night_light, night_light_feature_names = None, []
+    if use_night_light_features:
+        if not night_light_feature_map_path:
+            raise ValueError("Night-light features enabled but night_light_feature_map_path is empty.")
+        print("--- Generating Night-Light Features ---")
+        night_light_start_time = time.time()
+        df_night_light, night_light_feature_names = prepare_night_light_features_wrapper(
+            target_df=df_target.copy(),
+            feature_map_path=night_light_feature_map_path
+        )
+        print(
+            f"Night-light features generated ({len(night_light_feature_names)} columns). "
+            f"Shape: {df_night_light.shape}. Time: {time.time() - night_light_start_time:.2f}s"
+        )
+    else:
+        print("--- Skipping Night-Light Features ---")
         
     print("--- Generating Land Data Features ---")
     land_start_time = time.time()
@@ -278,7 +338,9 @@ def generate_all_features(
     print("--- Generating Landsea Distance ---")
     landsea_distance_start_time = time.time()
     df_landsea_distance, landsea_distance_feature_names = prepare_landsea_distance_wrapper(
-        target_df=df_target.copy()
+        target_df=df_target.copy(),
+        mask_path=landsea_mask_path,
+        dist_path=landsea_distance_path,
     )
     print(f"Landsea distance features generated ({len(landsea_distance_feature_names)} columns). Shape: {df_landsea_distance.shape}. Time: {time.time() - landsea_distance_start_time:.2f}s")
 
@@ -291,6 +353,8 @@ def generate_all_features(
         elevation_feature_names=elevation_feature_names,
         road_features=df_road, 
         road_feature_names=road_feature_names,
+        night_light_features=df_night_light,
+        night_light_feature_names=night_light_feature_names,
         fire_index_features=df_fire_index,
         fire_index_feature_names=fire_index_feature_names,
         land_df=df_land, 
@@ -382,6 +446,7 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
 
     elevation_params_cfg = config['elevation_data_params']
     road_params_cfg = config['road_data_params']
+    night_light_params_cfg = config.get('night_light_data_params', {})
     fire_params_cfg = config['fire_data_params'] # Contains fire_index_npz_path or default is used
     land_params_cfg = config['land_data_params']
     
@@ -418,10 +483,15 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
         # Road
         road_feature_map_path=road_params_cfg["feature_map_path"],
         use_road_features=road_params_cfg.get("use_road_features", False),
+        # Night lights
+        night_light_feature_map_path=night_light_params_cfg.get("feature_map_path"),
+        use_night_light_features=night_light_params_cfg.get("use_night_light_features", False),
         # Fire Index
         fire_index_npz_path=land_params_cfg.get("fire_index_npz_path", "data/land_features/fire_index_features.npz"),
         # Land
         land_data_files=land_params_cfg["land_data_files"],
+        landsea_mask_path=land_params_cfg.get("landsea_mask_path"),
+        landsea_distance_path=land_params_cfg.get("landsea_distance_path"),
         # Ecoregion
         wwf_shp_path=land_params_cfg["wwf_shp_path"],
         # Other controls

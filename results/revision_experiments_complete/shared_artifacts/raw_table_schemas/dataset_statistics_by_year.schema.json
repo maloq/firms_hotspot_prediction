@@ -1,0 +1,46 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "target_variant"
+    },
+    {
+      "dtype": "str",
+      "name": "split"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "int64",
+      "name": "year"
+    },
+    {
+      "dtype": "int64",
+      "name": "cell_days"
+    },
+    {
+      "dtype": "int64",
+      "name": "positive_samples"
+    },
+    {
+      "dtype": "int64",
+      "name": "negative_samples"
+    },
+    {
+      "dtype": "float64",
+      "name": "positive_rate"
+    },
+    {
+      "dtype": "int64",
+      "name": "unique_grid_cells"
+    }
+  ],
+  "rows": 25,
+  "source_csv": "dataset_statistics_by_year.csv"
+}

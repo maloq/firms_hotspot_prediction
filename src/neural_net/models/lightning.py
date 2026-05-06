@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, precision_recall_curve
 from torch import nn
 
 from .architectures import build_model
@@ -26,6 +26,7 @@ class SequenceStaticLightningModule(pl.LightningModule):
         l2: float = 0.001,
         clip_gradient_norm: float = 5.0,
         scheduler_config: Dict | None = None,
+        log_train_ap: bool = True,
     ) -> None:
         super().__init__()
         model_config = dict(model_config or {})
@@ -39,13 +40,32 @@ class SequenceStaticLightningModule(pl.LightningModule):
             "l2": l2,
             "clip_gradient_norm": clip_gradient_norm,
             "scheduler_config": scheduler_config,
+            "log_train_ap": log_train_ap,
         })
         self.model: nn.Module = build_model(model_name, **model_config)
         self.training_outputs: List[Tuple[torch.Tensor, torch.Tensor]] = []
         self.validation_outputs: List[Tuple[torch.Tensor, torch.Tensor]] = []
         self.test_outputs: List[Tuple[torch.Tensor, torch.Tensor]] = []
         self.scheduler_config = scheduler_config
+        self.log_train_ap = bool(log_train_ap)
         self._train_ap_last: float | None = None
+
+    @staticmethod
+    def _best_f1_from_scores(targets: torch.Tensor, probs: torch.Tensor) -> float:
+        try:
+            precision, recall, thresholds = precision_recall_curve(
+                targets.cpu().numpy(),
+                probs.cpu().numpy(),
+            )
+            if thresholds.size == 0:
+                return 0.0
+            f1 = (2 * precision * recall) / (precision + recall + 1e-12)
+            f1 = f1[:-1]
+            if f1.size == 0:
+                return 0.0
+            return float(f1.max())
+        except Exception:
+            return float("nan")
 
     def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: torch.Tensor | None = None) -> torch.Tensor:
         return self.model(dyn, stat, cat)
@@ -59,8 +79,8 @@ class SequenceStaticLightningModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss, probs, y = self._shared_step(batch)
-        # accumulate for epoch-level AP
-        self.training_outputs.append((probs.detach(), y.detach()))
+        if self.log_train_ap:
+            self.training_outputs.append((probs.detach(), y.detach()))
         batch_size = batch[0].shape[0]
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch_size)
         return loss
@@ -98,6 +118,8 @@ class SequenceStaticLightningModule(pl.LightningModule):
         targets = torch.cat([out[1] for out in self.validation_outputs], dim=0)
         val_ap = float(average_precision_score(targets.cpu().numpy(), probs.cpu().numpy()))
         self.log("val_ap", val_ap, prog_bar=True, sync_dist=True)
+        val_f1 = self._best_f1_from_scores(targets, probs)
+        self.log("val_f1", val_f1, prog_bar=True, sync_dist=True)
         # selection metric: sum of train_ap (from this epoch) and val_ap
         sel_ap = val_ap
         if self._train_ap_last is not None and not (self._train_ap_last != self._train_ap_last):  # not NaN

@@ -1,0 +1,87 @@
+# Prediction parameters:
+prediction_countries:
+  - 'Russian_Federation'
+selected_feature_columns_path: "configs/selected_columns_7d.txt"
+prepared_prediction_features_path: "data/outputs/prepared_prediction_features.parquet"
+model_path: "models/catboost_fire_model_7d.cbm"
+
+
+# Feature generation configuration
+# Should be the same for train, test and prediction
+
+# Target generation from MODIS settings:
+modis_data_path: 'data/modis/'
+modis_countries:
+  - 'Russian_Federation'
+target_samples_per_area_per_year: 20
+target_start_date: "2000-01-01"
+target_end_date: "2025-10-02"
+coordinate_bounds: [35, 6, 75, 169]
+
+climate_data_params:
+  climate_data_dir: "data/climate_data_files/ERA5"
+  climate_variables: ["t2m", "d2m", "stl1"]
+  n_days: 128
+
+
+skip_climate: False
+
+climate_data_params_prediction:
+  climate_data_dir: "data/climate_data_files/ICON_Formated"
+  climate_variables: ["t2m", "d2m", "tp", "stl1"]
+  n_days: 128
+
+selected_climate_features_path: "configs/selected_climate_model_7d.txt"
+
+# Climate feature generation parameters
+generate_climate_params:
+  max_length: 120
+  lags: [7, 14, 30, 90, 120]
+  windows: [7, 14, 30, 90, 120]
+  spans: [7, 14, 30, 90, 120]
+  features_to_include:
+    t2m: ["rolling", "diff", "pct_change", "ewm", "rolling_ext", ]
+    tp: ["rolling", "ewm", "rolling_ext"]
+    d2m: [ "rolling", "ewm", "diff", "pct_change", "rolling_ext"]
+    stl1: ["rolling", "ewm", "rolling_ext"]
+
+# Elevation data parameters
+elevation_data_params:
+  elevation_file: "/home/ids/vmorozov/data/climate_data/land_features/GMTED2010_15n015_00625deg.nc"
+  window_size: [0.1, 0.20]
+
+# Road data parameters. Not used
+road_data_params:
+  feature_map_path: "data/land_features/roads_features.npz"
+
+# Night-light data parameters
+night_light_data_params:
+  use_night_light_features: true
+  feature_map_path: "data/land_features/night_lights_features_1km"
+  source_year: 2024
+  kernels_km: [5, 10, 25]
+  light_threshold: 0
+
+# Fire data parameters. Not used
+fire_data_params:
+  density_radii_km: 50
+
+# Land data parameters
+land_data_params:
+  land_data_files: ["/home/ids/vmorozov/data/climate_data/land_features/forest_data.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/kontur_population_20231101_r6.gpkg",
+                    "/home/ids/vmorozov/data/climate_data/land_features/topography.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/type_of_high_vegetation_0_daily-mean.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/type_of_low_vegetation_0_daily-mean.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/soil_type_stream-oper_daily-mean.nc"]
+
+  landsea_mask_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask.nc"
+  landsea_distance_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask_distances.nc"
+  fire_index_npz_path: "/home/ids/vmorozov/data/climate_data/land_features/fire_index_features.npz"
+  wwf_shp_path: "data/wwf_terr_ecos"
+
+country_shapes_path: "data/countries"
+
+cat_features: ["ecoregion_name", "ecoregion_realm", "slt", "tvl", "tvh", "slt_soil_type_stream_oper_daily_mean"]
+numerical_cat_features: ["slt", "tvl", "tvh", "slt_soil_type_stream_oper_daily_mean"]

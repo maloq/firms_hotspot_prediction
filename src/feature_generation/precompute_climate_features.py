@@ -1,11 +1,9 @@
 import argparse
 import os
 import time as time_lib
-from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask.distributed import Client
 import yaml
 import matplotlib.pyplot as plt
 
@@ -15,7 +13,6 @@ sys.path.append(os.getcwd())
 from src.feature_generation.prepare_climate_data import _get_dask_client
 from src.feature_generation.prepare_climate_features import (
     _extract_single_series,
-    get_feature_configs_and_names,
     get_selective_feature_configs_and_names,
     parse_selected_features,
 )
@@ -323,4 +320,4 @@ if __name__ == '__main__':
         date_str=args.date,
         test_mode=args.test_mode,
         plot=args.plot
-    ) 
+    )

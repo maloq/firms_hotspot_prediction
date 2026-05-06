@@ -170,6 +170,7 @@ def _generate_features_for_forecast_day(df_target_day: pd.DataFrame, config: dic
     
     # Road params
     road_params = config['road_data_params']
+    night_light_params = config.get('night_light_data_params', {})
 
     # Land data params
     land_data_params = config['land_data_params']
@@ -226,6 +227,9 @@ def _generate_features_for_forecast_day(df_target_day: pd.DataFrame, config: dic
         # Road
         road_feature_map_path=road_params["feature_map_path"],
         use_road_features=road_params.get("use_road_features", False),
+        # Night lights
+        night_light_feature_map_path=night_light_params.get("feature_map_path"),
+        use_night_light_features=night_light_params.get("use_night_light_features", False),
         # Fire Index
         fire_index_npz_path=land_data_params.get("fire_index_npz_path", "data/land_features/fire_index_features.npz"),
         # Land

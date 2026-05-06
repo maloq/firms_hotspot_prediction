@@ -1,0 +1,58 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "split_region"
+    },
+    {
+      "dtype": "str",
+      "name": "years"
+    },
+    {
+      "dtype": "str",
+      "name": "lat_bounds"
+    },
+    {
+      "dtype": "str",
+      "name": "lon_bounds"
+    },
+    {
+      "dtype": "int64",
+      "name": "unique_grid_cells"
+    },
+    {
+      "dtype": "int64",
+      "name": "cell_days"
+    },
+    {
+      "dtype": "int64",
+      "name": "positive_samples"
+    },
+    {
+      "dtype": "int64",
+      "name": "negative_samples"
+    },
+    {
+      "dtype": "float64",
+      "name": "positive_rate"
+    },
+    {
+      "dtype": "str",
+      "name": "negatives"
+    },
+    {
+      "dtype": "str",
+      "name": "land_water_masking_rule"
+    },
+    {
+      "dtype": "str",
+      "name": "target_labeling_rule"
+    },
+    {
+      "dtype": "str",
+      "name": "grid_resolution"
+    }
+  ],
+  "rows": 12,
+  "source_csv": "dataset_statistics.csv"
+}

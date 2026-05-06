@@ -242,6 +242,7 @@ def generate_prediction_features(
         raise KeyError("Config must define 'elevation_data_params' for feature generation.")
 
     road_params = config.get("road_data_params", {})
+    night_light_params = config.get("night_light_data_params", {})
 
     cache_dir = config.get("climate_features_cache_dir", DEFAULT_CACHE_DIR)
     use_cached = bool(use_cached_climate if use_cached_climate is not None else True)
@@ -255,11 +256,15 @@ def generate_prediction_features(
         elevation_window_sizes=elevation_params.get("window_size", [0.25]),
         road_feature_map_path=road_params.get("feature_map_path", ""),
         use_road_features=bool(road_params.get("use_road_features", False)),
+        night_light_feature_map_path=night_light_params.get("feature_map_path"),
+        use_night_light_features=bool(night_light_params.get("use_night_light_features", False)),
         fire_index_npz_path=land_params.get(
             "fire_index_npz_path", "data/land_features/fire_index_features.npz"
         ),
         land_data_files=land_params["land_data_files"],
         wwf_shp_path=land_params["wwf_shp_path"],
+        landsea_mask_path=land_params.get("landsea_mask_path"),
+        landsea_distance_path=land_params.get("landsea_distance_path"),
         anchor_cols=ANCHOR_COLUMNS,
         test_mode=True,
         skip_climate=False,

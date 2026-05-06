@@ -1,0 +1,17 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/models/catboost_full.cbm",
+    "shared_artifacts/models/catboost_full_duplicate_2.cbm",
+    "shared_artifacts/models/catboost_full_features.json",
+    "shared_artifacts/models/catboost_full_features_duplicate_2.json"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/shap_summary.png",
+    "shared_artifacts/source_plots_mixed/shap_summary.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/shap_importance.jsonl.gz"
+  ]
+}

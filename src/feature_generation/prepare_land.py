@@ -4,11 +4,10 @@ import numpy as np
 import time as time_lib
 import xarray as xr
 import polars as pl
-from typing import Union, List, Optional
+from typing import List, Optional
 import geopandas as gpd
-from shapely.geometry import Point
 import os
-from scipy.ndimage import distance_transform_edt, binary_opening, binary_closing, binary_dilation, binary_erosion
+from scipy.ndimage import distance_transform_edt, binary_dilation, binary_erosion
 
 
 def get_elevation_stats(nc_path: str, target_df: pd.DataFrame, window_sizes=[0.01, 0.05, 0.1, 0.25],
@@ -481,7 +480,9 @@ def prepare_land_data(
 def landsea_distance(
         df: pd.DataFrame,
         lat_col: str = "lat_rounded",
-        lon_col: str = "lon_rounded"
+        lon_col: str = "lon_rounded",
+        mask_path: str = "data/land_features/IMERG_land_sea_mask.nc",
+        dist_path: str = "data/land_features/IMERG_land_sea_mask_distances.nc",
 ) -> tuple[pd.DataFrame, list[str]]:
     """
     Calculates the distance from each point to the nearest coastline for both a
@@ -501,18 +502,32 @@ def landsea_distance(
             - A DataFrame containing two new features: 'distance_to_coast_km' and 'distance_to_coast_dilated_km'.
             - A list with the names of the new features.
     """
-    from scipy.ndimage import distance_transform_edt, binary_opening, binary_closing, binary_dilation
+    from scipy.ndimage import distance_transform_edt, binary_dilation, binary_erosion
     import numpy as np
 
-    # Path to the land-sea mask and the pre-calculated distance maps
-    mask_path = "data/land_features/IMERG_land_sea_mask.nc"
-    dist_path = "data/land_features/IMERG_land_sea_mask_distances.nc"
     feature_names = ["distance_to_coast_km", "distance_to_coast_dilated_km"]
+    distance_map_version = "binary_land_mask_v1"
 
     if os.path.exists(dist_path):
         print(f"Loading existing distance-to-coast maps from: {dist_path}")
         distance_ds = xr.open_dataset(dist_path)
+        if distance_ds.attrs.get("distance_map_version") != distance_map_version:
+            print(
+                "Existing distance-to-coast maps were generated with an old "
+                "land/sea-mask interpretation. Regenerating them..."
+            )
+            distance_ds.close()
+            distance_ds = None
+        else:
+            missing_features = [name for name in feature_names if name not in distance_ds]
+            if missing_features:
+                print(f"Existing distance maps are missing {missing_features}. Regenerating them...")
+                distance_ds.close()
+                distance_ds = None
     else:
+        distance_ds = None
+
+    if distance_ds is None:
         print("Distance-to-coast maps not found. Generating and saving them...")
 
         with xr.open_dataset(mask_path) as mask_ds:
@@ -521,15 +536,18 @@ def landsea_distance(
             except KeyError:
                 lat_coord, lon_coord = mask_ds['latitude'], mask_ds['longitude']
 
-            land_sea_mask = mask_ds['landseamask'].values.astype(np.int8)
+            # IMERG landseamask is not binary: land is generally near 0-1,
+            # ocean is 100, and coast cells can be fractional. Convert it to
+            # a true land mask before distance transforms.
+            land_mask = mask_ds['landseamask'].values < 70
             landseamask_da = mask_ds['landseamask']
 
             # 1. Cleaned Mask (non-dilated)
             # cleaned_mask = binary_opening(land_sea_mask)
             # cleaned_mask = binary_closing(cleaned_mask).astype(cleaned_mask.dtype)
-            cleaned_mask = land_sea_mask
+            cleaned_mask = land_mask
             # 2. Dilated Mask
-            dilated_mask = binary_dilation(cleaned_mask.copy() )
+            dilated_mask = binary_dilation(cleaned_mask.copy())
             dilated_mask = binary_erosion(dilated_mask.copy())
 
             lat_res = abs(lat_coord[1] - lat_coord[0]).item()
@@ -537,12 +555,12 @@ def landsea_distance(
 
             # --- Calculate distances for CLEANED mask ---
             dist_to_sea_clean = distance_transform_edt(cleaned_mask, sampling=[lat_res, lon_res])
-            dist_to_land_clean = distance_transform_edt(1 - cleaned_mask, sampling=[lat_res, lon_res])
+            dist_to_land_clean = distance_transform_edt(~cleaned_mask, sampling=[lat_res, lon_res])
             distance_map_km_clean = (dist_to_sea_clean - dist_to_land_clean) * 111.1
 
             # --- Calculate distances for DILATED mask ---
             dist_to_sea_dilated = distance_transform_edt(dilated_mask, sampling=[lat_res, lon_res])
-            dist_to_land_dilated = distance_transform_edt(1 - dilated_mask, sampling=[lat_res, lon_res])
+            dist_to_land_dilated = distance_transform_edt(~dilated_mask, sampling=[lat_res, lon_res])
             distance_map_km_dilated = (dist_to_sea_dilated - dist_to_land_dilated) * 111.1
 
             # Create DataArrays for both maps
@@ -564,6 +582,7 @@ def landsea_distance(
                 feature_names[0]: distance_da_clean,
                 feature_names[1]: distance_da_dilated
             })
+            distance_ds.attrs["distance_map_version"] = distance_map_version
             distance_ds.to_netcdf(dist_path)
             print(f"Saved new distance-to-coast maps to: {dist_path}")
 

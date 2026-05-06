@@ -83,7 +83,7 @@ modis_countries:
 
 target_samples_per_area_per_year: 18
 target_start_date: "2000-01-01"  
-target_end_date: "2025-06-09"
+target_end_date: "2025-10-02"
 coordinate_bounds: [35, 1, 75, 179] #[40, 20, 70, 170] #[34, 30, 60, 130] # [40, 70, 60, 110] [34, 70, 60, 130]
 
 # Data split parameters for training
@@ -115,6 +115,14 @@ elevation_data_params:
 # Road data parameters. Not used
 road_data_params:
   feature_map_path: "data/land_features/roads_features.npz"
+
+# Night-light data parameters
+night_light_data_params:
+  use_night_light_features: true
+  feature_map_path: "data/land_features/night_lights_features_1km"
+  source_year: 2024
+  kernels_km: [5, 10, 25]
+  light_threshold: 0
 
 # Fire data parameters. Not used
 fire_data_params:

@@ -7,7 +7,6 @@ from rasterio.features import rasterize
 import rasterio
 import numpy as np
 import warnings
-import matplotlib.pyplot as plt
 from scipy.ndimage import distance_transform_edt, uniform_filter
 
 

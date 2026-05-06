@@ -5,8 +5,12 @@ import pandas as pd
 from typing import List, Optional
 from tqdm import tqdm
 import yaml
-import dask
-from dask.diagnostics import ProgressBar
+try:
+    import dask
+    from dask.diagnostics import ProgressBar
+except ImportError:
+    dask = None
+    ProgressBar = None
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -74,6 +78,9 @@ def calculate_fire_index_features(fire_index_files: List[str], target_resolution
                         Includes mean, std, min, max, median, and mean_trend, max_trend, median_trend.
             list: List of base feature names (suffixes like _mean, _std, _mean_trend etc. correspond to monthly stats)
     """
+    if dask is None or ProgressBar is None:
+        raise ImportError("dask is required to calculate fire index features. Install requirements.txt first.")
+
     print(f"Loading fire index files: {fire_index_files}")
     start_time = time_lib.time()
     

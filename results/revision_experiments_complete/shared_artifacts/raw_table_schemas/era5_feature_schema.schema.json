@@ -1,0 +1,26 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "variable"
+    },
+    {
+      "dtype": "int64",
+      "name": "era5_zarr_files"
+    },
+    {
+      "dtype": "str",
+      "name": "era5_years"
+    },
+    {
+      "dtype": "int64",
+      "name": "ecmwf_zarr_files"
+    },
+    {
+      "dtype": "str",
+      "name": "status"
+    }
+  ],
+  "rows": 4,
+  "source_csv": "era5_feature_schema.csv"
+}

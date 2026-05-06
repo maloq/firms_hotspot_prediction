@@ -40,25 +40,6 @@ if NUMBA_EXTRACT_OK:
         return out
 
 
-
-@lru_cache(maxsize=None)
-def _ewm_weights(span: int, n: int) -> np.ndarray:
-    """Cached EWM weights (float16)."""
-    alpha = 2.0 / (span + 1.0)
-    return np.power(1 - alpha, np.arange(n - 1, -1, -1, dtype=np.float16))
-
-
-def compute_ewm(data_array: np.ndarray, span: int) -> float:
-    """Exponentially‑weighted mean with cached weights (≈ 3× faster)."""
-    n = data_array.size
-    if n == 0:
-        return np.nan
-    w = _ewm_weights(span, n)
-    if w.sum() == 0: # Avoid division by zero if n=0 or span results in zero sum of weights (unlikely with positive span)
-        return np.nan
-    return float(np.dot(data_array, w) / w.sum())
-
-
 @lru_cache(maxsize=None)
 def _linreg_x(window: int) -> tuple[np.ndarray, float, float]:
     """
@@ -713,8 +694,6 @@ if __name__ == "__main__":
     df_test_pd.loc[2, "d2m"] = None
 
     df_test_pl = pl.from_pandas(df_test_pd)
-
-    import time, sys
 
     print(f"--- Testing selective feature extraction with selected_climate.txt ---")
     

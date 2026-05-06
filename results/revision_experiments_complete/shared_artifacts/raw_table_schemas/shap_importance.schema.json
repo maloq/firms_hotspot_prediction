@@ -1,0 +1,22 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "feature"
+    },
+    {
+      "dtype": "str",
+      "name": "group"
+    },
+    {
+      "dtype": "float64",
+      "name": "mean_abs_shap"
+    },
+    {
+      "dtype": "int64",
+      "name": "rank"
+    }
+  ],
+  "rows": 254,
+  "source_csv": "shap_importance.csv"
+}

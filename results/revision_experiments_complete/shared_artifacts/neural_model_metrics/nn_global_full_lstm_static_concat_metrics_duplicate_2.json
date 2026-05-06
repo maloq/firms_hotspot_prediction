@@ -1,0 +1,48 @@
+{
+  "config_path": "configs/nn_global_full_lstm_static_concat.yaml",
+  "data_path": "data/saved_features/nn_train_data/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_lstm_static_concat-lstm_mlp-epoch=01-val_f1=0.6834-v1.ckpt",
+  "architecture": "lstm_mlp",
+  "model_config": {
+    "lstm_units": 256,
+    "dropout_lstm": 0.1,
+    "static_units": 512,
+    "dropout_static": 0.05,
+    "merge_units": 384,
+    "dropout_merged": 0.2,
+    "categorical_mode": "raw",
+    "seq_len": 5,
+    "n_channels": 6,
+    "n_static": 86,
+    "n_categorical": 6
+  },
+  "selection_metric": "val_f1",
+  "validation_threshold": 0.26520952582359314,
+  "validation_best_f1": 0.6834586577235786,
+  "train": {
+    "precision": NaN,
+    "recall": NaN,
+    "f1": NaN,
+    "ap": NaN,
+    "threshold": 0.26520952582359314
+  },
+  "validation": {
+    "precision": 0.6025370529551197,
+    "recall": 0.7894880546075085,
+    "f1": 0.6834586577240697,
+    "ap": 0.7205595501420817,
+    "threshold": 0.26520952582359314
+  },
+  "test": {
+    "precision": 0.5614511506839029,
+    "recall": 0.8844053697096336,
+    "f1": 0.6868598723189271,
+    "ap": 0.8000417319398777,
+    "threshold": 0.26520952582359314
+  },
+  "split_sizes": {
+    "train": 1590400,
+    "validation": 186142,
+    "test": 409985
+  }
+}

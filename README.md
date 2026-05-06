@@ -175,6 +175,21 @@ If you have large RAM(more than 300GB) and big CPU, you can tweak dask Client in
 
 Then use notebook to train the model `train_test.ipynb`
 
+You can also train the CatBoost model directly with validation-based early stopping:
+
+```bash
+python train_catboost.py \
+  --validation-start-date 2019-01-01 \
+  --test-start-date 2022-01-01 \
+  --iterations 2000 \
+  --early-stopping-rounds 150 \
+  --no-feature-importance-analysis
+```
+
+The script keeps the latest dates as test data, uses the validation period for
+`use_best_model`/early stopping, and tunes the binary probability threshold on
+validation for the reported precision/recall/F1 metrics.
+
 
 ## Models
 
@@ -194,5 +209,4 @@ The project integrates multiple data sources:
   - Land/sea mask from IMERG
 - **Administrative Boundaries**: Natural Earth country boundaries
 - **Ecoregions**: WWF Terrestrial Ecoregions dataset
-
 

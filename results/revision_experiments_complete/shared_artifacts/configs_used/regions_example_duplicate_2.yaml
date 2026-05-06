@@ -1,0 +1,22 @@
+regions:
+  - name: eastern_siberia
+    lat_min: 50.0
+    lat_max: 72.0
+    lon_min: 90.0
+    lon_max: 135.0
+  - name: far_east
+    lat_min: 40.0
+    lat_max: 55.0
+    lon_min: 130.0
+    lon_max: 150.0
+    threshold: 0.35
+  - name: central_asia
+    lat_min: 35.0
+    lat_max: 55.0
+    lon_min: 45.0
+    lon_max: 90.0
+  - name: europe
+    lat_min: 35.0
+    lat_max: 72.0
+    lon_min: -10.0
+    lon_max: 50.0

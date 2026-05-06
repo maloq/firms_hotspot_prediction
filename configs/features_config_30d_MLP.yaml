@@ -34,17 +34,17 @@ prediction_countries:
   - 'Tajikistan'
   - 'Mongolia'
 
-selected_feature_columns_path: "configs/selected_columns_30d.txt"
-prepared_prediction_features_path: "data/outputs/prepared_prediction_features.parquet"
-model_path: "models/catboost_fire_model_30d.cbm"
-nn_model_path: "models/mlp-epoch=01-val_ap=0.7490.ckpt"
+selected_feature_columns_path: "/home/infres/vmorozov/Misc/configs/selected_columns_30d.txt"
+prepared_prediction_features_path: "/home/infres/vmorozov/Misc/data/outputs/prepared_prediction_features.parquet"
+model_path: "/home/infres/vmorozov/Misc/models/catboost_fire_model_30d.cbm"
+nn_model_path: "/home/infres/vmorozov/Misc/models/lstm_ml_fire-lstm_early_fusion-epoch=06-val_ap=0.8069.ckpt"
 
 
 # Feature generation configuration
 # Should be the same for train, test and prediction
 
 # Target generation from MODIS settings:
-modis_data_path: 'data/modis/'
+modis_data_path: "/home/ids/vmorozov/data/modis"
 modis_countries:
   - 'Dem_Rep_Korea'
   - 'Russian_Federation'
@@ -82,19 +82,19 @@ modis_countries:
   - 'Ukraine'
 
 target_samples_per_area_per_year: 18
-target_start_date: "2000-01-01"  
-target_end_date: "2025-06-09"
+target_start_date: "2000-01-01"
+target_end_date: "2025-10-02"
 coordinate_bounds: [35, 1, 75, 179] #[40, 20, 70, 170] #[34, 30, 60, 130] # [40, 70, 60, 110] [34, 70, 60, 130]
 
 # Data split parameters for training
 train_end: "2021-01-01"
-val_end: "2023-01-31"
+val_end: "2024-01-31"
 
 generate_climate_params:
   n_days: 128
 
 climate_data_params:
-  climate_data_dir: "data/climate_data_files/ECMWF"
+  climate_data_dir: "/home/ids/vmorozov/data/climate_data/climate_features/ECMWF"
   climate_variables: ["t2m", "d2m", "tp", "stl1"]
   n_days: 128
 
@@ -102,19 +102,29 @@ climate_data_params:
 skip_climate: False
 
 climate_data_params_prediction:
-  climate_data_dir: "data/climate_data_files/ECMWF_prediction"
+  climate_data_dir: "/home/ids/vmorozov/data/climate_data/climate_features/ECMWF_prediction"
   climate_variables: ["t2m", "d2m", "tp", "stl1"]
   n_days: 128
-  
+
 
 # Elevation data parameters
 elevation_data_params:
-  elevation_file: "data/land_features/GMTED2010_15n015_00625deg.nc"
+  elevation_file: "/home/ids/vmorozov/data/climate_data/land_features/GMTED2010_15n015_00625deg.nc"
   window_size: [0.1, 0.20]
 
-# Road data parameters. Not used
+# Road data parameters
 road_data_params:
-  feature_map_path: "data/land_features/roads_features.npz"
+  use_road_features: true
+  feature_map_path: "/home/infres/vmorozov/Misc/data/land_features/osm_drivable_roads_features_1km"
+  kernels_km: [5, 10, 25]
+
+# Night-light data parameters
+night_light_data_params:
+  use_night_light_features: true
+  feature_map_path: "/home/infres/vmorozov/Misc/data/land_features/night_lights_features_1km"
+  source_year: 2024
+  kernels_km: [5, 10, 25]
+  light_threshold: 0
 
 # Fire data parameters. Not used
 fire_data_params:
@@ -122,21 +132,25 @@ fire_data_params:
 
 # Land data parameters
 land_data_params:
-  land_data_files: ["data/land_features/forest_data.nc",
-                    "data/land_features/IMERG_land_sea_mask.nc",
-                    "data/land_features/kontur_population_20231101_r6.gpkg",
-                    "data/land_features/topography.nc",
-                    data/land_features/type_of_high_vegetation_0_daily-mean.nc,
-                    data/land_features/type_of_low_vegetation_0_daily-mean.nc,
-                    data/land_features/soil_type_stream-oper_daily-mean.nc]
-                    
-  fire_index_npz_path: "data/land_features/fire_index_features.npz"
-  wwf_shp_path: "data/wwf_terr_ecos"
+  land_data_files: ["/home/ids/vmorozov/data/climate_data/land_features/forest_data.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/kontur_population_20231101_r6.gpkg",
+                    "/home/ids/vmorozov/data/climate_data/land_features/topography.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/type_of_high_vegetation_0_daily-mean.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/type_of_low_vegetation_0_daily-mean.nc",
+                    "/home/ids/vmorozov/data/climate_data/land_features/soil_type_stream-oper_daily-mean.nc"]
 
-country_shapes_path: "data/countries"
+  landsea_mask_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask.nc"
+  landsea_distance_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask_distances.nc"
+  fire_index_npz_path: "/home/ids/vmorozov/data/climate_data/land_features/fire_index_features.npz"
+  wwf_shp_path: "/home/infres/vmorozov/Misc/data/wwf_terr_ecos"
+
+country_shapes_path: "/home/infres/vmorozov/Misc/data/countries"
+climate_features_cache_dir: "/home/infres/vmorozov/Misc/data/saved_features/climate_features_cache"
 
 # Training data generation paths
 train_features_parquet_path: "data/saved_features/train_features_nn_30d_06cb.parquet"
+config_path: "configs/features_config_30d_nn.yaml"
 output_plots_dir: "outputs/plots"
 output_train_data_dir: "data/saved_features/nn_train_data"
 target_cache_path: "data/saved_features/target_data.parquet"
@@ -144,38 +158,38 @@ target_cache_path: "data/saved_features/target_data.parquet"
 cat_features: ["ecoregion_name", "ecoregion_realm", "slt", "tvl", "tvh", "slt_soil_type_stream_oper_daily_mean"]
 numerical_cat_features: ["slt", "tvl", "tvh", "slt_soil_type_stream_oper_daily_mean"]
 
-epochs: 10
+nn_preprocessing:
+  encoders_meta_path: "data/saved_features/nn_train_data/encoders_meta.joblib"
+  cat_one_hot_threshold: 200
+  allow_ordinal_fallback: false
+  add_missing_indicators: true
+  scale_static: true
+  log_population: true
+  ignored_features: ["datetime", "day", "latitude", "longitude", "year"]
+
+batch_size: 2048
+epochs: 50
 num_workers: 6
 
 # Neural network architecture options.
 # Available architectures: lstm_mlp (default), lstm_attention.
-batch_size: 2048
-epochs: 10
-num_workers: 6
 nn_model:
-  architecture: mlp
-  params:
-    dynamic_units: 256
-    merge_units: 256
-    dropout_merged: 0.0
+  architecture: lstm_early_fusion
+  params: {}
   lightning:
-    learning_rate: 0.003
+    learning_rate: 0.001
     decay_rate: 0.5
-    l2: 0.0
+    l2: 0.0001
     clip_gradient_norm: 5.0
-  scheduler_config:
-    type: cosine  # Options: lambda, step, cosine, reduce_on_plateau
-    interval: epoch  # Options: step, epoch
-    frequency: 1
-    params:
-      T_max: 15  # Number of iterations for cosine annealing (will use decay_steps if not specified)
-      eta_min: 0.0  # Minimum learning rateq    
+    scheduler_config:
+      type: reduce_on_plateau
+      monitor: val_ap
+      params:
+        mode: max
+        factor: 0.5
+        patience: 3
+        min_lr: 0.00001
   trainer: {}
-
-class_weights:
-  0: 1.0
-  1: 2.0
-  
   # Example for attention-based model:
   # architecture: lstm_attention
   # params:

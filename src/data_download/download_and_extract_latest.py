@@ -4,7 +4,6 @@ import asyncio
 from download_forecast import download_seasonal_forecast_batch
 import datetime 
 import logging 
-import os
 import traceback
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

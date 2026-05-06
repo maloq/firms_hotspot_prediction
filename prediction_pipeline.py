@@ -2,9 +2,9 @@ import argparse
 import os
 import sys
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Optional, Sequence, Tuple
 
+import joblib
 import numpy as np
 import pandas as pd
 import torch
@@ -15,7 +15,7 @@ try:  # geopandas is optional; plots fall back without borders
 except ImportError:  # pragma: no cover - geopandas optional
     gpd = None
 
-from make_nn_train_data import load_data, prepare_feature_for_models
+from make_nn_train_data import load_data, transform_features_with_metadata
 from src.neural_net.models import SequenceStaticLightningModule
 from src.neural_net.prediction_features_builder import generate_prediction_features
 from src.neural_net.train_nn import predict_probs
@@ -154,7 +154,6 @@ class NNForecastDataset:
     features: pd.DataFrame
     x_dyn: np.ndarray
     x_stat: np.ndarray
-    x_cat: np.ndarray
     n_days: int
     n_channels: int
     min_date: pd.Timestamp
@@ -301,6 +300,68 @@ def validate_requested_date(dataset: NNForecastDataset, target_date: pd.Timestam
             )
 
 
+def _resolve_preprocessing_meta_path(config: dict) -> str:
+    nn_cfg = config.get("nn_preprocessing", {}) or {}
+    candidates = [
+        nn_cfg.get("encoders_meta_path"),
+        config.get("nn_encoders_meta_path"),
+    ]
+
+    output_train_data_dir = config.get("output_train_data_dir")
+    if output_train_data_dir:
+        candidates.append(os.path.join(output_train_data_dir, "encoders_meta.joblib"))
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        candidate = os.path.abspath(candidate)
+        if os.path.exists(candidate):
+            return candidate
+
+    checked = [os.path.abspath(path) for path in candidates if path]
+    raise FileNotFoundError(
+        "NN preprocessing metadata not found. Run make_nn_train_data.py after training-data "
+        "generation, or set nn_preprocessing.encoders_meta_path. Checked: "
+        f"{checked}"
+    )
+
+
+def _model_hparam(model: SequenceStaticLightningModule, key: str, default=None):
+    hparams = getattr(model, "hparams", {})
+    if hasattr(hparams, "get"):
+        return hparams.get(key, default)
+    return getattr(hparams, key, default)
+
+
+def validate_dataset_model_compatibility(
+    dataset: NNForecastDataset,
+    model: SequenceStaticLightningModule,
+) -> None:
+    model_config = _model_hparam(model, "model_config", {}) or {}
+    expected_seq_len = model_config.get("seq_len")
+    expected_channels = model_config.get("n_channels")
+    expected_static = model_config.get("n_static")
+
+    mismatches = []
+    if expected_seq_len is not None and int(expected_seq_len) != dataset.n_days:
+        mismatches.append(f"seq_len checkpoint={expected_seq_len}, data={dataset.n_days}")
+    if expected_channels is not None and int(expected_channels) != dataset.n_channels:
+        mismatches.append(
+            f"n_channels checkpoint={expected_channels}, data={dataset.n_channels}"
+        )
+    if expected_static is not None and int(expected_static) != dataset.x_stat.shape[1]:
+        mismatches.append(
+            f"n_static checkpoint={expected_static}, data={dataset.x_stat.shape[1]}"
+        )
+
+    if mismatches:
+        raise ValueError(
+            "NN checkpoint and preprocessing metadata are incompatible: "
+            + "; ".join(mismatches)
+            + ". Use the encoders_meta.joblib produced with the same training run as the checkpoint."
+        )
+
+
 def load_prepared_dataset(config: dict, dataset_path: Optional[str] = None) -> NNForecastDataset:
     nn_cfg = config.get("nn_preprocessing", {})
 
@@ -332,141 +393,28 @@ def load_prepared_dataset(config: dict, dataset_path: Optional[str] = None) -> N
         raise ValueError("Some datetime values could not be parsed in the NN feature dataset.")
     features_df["datetime"] = datetime_series.dt.normalize()
 
-    gen_cfg = config.get("generate_climate_params")
-    if not gen_cfg or "n_days" not in gen_cfg:
-        raise KeyError("Config must provide generate_climate_params.n_days for NN preprocessing.")
-    n_days = int(gen_cfg["n_days"])
-
     target_col = nn_cfg.get("target_col", config.get("target_col", "count"))
-    train_end = nn_cfg.get("train_end", config.get("train_end"))
-    val_end = nn_cfg.get("val_end", config.get("val_end"))
-    if train_end is None or val_end is None:
-        raise KeyError("train_end and val_end must be specified for NN preprocessing.")
+    meta_path = _resolve_preprocessing_meta_path(config)
+    metadata = joblib.load(meta_path)
+    print(f"Loaded NN preprocessing metadata from '{meta_path}'.")
 
-    dataset_dates = features_df["datetime"]
-    dataset_min_date = dataset_dates.min()
-    dataset_max_date = dataset_dates.max()
-
-    parsed_train_end = pd.to_datetime(train_end)
-    if (dataset_dates <= parsed_train_end).sum() == 0:
-        adjusted_train_end = dataset_max_date
-        print(
-            "Warning: No rows fall into the configured training split; "
-            f"adjusting train_end from {train_end} to {adjusted_train_end.date()} for inference."
-        )
-        train_end = adjusted_train_end.strftime("%Y-%m-%d")
-        parsed_train_end = adjusted_train_end
-
-    parsed_val_end = pd.to_datetime(val_end)
-    if parsed_val_end < parsed_train_end:
-        parsed_val_end = parsed_train_end
-    if (dataset_dates <= parsed_val_end).sum() == 0:
-        adjusted_val_end = dataset_max_date
-        print(
-            "Warning: No rows fall into the configured validation/test split; "
-            f"adjusting val_end from {val_end} to {adjusted_val_end.date()} for inference."
-        )
-        parsed_val_end = adjusted_val_end
-    val_end = parsed_val_end.strftime("%Y-%m-%d")
-
-    static_exclude_cols = nn_cfg.get("static_exclude_cols")
-    cat_one_hot_threshold = int(nn_cfg.get("cat_one_hot_threshold", 30))
-    ignored_features = nn_cfg.get("ignored_features", DEFAULT_IGNORED_FEATURES)
-    log_population = bool(nn_cfg.get("log_population", True))
-    scale_static = bool(nn_cfg.get("scale_static", True))
-    embedding_features = nn_cfg.get("nn_embedding_features") or ["ecoregion_name"]
-
-    prepared = prepare_feature_for_models(
+    prepared = transform_features_with_metadata(
         features_df=features_df,
         climate_matrix=climate_matrix,
-        n_days=n_days,
-        static_exclude_cols=static_exclude_cols,
-        target_col=target_col,
-        train_end=train_end,
-        val_end=val_end,
+        metadata=metadata,
         datetime_col="datetime",
-        cat_one_hot_threshold=cat_one_hot_threshold,
-        scale_static=scale_static,
-        ignored_features=ignored_features,
-        log_population=log_population,
-        embedding_features=embedding_features,
+        target_col=target_col,
     )
-
-    n_samples = features_df.shape[0]
-    n_channels = prepared["n_channels"]
-
-    dyn_full = np.empty((n_samples, n_days, n_channels), dtype=np.float32)
-    dyn_full[:] = np.nan
-
-    stat_dim = 0
-    for key in ("x_stat_train", "x_stat_val", "x_stat_test"):
-        arr = prepared.get(key)
-        if arr is not None and arr.size:
-            stat_dim = arr.shape[1]
-            break
-
-    if stat_dim:
-        stat_full = np.empty((n_samples, stat_dim), dtype=np.float32)
-        stat_full[:] = np.nan
-    else:
-        stat_full = np.zeros((n_samples, 0), dtype=np.float32)
-
-    cat_dim = 0
-    for key in ("x_cat_train", "x_cat_val", "x_cat_test"):
-        arr = prepared.get(key)
-        if arr is not None and arr.size:
-            cat_dim = arr.shape[1]
-            break
-    if cat_dim:
-        cat_full = np.empty((n_samples, cat_dim), dtype=np.int64)
-        cat_full[:] = -1
-    else:
-        cat_full = np.zeros((n_samples, 0), dtype=np.int64)
-
-    for split in ("train", "val", "test"):
-        idx = prepared.get(f"{split}_idx", np.array([], dtype=int))
-        if idx is None or len(idx) == 0:
-            continue
-        dyn_full[idx] = prepared[f"x_dyn_{split}"]
-        if stat_dim:
-            stat_full[idx] = prepared[f"x_stat_{split}"]
-        if cat_dim:
-            cat_full[idx] = prepared[f"x_cat_{split}"]
-
-    if np.isnan(dyn_full).any():
-        missing = np.isnan(dyn_full).any(axis=(1, 2))
-        missing_count = int(missing.sum())
-        if missing_count:
-            raise RuntimeError(
-                f"Dynamic features missing for {missing_count} samples; dataset and preprocessing are out of sync."
-            )
-
-    if stat_dim and np.isnan(stat_full).any():
-        missing = np.isnan(stat_full).any(axis=1)
-        missing_count = int(missing.sum())
-        if missing_count:
-            raise RuntimeError(
-                f"Static features missing for {missing_count} samples; dataset and preprocessing are out of sync."
-            )
-
-    if cat_dim and (cat_full < 0).any():
-        missing = (cat_full < 0).any(axis=1)
-        missing_count = int(missing.sum())
-        if missing_count:
-            raise RuntimeError(
-                f"Categorical features missing for {missing_count} samples; dataset and preprocessing are out of sync."
-            )
 
     min_date = features_df["datetime"].min()
     max_date = features_df["datetime"].max()
 
     return NNForecastDataset(
         features=features_df,
-        x_dyn=dyn_full,
-        x_stat=stat_full,
-        x_cat=cat_full,
-        n_days=n_days,
-        n_channels=n_channels,
+        x_dyn=prepared["x_dyn"],
+        x_stat=prepared["x_stat"],
+        n_days=prepared["n_days"],
+        n_channels=prepared["n_channels"],
         min_date=min_date,
         max_date=max_date,
     )
@@ -553,6 +501,7 @@ def make_n_day_forecast(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_trained_nn_model(model_path, device, config.get("nn_model"))
+    validate_dataset_model_compatibility(dataset, model)
 
     os.makedirs(output_base_dir, exist_ok=True)
 
@@ -577,9 +526,8 @@ def make_n_day_forecast(
         date_str = current_date.strftime("%Y-%m-%d")
         x_dyn = dataset.x_dyn[indices]
         x_stat = dataset.x_stat[indices]
-        x_cat = dataset.x_cat[indices]
 
-        probs = predict_probs(model, x_dyn, x_stat, x_cat, batch_size=batch_size, device=device)
+        probs = predict_probs(model, x_dyn, x_stat, batch_size=batch_size, device=device)
 
         if enable_prior_correction:
             probs = adjust_probabilities_for_prior(
@@ -703,7 +651,7 @@ def main() -> None:
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/features_config_30d_LSTM_early_fusion.yaml",
+        default="configs/features_config_30d_nn.yaml",
         help="Path to the YAML configuration file.",
     )
     parser.add_argument(
@@ -721,7 +669,7 @@ def main() -> None:
     parser.add_argument(
         "--start-date",
         type=str,
-        default="2025-06-09",
+        default=None,
         help="Optional start date (dd-mm-yy or yyyy-mm-dd). Defaults to latest available.",
     )
     parser.add_argument(

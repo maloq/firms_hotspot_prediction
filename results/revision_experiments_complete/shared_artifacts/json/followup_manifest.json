@@ -1,0 +1,13 @@
+{
+  "completed_at": "2026-05-05T20:31:33.095891",
+  "command": "conda run -n pointnet python -m src.revision_evaluation.followups --output-dir results/revision_experiments_complete --catboost-iterations 260 --catboost-task-type GPU",
+  "failures": [
+    {
+      "experiment": "Full ERA5 vs SEAS5 CatBoost source matrix",
+      "reason": "Processed ERA5 zarr coverage is 2009-2024 and spatially narrower than the 2001-2025 SEAS5 feature matrix; direct raw 2025 GRIB inspection did not complete fast enough for safe full parity reconstruction in this run.",
+      "attempted_fixes": "Verified raw GRIB tree, verified processed ERA5 zarr schema, patched loader for ERA5 `time` coordinate, wrote common schema files.",
+      "affects_paper_claims": "Affects ERA5/SEAS5 source-comparison claims; does not affect main SEAS5 operational model/ablation claims.",
+      "next_action": "Batch-convert raw ERA5 2000-2025 GRIBs to the repo zarr schema over the full domain, then rerun source comparison."
+    }
+  ]
+}

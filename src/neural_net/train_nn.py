@@ -1,9 +1,10 @@
+import argparse
 import json
 import math
-import os, sys
+import os
+import sys
 from typing import Any
 
-import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -24,7 +25,6 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
-import sys
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 from src.neural_net.models.lightning import SequenceStaticLightningModule
@@ -76,6 +76,7 @@ class HistoryCallback(pl.Callback):
             "train_loss": [],
             "val_loss": [],
             "val_ap": [],
+            "val_f1": [],
         }
 
     def on_train_epoch_end(self, trainer, pl_module):
@@ -93,6 +94,10 @@ class HistoryCallback(pl.Callback):
         if val_ap is not None:
             value = float(val_ap.cpu().item()) if isinstance(val_ap, torch.Tensor) else float(val_ap)
             self.history["val_ap"].append(value)
+        val_f1 = metrics.get("val_f1")
+        if val_f1 is not None:
+            value = float(val_f1.cpu().item()) if isinstance(val_f1, torch.Tensor) else float(val_f1)
+            self.history["val_f1"].append(value)
 
 
 def compute_class_weight(y_train):
@@ -148,7 +153,31 @@ def choose_threshold_f1(y_true, y_scores, sample_weight=None):
     return float(thresholds[idx]), float(f1[idx])
 
 
+def infer_categorical_embeddings(x_cat: np.ndarray) -> list[dict[str, int]]:
+    """Infer compact embedding metadata from integer categorical IDs."""
+
+    if x_cat is None or x_cat.ndim != 2 or x_cat.shape[1] == 0:
+        return []
+
+    embeddings: list[dict[str, int]] = []
+    for idx in range(x_cat.shape[1]):
+        values = x_cat[:, idx]
+        cardinality = int(np.nanmax(values)) + 1 if values.size else 0
+        cardinality = max(cardinality, 1)
+        embedding_dim = min(16, max(2, int(round(cardinality ** 0.25 * 4)))) if cardinality > 1 else 1
+        embeddings.append(
+            {
+                "name": f"cat_{idx}",
+                "cardinality": cardinality,
+                "embedding_dim": embedding_dim,
+            }
+        )
+    return embeddings
+
+
 def predict_probs(model, x_dyn, x_stat, x_cat=None, batch_size=256, device=None):
+    if len(x_dyn) == 0:
+        return np.zeros((0,), dtype=np.float32)
     model.eval()
     device = device or next(model.parameters()).device
     if x_cat is None:
@@ -189,6 +218,7 @@ def train_pipeline(
     trainer_kwargs=None,
     class_weights=None,
     selection_metric: str = "sel_ap",
+    compute_train_predictions: bool = True,
 ):
     n_train = x_dyn_train.shape[0]
     steps_per_epoch = math.ceil(n_train / batch_size)
@@ -228,6 +258,15 @@ def train_pipeline(
     model_kwargs.setdefault("seq_len", x_dyn_train.shape[1])
     model_kwargs.setdefault("n_channels", x_dyn_train.shape[2])
     model_kwargs.setdefault("n_static", x_stat_train.shape[1])
+    model_kwargs.setdefault("n_categorical", x_cat_train.shape[1] if x_cat_train.ndim == 2 else 0)
+    if (
+        str(model_kwargs.get("categorical_mode", "auto")).lower()
+        in {"embedding", "embeddings", "learned_embedding", "learned_embeddings"}
+        and not model_kwargs.get("categorical_embeddings")
+        and model_kwargs["n_categorical"] > 0
+    ):
+        model_kwargs["categorical_embeddings"] = infer_categorical_embeddings(x_cat_train)
+        print("Inferred categorical embeddings:", model_kwargs["categorical_embeddings"])
     print(f"Using architecture: {model_name} with params: {model_kwargs}")
 
     lightning_kwargs = dict(lightning_config or {})
@@ -284,6 +323,8 @@ def train_pipeline(
         monitor_metric = "sel_ap"
     elif metric_alias in {"val_ap", "ap", "validation_ap"}:
         monitor_metric = "val_ap"
+    elif metric_alias in {"val_f1", "f1", "validation_f1"}:
+        monitor_metric = "val_f1"
     else:
         print(f"Unknown selection_metric '{selection_metric}', defaulting to 'sel_ap'.")
         monitor_metric = "sel_ap"
@@ -350,16 +391,26 @@ def train_pipeline(
     else:
         checkpoint_callback = None
 
-    callbacks.append(
-        EarlyStopping(
-            monitor=monitor_metric,
-            patience=10,
-            mode="max",
-            verbose=True,
+    trainer_params = dict(trainer_kwargs or {})
+    early_stopping_cfg = trainer_params.pop("early_stopping", None)
+    if early_stopping_cfg is None:
+        early_stopping_cfg = {}
+    elif not isinstance(early_stopping_cfg, dict):
+        raise ValueError("Expected nn_model.trainer.early_stopping to be a mapping")
+    early_stopping_cfg = dict(early_stopping_cfg)
+    if early_stopping_cfg.pop("enabled", True):
+        callbacks.append(
+            EarlyStopping(
+                monitor=early_stopping_cfg.pop("monitor", monitor_metric),
+                patience=int(early_stopping_cfg.pop("patience", 10)),
+                mode=early_stopping_cfg.pop("mode", "max"),
+                min_delta=float(early_stopping_cfg.pop("min_delta", 0.0)),
+                verbose=bool(early_stopping_cfg.pop("verbose", True)),
+                **early_stopping_cfg,
+            )
         )
-    )
 
-    trainer_params = {
+    default_trainer_params = {
         "max_epochs": epochs,
         "callbacks": callbacks,
         "accelerator": "auto",
@@ -368,10 +419,9 @@ def train_pipeline(
         "precision": "16-mixed",
         "enable_checkpointing": checkpoint_callback is not None,
     }
-    if trainer_kwargs:
-        trainer_params.update(trainer_kwargs)
+    default_trainer_params.update(trainer_params)
 
-    trainer = pl.Trainer(**trainer_params)
+    trainer = pl.Trainer(**default_trainer_params)
 
     trainer.fit(model, train_loader, val_loader)
 
@@ -405,7 +455,7 @@ def train_pipeline(
         os.makedirs(plot_path, exist_ok=True)
         plot_loss(history_cb.history, out_path=os.path.join(plot_path, "loss.png"))
 
-    # Compute APs for validation and training to report selection metric
+    # Compute validation scores and, when needed, train scores to report selection metrics.
     y_val_probs = predict_probs(
         best_model,
         x_dyn_val,
@@ -420,17 +470,19 @@ def train_pipeline(
         out_path=os.path.join(plot_path, "pr_validation.png") if plot_path is not None else None,
         title="Validation PR",
     )
-    # train AP using the same best model
-    y_train_probs_for_sel = predict_probs(
-        best_model,
-        x_dyn_train,
-        x_stat_train,
-        x_cat_train,
-        batch_size=batch_size,
-        device=device,
-    )
-    train_ap = float(average_precision_score(y_train, y_train_probs_for_sel))
-    sel_ap = float(val_ap) + float(train_ap)
+    train_ap = float("nan")
+    sel_ap = float(val_ap)
+    if compute_train_predictions or monitor_metric == "sel_ap":
+        y_train_probs_for_sel = predict_probs(
+            best_model,
+            x_dyn_train,
+            x_stat_train,
+            x_cat_train,
+            batch_size=batch_size,
+            device=device,
+        )
+        train_ap = float(average_precision_score(y_train, y_train_probs_for_sel))
+        sel_ap = float(val_ap) + float(train_ap)
     results.update({
         "y_val_probs": y_val_probs,
         "val_ap": float(val_ap),
@@ -477,16 +529,111 @@ def print_metrics(metrics_train, metrics_val, metrics_test):
     print(f"Test:  {metrics_test['ap']:.4f}")
 
 
+def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
+    """Load either split-array or full-array prepared NN data."""
+
+    keys = set(data.files)
+    if {"x_dyn_train", "x_dyn_val", "x_stat_train", "x_stat_val", "y_train", "y_val"}.issubset(keys):
+        x_dyn_train = data["x_dyn_train"]
+        x_dyn_val = data["x_dyn_val"]
+        x_dyn_test = data["x_dyn_test"] if "x_dyn_test" in keys else np.zeros((0, *x_dyn_train.shape[1:]), dtype=x_dyn_train.dtype)
+        x_stat_train = data["x_stat_train"]
+        x_stat_val = data["x_stat_val"]
+        x_stat_test = data["x_stat_test"] if "x_stat_test" in keys else np.zeros((0, x_stat_train.shape[1]), dtype=x_stat_train.dtype)
+        y_train = data["y_train"]
+        y_val = data["y_val"]
+        y_test = data["y_test"] if "y_test" in keys else np.zeros((0,), dtype=y_train.dtype)
+        if "x_cat_train" in keys:
+            x_cat_train = data["x_cat_train"].astype(np.int64)
+            x_cat_val = data["x_cat_val"].astype(np.int64)
+            x_cat_test = data["x_cat_test"].astype(np.int64) if "x_cat_test" in keys else np.zeros((0, x_cat_train.shape[1]), dtype=np.int64)
+        else:
+            x_cat_train = np.zeros((x_dyn_train.shape[0], 0), dtype=np.int64)
+            x_cat_val = np.zeros((x_dyn_val.shape[0], 0), dtype=np.int64)
+            x_cat_test = np.zeros((x_dyn_test.shape[0], 0), dtype=np.int64)
+        return {
+            "format": "split",
+            "x_dyn_train": x_dyn_train,
+            "x_dyn_val": x_dyn_val,
+            "x_dyn_test": x_dyn_test,
+            "x_stat_train": x_stat_train,
+            "x_stat_val": x_stat_val,
+            "x_stat_test": x_stat_test,
+            "x_cat_train": x_cat_train,
+            "x_cat_val": x_cat_val,
+            "x_cat_test": x_cat_test,
+            "y_train": y_train,
+            "y_val": y_val,
+            "y_test": y_test,
+        }
+
+    if {"x_dyn", "y", "split"}.issubset(keys) and ("x_static" in keys or "x_stat" in keys):
+        x_dyn = np.asarray(data["x_dyn"], dtype=np.float32)
+        x_stat = np.asarray(data["x_static" if "x_static" in keys else "x_stat"], dtype=np.float32)
+        y = np.asarray(data["y"], dtype=np.float32)
+        split = np.asarray(data["split"], dtype=np.int8)
+        x_cat = np.asarray(data["x_cat"], dtype=np.int64) if "x_cat" in keys else np.zeros((x_dyn.shape[0], 0), dtype=np.int64)
+
+        if not (x_dyn.shape[0] == x_stat.shape[0] == y.shape[0] == split.shape[0] == x_cat.shape[0]):
+            raise ValueError(
+                "Full-array prepared data has inconsistent row counts: "
+                f"x_dyn={x_dyn.shape[0]}, x_stat={x_stat.shape[0]}, x_cat={x_cat.shape[0]}, "
+                f"y={y.shape[0]}, split={split.shape[0]}."
+            )
+
+        masks = {
+            "train": split == 0,
+            "val": split == 1,
+            "test": split == 2,
+        }
+        if masks["train"].sum() == 0 or masks["val"].sum() == 0:
+            raise ValueError("Full-array prepared data must contain split codes 0=train and 1=validation.")
+
+        return {
+            "format": "full",
+            "x_dyn_train": x_dyn[masks["train"]],
+            "x_dyn_val": x_dyn[masks["val"]],
+            "x_dyn_test": x_dyn[masks["test"]],
+            "x_stat_train": x_stat[masks["train"]],
+            "x_stat_val": x_stat[masks["val"]],
+            "x_stat_test": x_stat[masks["test"]],
+            "x_cat_train": x_cat[masks["train"]],
+            "x_cat_val": x_cat[masks["val"]],
+            "x_cat_test": x_cat[masks["test"]],
+            "y_train": y[masks["train"]],
+            "y_val": y[masks["val"]],
+            "y_test": y[masks["test"]],
+        }
+
+    raise KeyError(
+        "prepared_data.npz must contain either split arrays "
+        "(x_dyn_train/x_stat_train/y_train) or full arrays (x_dyn/x_static/y/split)."
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Train a global LSTM-based fire-risk neural net.")
+    parser.add_argument("--config-path", default="configs/features_config_30d_LSTM_early_fusion.yaml")
+    parser.add_argument("--data-dir", help="Directory containing prepared_data.npz.")
+    parser.add_argument("--data-path", help="Explicit path to prepared_data.npz.")
+    parser.add_argument("--model-path", help="Output Lightning checkpoint path.")
+    parser.add_argument("--plot-path", help="Directory for training plots.")
+    parser.add_argument("--metrics-path", help="Optional JSON path for final train/val/test metrics.")
+    return parser
+
+
 if __name__ == "__main__":
-    DATA_DIR = "data/saved_features/nn_train_data"
-    DATA_PATH = os.path.join(DATA_DIR, "prepared_data.npz")
-    MODEL_PATH = "models/lstm_ml_fire.ckpt"
-    PLOT_PATH = "outputs/plots_nn"
-    CONFIG_PATH = "configs/features_config_30d_LSTM_early_fusion.yaml"
+    args = build_parser().parse_args()
+    CONFIG_PATH = args.config_path
 
     # Load configuration
     with open(CONFIG_PATH, 'r') as f:
         config = yaml.safe_load(f)
+    DATA_DIR = args.data_dir or config.get("output_train_data_dir", "data/saved_features/nn_train_data")
+    DATA_PATH = args.data_path or os.path.join(DATA_DIR, "prepared_data.npz")
+    MODEL_PATH = args.model_path or config.get("nn_output_model_path", "models/lstm_ml_fire.ckpt")
+    PLOT_PATH = args.plot_path or config.get("output_nn_plots_dir", "outputs/plots_nn")
+    METRICS_PATH = args.metrics_path or config.get("nn_metrics_path")
     # Deterministic seeding for reproducibility across runs
     # Set `seed:` in YAML to override (defaults to 17)
     try:
@@ -509,27 +656,25 @@ if __name__ == "__main__":
         )
 
     data = np.load(DATA_PATH)
-    x_dyn_train = data["x_dyn_train"]
-    x_dyn_val = data["x_dyn_val"]
-    x_dyn_test = data["x_dyn_test"]
-    x_stat_train = data["x_stat_train"]
-    x_stat_val = data["x_stat_val"]
-    x_stat_test = data["x_stat_test"]
-    y_train = data["y_train"]
-    y_val = data["y_val"]
-    y_test = data["y_test"]
-    if "x_cat_train" in data:
-        x_cat_train = data["x_cat_train"].astype(np.int64)
-        x_cat_val = data["x_cat_val"].astype(np.int64)
-        x_cat_test = data["x_cat_test"].astype(np.int64)
-    else:
-        x_cat_train = np.zeros((x_dyn_train.shape[0], 0), dtype=np.int64)
-        x_cat_val = np.zeros((x_dyn_val.shape[0], 0), dtype=np.int64)
-        x_cat_test = np.zeros((x_dyn_test.shape[0], 0), dtype=np.int64)
+    prepared_arrays = load_prepared_training_arrays(data)
+    data_format = prepared_arrays.pop("format")
+    x_dyn_train = prepared_arrays["x_dyn_train"]
+    x_dyn_val = prepared_arrays["x_dyn_val"]
+    x_dyn_test = prepared_arrays["x_dyn_test"]
+    x_stat_train = prepared_arrays["x_stat_train"]
+    x_stat_val = prepared_arrays["x_stat_val"]
+    x_stat_test = prepared_arrays["x_stat_test"]
+    x_cat_train = prepared_arrays["x_cat_train"]
+    x_cat_val = prepared_arrays["x_cat_val"]
+    x_cat_test = prepared_arrays["x_cat_test"]
+    y_train = prepared_arrays["y_train"]
+    y_val = prepared_arrays["y_val"]
+    y_test = prepared_arrays["y_test"]
+    print(f"Loaded prepared NN data from {DATA_PATH} using '{data_format}' format.")
 
     train_end_cfg = config.get("train_end")
     val_end_cfg = config.get("val_end")
-    if train_end_cfg is not None and val_end_cfg is not None:
+    if data_format == "split" and train_end_cfg is not None and val_end_cfg is not None:
         def _load_indices_from_npz(key: str) -> np.ndarray:
             if key not in data:
                 return np.empty(0, dtype=int)
@@ -802,6 +947,7 @@ if __name__ == "__main__":
     
     # Selection metric can be configured in YAML: selection_metric: "sel_ap" or "val_ap"
     selection_metric = str(config.get("selection_metric", "sel_ap"))
+    compute_train_metrics = bool(config.get("compute_train_metrics", True))
     results = train_pipeline(
         x_dyn_train,
         x_stat_train,
@@ -823,20 +969,23 @@ if __name__ == "__main__":
         trainer_kwargs=trainer_params,
         class_weights=class_weights_cfg,
         selection_metric=selection_metric,
+        compute_train_predictions=compute_train_metrics,
     )
 
     model = results["model"]
     sample_w_train = results.get("sample_w_train", None)
     device = next(model.parameters()).device
 
-    y_train_probs = predict_probs(
-        model,
-        x_dyn_train,
-        x_stat_train,
-        x_cat_train,
-        batch_size=config['batch_size'],
-        device=device,
-    )
+    y_train_probs = None
+    if compute_train_metrics:
+        y_train_probs = predict_probs(
+            model,
+            x_dyn_train,
+            x_stat_train,
+            x_cat_train,
+            batch_size=config['batch_size'],
+            device=device,
+        )
     y_val_probs = results["y_val_probs"]
     y_test_probs = predict_probs(
         model,
@@ -850,23 +999,28 @@ if __name__ == "__main__":
     thr, best_f1_val = choose_threshold_f1(y_val, y_val_probs)
     print("Val threshold for F1:", thr, "val_f1:", best_f1_val)
 
-    metrics_train = calculate_metrics(
-        y_train,
-        y_train_probs,
-        threshold=thr,
-        sample_weight=sample_w_train,
+    metrics_train = (
+        calculate_metrics(
+            y_train,
+            y_train_probs,
+            threshold=thr,
+            sample_weight=sample_w_train,
+        )
+        if y_train_probs is not None
+        else {"precision": float("nan"), "recall": float("nan"), "f1": float("nan"), "ap": float("nan"), "threshold": thr}
     )
     metrics_val = calculate_metrics(y_val, y_val_probs, threshold=thr)
     metrics_test = calculate_metrics(y_test, y_test_probs, threshold=thr)
 
     print_metrics(metrics_train, metrics_val, metrics_test)
 
-    plot_recall_precision(
-        y_train,
-        y_train_probs,
-        out_path=os.path.join(PLOT_PATH, "pr_train.png"),
-        title="Train PR",
-    )
+    if y_train_probs is not None:
+        plot_recall_precision(
+            y_train,
+            y_train_probs,
+            out_path=os.path.join(PLOT_PATH, "pr_train.png"),
+            title="Train PR",
+        )
 
     plot_recall_precision(
         y_test,
@@ -874,6 +1028,37 @@ if __name__ == "__main__":
         out_path=os.path.join(PLOT_PATH, "pr_test.png"),
         title="Test PR",
     )
+
+    if METRICS_PATH:
+        metrics_out = {
+            "config_path": CONFIG_PATH,
+            "data_path": DATA_PATH,
+            "model_path": results.get("checkpoint_path") or MODEL_PATH,
+            "architecture": results.get("model_architecture"),
+            "model_config": results.get("model_config"),
+            "selection_metric": results.get("selection_metric"),
+            "validation_threshold": thr,
+            "validation_best_f1": best_f1_val,
+            "train": metrics_train,
+            "validation": metrics_val,
+            "test": metrics_test,
+            "split_sizes": {
+                "train": int(len(y_train)),
+                "validation": int(len(y_val)),
+                "test": int(len(y_test)),
+            },
+        }
+        metrics_dir = os.path.dirname(METRICS_PATH)
+        if metrics_dir:
+            os.makedirs(metrics_dir, exist_ok=True)
+        with open(METRICS_PATH, "w", encoding="utf-8") as handle:
+            json.dump(
+                metrics_out,
+                handle,
+                indent=2,
+                default=lambda value: float(value) if isinstance(value, np.generic) else str(value),
+            )
+        print(f"Saved metrics to {METRICS_PATH}")
 
     # Optional: prior-shift correction to reduce validation→test gap
     # Configure in YAML:

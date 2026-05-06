@@ -1,15 +1,20 @@
-import pandas as pd
+import hashlib
 import os, sys
+import re
+from pathlib import Path
+
+import pandas as pd
 import numpy as np
 import xarray as xr
 import time as time_lib
 import polars as pl
-from pandas import to_datetime
-import dask
-from dask.diagnostics import ProgressBar
-from dask.distributed import Client
+try:
+    from dask.distributed import Client
+    DASK_AVAILABLE = True
+except ImportError:
+    Client = None
+    DASK_AVAILABLE = False
 from tqdm import tqdm
-from functools import lru_cache
 sys.path.append(os.getcwd())
 from src.feature_generation.load_climate_data import load_climate_variable_mf
 
@@ -22,6 +27,8 @@ single_thread_debug = False
 def _get_dask_client():
     """Initializes the Dask client if it's not already running."""
     global client
+    if not DASK_AVAILABLE:
+        return None
     if client is None:
         if server_configuration:
             client = Client(
@@ -38,6 +45,227 @@ def _get_dask_client():
         print(client)
 
     return client
+
+
+def _safe_cache_token(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_")[:80]
+
+
+def _climate_matrix_cache_path(
+    cache_dir: str,
+    climate_data_dir: str,
+    variable: str,
+    coords_pl: pl.DataFrame,
+    n_days: int,
+) -> Path:
+    """Build a cache path keyed by target rows and raw climate input params."""
+
+    hasher = hashlib.blake2b(digest_size=16)
+    hasher.update(str(Path(climate_data_dir).resolve()).encode("utf-8"))
+    hasher.update(variable.encode("utf-8"))
+    hasher.update(str(n_days).encode("utf-8"))
+
+    cache_pd = coords_pl.select(["acq_date", "lat_rounded", "lon_rounded"]).to_pandas()
+    cache_pd["acq_date"] = pd.to_datetime(cache_pd["acq_date"]).astype("datetime64[ns]")
+    row_hashes = pd.util.hash_pandas_object(cache_pd, index=False).to_numpy(dtype=np.uint64)
+    hasher.update(row_hashes.tobytes())
+
+    return Path(cache_dir) / f"{_safe_cache_token(variable)}_{hasher.hexdigest()}.npy"
+
+
+def _save_matrix_cache(cache_path: Path, matrix: np.ndarray) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = cache_path.with_suffix(cache_path.suffix + ".tmp")
+    with tmp_path.open("wb") as fh:
+        np.save(fh, matrix, allow_pickle=False)
+    os.replace(tmp_path, cache_path)
+
+
+def _climate_block_source_token(climate_data_dir: str, variable: str, ds: xr.Dataset) -> str:
+    """Stable-enough source token for reusable climate slab cache files."""
+
+    payload = "|".join(
+        [
+            str(Path(climate_data_dir).resolve()),
+            variable,
+            str(tuple(ds[variable].shape)),
+            str(ds[variable].dtype),
+            str(ds["valid_time"].values[0]) if ds["valid_time"].size else "",
+            str(ds["valid_time"].values[-1]) if ds["valid_time"].size else "",
+            str(ds["latitude"].values[0]) if "latitude" in ds.coords and ds["latitude"].size else "",
+            str(ds["latitude"].values[-1]) if "latitude" in ds.coords and ds["latitude"].size else "",
+            str(ds["longitude"].values[0]) if "longitude" in ds.coords and ds["longitude"].size else "",
+            str(ds["longitude"].values[-1]) if "longitude" in ds.coords and ds["longitude"].size else "",
+        ]
+    )
+    return hashlib.blake2b(payload.encode("utf-8"), digest_size=16).hexdigest()
+
+
+def _climate_block_cache_path(
+    cache_dir: str,
+    source_token: str,
+    variable: str,
+    start_day: np.datetime64,
+    end_day: np.datetime64,
+    lat_start: int,
+    lat_stop: int,
+    lon_start: int,
+    lon_stop: int,
+) -> Path:
+    start_token = np.datetime_as_string(start_day.astype("datetime64[D]"), unit="D")
+    end_token = np.datetime_as_string(end_day.astype("datetime64[D]"), unit="D")
+    filename = (
+        f"{source_token}_{start_token}_{end_token}_"
+        f"lat{lat_start}-{lat_stop}_lon{lon_start}-{lon_stop}.npy"
+    )
+    return Path(cache_dir) / "climate_block_cache" / _safe_cache_token(variable) / filename
+
+
+def _load_block_cache(cache_path: Path, expected_shape: tuple[int, int, int]) -> np.ndarray | None:
+    if not cache_path.exists():
+        return None
+    try:
+        cached = np.load(cache_path, allow_pickle=False)
+    except Exception as exc:
+        print(f"Ignoring unreadable climate block cache {cache_path}: {exc}")
+        return None
+    if cached.shape != expected_shape:
+        print(f"Ignoring stale climate block cache {cache_path}: expected {expected_shape}, got {cached.shape}")
+        return None
+    return cached
+
+
+def _save_block_cache(cache_path: Path, block: np.ndarray) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = cache_path.with_suffix(cache_path.suffix + ".tmp")
+    with tmp_path.open("wb") as fh:
+        np.save(fh, block, allow_pickle=False)
+    os.replace(tmp_path, cache_path)
+
+
+def _nan_vector(length: int) -> np.ndarray:
+    return np.full(length, np.nan, dtype=np.float32)
+
+
+def _build_feature_matrix_vectorized(
+    ts_matrix_var: np.ndarray,
+    variable: str,
+    feature_params: dict,
+    feature_names: list[str],
+) -> np.ndarray | None:
+    """Fast matrix-wide equivalent of ``_extract_single_series`` for common features."""
+
+    if feature_params.get("add_autocorr") or feature_params.get("add_fft") or feature_params.get("add_cumu"):
+        return None
+
+    ts = np.asarray(ts_matrix_var, dtype=np.float32)
+    if ts.ndim != 2:
+        return None
+
+    max_length = feature_params.get("max_length")
+    if max_length:
+        ts = ts[:, -max_length:]
+    else:
+        ts = ts[:, :0]
+
+    n_rows, n_obs = ts.shape
+    var = variable.lower()
+    lags = feature_params.get("lags") or []
+    windows = feature_params.get("windows") or []
+    spans = feature_params.get("spans") or []
+    trend_windows = feature_params.get("trend_windows") or []
+
+    columns: list[np.ndarray] = []
+    names: list[str] = []
+
+    def add_column(name: str, values: np.ndarray) -> None:
+        columns.append(np.asarray(values, dtype=np.float32).reshape(n_rows))
+        names.append(name)
+
+    for lag in lags:
+        if n_obs >= lag:
+            values = ts[:, n_obs - lag]
+        else:
+            values = _nan_vector(n_rows)
+        add_column(f"{var}_lag_{lag}", values)
+
+    for window in windows:
+        if n_obs >= window:
+            window_values = ts[:, -window:]
+            add_column(f"{var}_mean_{window}", window_values.mean(axis=1))
+            add_column(f"{var}_std_{window}", window_values.std(axis=1))
+            if feature_params.get("add_roll_ext"):
+                add_column(f"{var}_min_{window}", window_values.min(axis=1))
+                add_column(f"{var}_max_{window}", window_values.max(axis=1))
+                add_column(f"{var}_median_{window}", np.median(window_values, axis=1))
+        else:
+            add_column(f"{var}_mean_{window}", _nan_vector(n_rows))
+            add_column(f"{var}_std_{window}", _nan_vector(n_rows))
+            if feature_params.get("add_roll_ext"):
+                add_column(f"{var}_min_{window}", _nan_vector(n_rows))
+                add_column(f"{var}_max_{window}", _nan_vector(n_rows))
+                add_column(f"{var}_median_{window}", _nan_vector(n_rows))
+
+    for span in spans:
+        if n_obs == 0:
+            values = _nan_vector(n_rows)
+        else:
+            alpha = np.float32(2.0 / (span + 1.0))
+            ewma = ts[:, 0].copy()
+            for col_idx in range(1, n_obs):
+                ewma += alpha * (ts[:, col_idx] - ewma)
+            values = ewma
+        add_column(f"{var}_ewm_{span}", values)
+
+    if feature_params.get("add_diff") or feature_params.get("add_pct"):
+        current = ts[:, -1] if n_obs else _nan_vector(n_rows)
+        for lag in lags:
+            if n_obs > lag:
+                previous = ts[:, -1 - lag]
+                if feature_params.get("add_diff"):
+                    add_column(f"{var}_diff_{lag}", current - previous)
+                if feature_params.get("add_pct"):
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        pct = np.where(previous != 0.0, (current - previous) / previous, np.nan)
+                    add_column(f"{var}_pct_change_{lag}", pct)
+            else:
+                if feature_params.get("add_diff"):
+                    add_column(f"{var}_diff_{lag}", _nan_vector(n_rows))
+                if feature_params.get("add_pct"):
+                    add_column(f"{var}_pct_change_{lag}", _nan_vector(n_rows))
+
+    if feature_params.get("add_trend"):
+        for window in trend_windows:
+            if n_obs >= window:
+                y = ts[:, -window:].astype(np.float32, copy=False)
+                x = np.arange(window, dtype=np.float32)
+                sum_x = np.float32(window * (window - 1) / 2.0)
+                sum_x2 = np.float32(window * (window - 1) * (2 * window - 1) / 6.0)
+                n = np.float32(window)
+                denom = n * sum_x2 - sum_x * sum_x
+                sum_y = y.sum(axis=1)
+                sum_xy = y @ x
+                with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+                    slope = (n * sum_xy - sum_x * sum_y) / denom
+                    intercept = (sum_y - slope * sum_x) / n
+                invalid = ~(np.isfinite(slope) & np.isfinite(intercept))
+                slope = slope.astype(np.float32, copy=False)
+                intercept = intercept.astype(np.float32, copy=False)
+                slope[invalid] = np.nan
+                intercept[invalid] = np.nan
+            else:
+                slope = _nan_vector(n_rows)
+                intercept = _nan_vector(n_rows)
+            add_column(f"{var}_trend_slope_{window}", slope)
+            add_column(f"{var}_trend_intercept_{window}", intercept)
+
+    if names != feature_names:
+        return None
+
+    if not columns:
+        return np.empty((n_rows, 0), dtype=np.float32)
+
+    return np.column_stack(columns).astype(np.float32, copy=False)
 
 
 def _build_climate_feature_dataframe(
@@ -99,17 +327,24 @@ def _build_climate_feature_dataframe(
         if not feature_names:
             continue
 
-        feature_matrix = np.empty((ts_matrix_var.shape[0], len(feature_names)), dtype=np.float32)
+        feature_matrix = _build_feature_matrix_vectorized(
+            ts_matrix_var,
+            variable,
+            feature_params,
+            feature_names,
+        )
 
-        for idx, row in enumerate(ts_matrix_var):
-            feature_values = _extract_single_series(
-                row,
-                variable,
-                **feature_params,
-            )
-            feature_matrix[idx, :] = [
-                np.float32(feature_values[name]) for name in feature_names
-            ]
+        if feature_matrix is None:
+            feature_matrix = np.empty((ts_matrix_var.shape[0], len(feature_names)), dtype=np.float32)
+            for idx, row in enumerate(ts_matrix_var):
+                feature_values = _extract_single_series(
+                    row,
+                    variable,
+                    **feature_params,
+                )
+                feature_matrix[idx, :] = [
+                    np.float32(feature_values[name]) for name in feature_names
+                ]
 
         feature_df = pd.DataFrame(feature_matrix, columns=feature_names)
         climate_feature_frames.append(feature_df)
@@ -173,7 +408,7 @@ def check_dataset_bounds(ds, target_df, n_days=129, time_coord_name="valid_time"
         return {'sufficient': True, 'details': {}}
 
     end_of_slices = pd.to_datetime(target_df['acq_date'].to_numpy()) # pd.Series for min/max
-    start_of_slices = (end_of_slices - pd.DateOffset(days=n_days))
+    start_of_slices = (end_of_slices - pd.DateOffset(days=max(n_days - 1, 0)))
     
     lats_pl = target_df["lat_rounded"]
     lons_pl = target_df["lon_rounded"]
@@ -242,19 +477,12 @@ def check_dataset_bounds(ds, target_df, n_days=129, time_coord_name="valid_time"
 
     lat_sufficient = False
     if ds_lat_min is not None and ds_lat_max is not None and required_lat_min is not None and required_lat_max is not None:
-        # Latitude is simpler as it doesn't wrap.
-        # Check for decreasing latitude coordinate order in ds
-        if 'latitude' in ds.coords and ds.latitude.size > 1 and ds.latitude.values[0] > ds.latitude.values[-1]:
-             # Dataset latitude is decreasing (e.g. 90 to -90)
-             if lat_tol is None:
-                 lat_sufficient = (ds_lat_max <= required_lat_min) and (ds_lat_min >= required_lat_max)
-             else:
-                 lat_sufficient = (ds_lat_max <= required_lat_min + lat_tol) and (ds_lat_min >= required_lat_max - lat_tol)
-        else: # Dataset latitude is increasing (e.g. -90 to 90) or single point
-             if lat_tol is None:
-                 lat_sufficient = (ds_lat_min <= required_lat_min) and (ds_lat_max >= required_lat_max)
-             else:
-                 lat_sufficient = (ds_lat_min <= required_lat_min + lat_tol) and (ds_lat_max >= required_lat_max - lat_tol)
+        # ds_lat_min/max are numeric extrema, so the coverage check is identical
+        # for increasing and decreasing latitude coordinates.
+        if lat_tol is None:
+            lat_sufficient = (ds_lat_min <= required_lat_min) and (ds_lat_max >= required_lat_max)
+        else:
+            lat_sufficient = (ds_lat_min <= required_lat_min + lat_tol) and (ds_lat_max >= required_lat_max - lat_tol)
 
     all_sufficient = time_sufficient and lat_sufficient and lon_sufficient
     
@@ -284,12 +512,246 @@ import logging
 from textwrap import indent
 
 
+def _nearest_coordinate_indices(coordinate_values: np.ndarray, requested: np.ndarray) -> np.ndarray:
+    """Vectorised nearest-neighbour lookup for monotonic climate coordinates."""
+
+    values = np.asarray(coordinate_values, dtype=np.float64)
+    requested = np.asarray(requested, dtype=np.float64)
+    if values.ndim != 1 or values.size == 0:
+        raise ValueError("Coordinate values must be a non-empty one-dimensional array.")
+    if requested.size == 0:
+        return np.empty(0, dtype=np.int64)
+    if values.size == 1:
+        return np.zeros(requested.size, dtype=np.int64)
+
+    diffs = np.diff(values)
+    if np.all(diffs >= 0):
+        sorted_values = values
+        reverse = False
+    elif np.all(diffs <= 0):
+        sorted_values = values[::-1]
+        reverse = True
+    else:
+        return np.fromiter(
+            (int(np.abs(values - val).argmin()) for val in requested),
+            dtype=np.int64,
+            count=requested.size,
+        )
+
+    idx = np.searchsorted(sorted_values, requested)
+    idx = np.clip(idx, 0, sorted_values.size - 1)
+    prev_idx = np.clip(idx - 1, 0, sorted_values.size - 1)
+
+    prev_dist = np.abs(sorted_values[prev_idx] - requested)
+    curr_dist = np.abs(sorted_values[idx] - requested)
+    use_prev = (prev_dist < curr_dist) & (idx > 0)
+    idx = np.where(use_prev, prev_idx, idx)
+
+    if reverse:
+        idx = sorted_values.size - 1 - idx
+
+    return idx.astype(np.int64, copy=False)
+
+
+def _chunk_size_for_dim(data_array: xr.DataArray, dim_name: str, fallback_size: int) -> int:
+    chunksizes = getattr(data_array, "chunksizes", None)
+    if chunksizes and dim_name in chunksizes and chunksizes[dim_name]:
+        return max(1, int(chunksizes[dim_name][0]))
+    return max(1, int(fallback_size))
+
+
+def _location_processing_order(
+    lat_indices: np.ndarray,
+    lon_indices: np.ndarray,
+    lat_chunk_size: int,
+    lon_chunk_size: int,
+) -> np.ndarray:
+    """Sort locations so each batch tends to hit the same backing array chunks."""
+
+    lat_bins = lat_indices // max(1, lat_chunk_size)
+    lon_bins = lon_indices // max(1, lon_chunk_size)
+    return np.lexsort((lon_indices, lat_indices, lon_bins, lat_bins))
+
+
+def _iter_location_chunk_batches(
+    location_order: np.ndarray,
+    lat_indices: np.ndarray,
+    lon_indices: np.ndarray,
+    lat_chunk_size: int,
+    lon_chunk_size: int,
+    location_batch_size: int,
+):
+    """Yield location ids grouped by backing spatial chunk."""
+
+    pos = 0
+    n_locations = location_order.size
+    while pos < n_locations:
+        first_loc = location_order[pos]
+        lat_bin = lat_indices[first_loc] // max(1, lat_chunk_size)
+        lon_bin = lon_indices[first_loc] // max(1, lon_chunk_size)
+        end = pos + 1
+        while end < n_locations:
+            loc = location_order[end]
+            if (
+                lat_indices[loc] // max(1, lat_chunk_size) != lat_bin
+                or lon_indices[loc] // max(1, lon_chunk_size) != lon_bin
+            ):
+                break
+            end += 1
+
+        chunk_locations = location_order[pos:end]
+        if location_batch_size > 0 and chunk_locations.size > location_batch_size:
+            for batch_start in range(0, chunk_locations.size, location_batch_size):
+                yield chunk_locations[batch_start:batch_start + location_batch_size], int(lat_bin), int(lon_bin)
+        else:
+            yield chunk_locations, int(lat_bin), int(lon_bin)
+        pos = end
+
+
+def _slab_bounds_for_locations(
+    batch_locations: np.ndarray,
+    lat_indices: np.ndarray,
+    lon_indices: np.ndarray,
+    lat_bin: int,
+    lon_bin: int,
+    lat_chunk_size: int,
+    lon_chunk_size: int,
+    lat_size: int,
+    lon_size: int,
+    max_spatial_cells: int,
+) -> tuple[int, int, int, int]:
+    chunk_lat_start = lat_bin * max(1, lat_chunk_size)
+    chunk_lon_start = lon_bin * max(1, lon_chunk_size)
+    chunk_lat_stop = min(chunk_lat_start + max(1, lat_chunk_size), lat_size)
+    chunk_lon_stop = min(chunk_lon_start + max(1, lon_chunk_size), lon_size)
+    chunk_cells = (chunk_lat_stop - chunk_lat_start) * (chunk_lon_stop - chunk_lon_start)
+
+    if chunk_cells <= max_spatial_cells:
+        return chunk_lat_start, chunk_lat_stop, chunk_lon_start, chunk_lon_stop
+
+    lat_start = int(lat_indices[batch_locations].min())
+    lat_stop = int(lat_indices[batch_locations].max()) + 1
+    lon_start = int(lon_indices[batch_locations].min())
+    lon_stop = int(lon_indices[batch_locations].max()) + 1
+    return lat_start, lat_stop, lon_start, lon_stop
+
+
+def _rows_grouped_by_location(row_to_location: np.ndarray, n_locations: int) -> tuple[np.ndarray, np.ndarray]:
+    row_order = np.argsort(row_to_location, kind="stable")
+    counts = np.bincount(row_to_location, minlength=n_locations)
+    offsets = np.empty(n_locations + 1, dtype=np.int64)
+    offsets[0] = 0
+    np.cumsum(counts, out=offsets[1:])
+    return row_order, offsets
+
+
+def _rows_for_location_batch(
+    batch_locations: np.ndarray,
+    row_order: np.ndarray,
+    location_offsets: np.ndarray,
+) -> np.ndarray:
+    parts = [
+        row_order[location_offsets[location_id]:location_offsets[location_id + 1]]
+        for location_id in batch_locations
+        if location_offsets[location_id] < location_offsets[location_id + 1]
+    ]
+    if not parts:
+        return np.empty(0, dtype=np.int64)
+    return np.concatenate(parts)
+
+
+def _iter_temporal_row_blocks(
+    row_indices: np.ndarray,
+    acq_dates: np.ndarray,
+    max_time_span_days: int,
+):
+    """Yield rows sorted into bounded acquisition-date spans."""
+
+    if row_indices.size == 0:
+        return
+
+    sorted_rows = row_indices[np.argsort(acq_dates[row_indices], kind="stable")]
+    if max_time_span_days <= 0:
+        yield sorted_rows
+        return
+
+    block_start = 0
+    block_start_date = acq_dates[sorted_rows[0]]
+    for pos in range(1, sorted_rows.size):
+        span_days = (acq_dates[sorted_rows[pos]] - block_start_date).astype("timedelta64[D]").astype(int)
+        if span_days > max_time_span_days:
+            yield sorted_rows[block_start:pos]
+            block_start = pos
+            block_start_date = acq_dates[sorted_rows[pos]]
+
+    yield sorted_rows[block_start:]
+
+
+def _compute_daily_slab(
+    var_data: xr.DataArray,
+    start_left: int,
+    end_right: int,
+    batch_start_day: np.datetime64,
+    batch_end_day: np.datetime64,
+    lat_start: int,
+    lat_stop: int,
+    lon_start: int,
+    lon_stop: int,
+    cache_path: Path | None,
+) -> np.ndarray:
+    time_rng = pd.date_range(
+        start=pd.Timestamp(batch_start_day),
+        end=pd.Timestamp(batch_end_day),
+        freq="D",
+    )
+    expected_shape = (len(time_rng), lat_stop - lat_start, lon_stop - lon_start)
+
+    if cache_path is not None:
+        cached = _load_block_cache(cache_path, expected_shape)
+        if cached is not None:
+            return cached
+
+    ts = var_data.isel(valid_time=slice(start_left, end_right))
+    if ts.sizes.get("valid_time", 0) == 0:
+        return np.full(expected_shape, np.nan, dtype=np.float32)
+
+    vt_vals_slice = ts["valid_time"].values
+    if vt_vals_slice.size != np.unique(vt_vals_slice).size:
+        _, uniq_idx = np.unique(vt_vals_slice, return_index=True)
+        ts = ts.isel(valid_time=np.sort(uniq_idx))
+
+    ts = ts.sortby("valid_time")
+    slab = ts.isel(
+        latitude=slice(lat_start, lat_stop),
+        longitude=slice(lon_start, lon_stop),
+    ).transpose("valid_time", "latitude", "longitude")
+
+    daily = (
+        slab.interp(
+            valid_time=("valid_time", time_rng),
+            kwargs={"fill_value": None, "bounds_error": False},
+        )
+        .compute()
+        .values
+    )
+
+    if cache_path is not None:
+        _save_block_cache(cache_path, daily)
+
+    return daily
+
+
 
 def extract_climate_timeseries(
     ds: xr.Dataset,
     variable: str,
     target_df_pl: pl.DataFrame,
     n_days: int = 120,
+    location_batch_size: int | None = None,
+    max_time_span_days: int | None = None,
+    fill_row_batch_size: int | None = None,
+    block_cache_dir: str | None = None,
+    block_cache_source_token: str | None = None,
     debug: bool = False,          # ← flip to True to get detailed output
 ) -> np.ndarray:
     """
@@ -342,30 +804,13 @@ def extract_climate_timeseries(
         vt_full = ds["valid_time"]
         vt_numeric = vt_full.values.astype("datetime64[ns]")
 
-    # cache latitude/longitude lookup so we do not interpolate full grids repeatedly
+    # Cache latitude/longitude lookup globally and read by location batches. This
+    # avoids re-reading the same overlapping windows for every acquisition date.
     if "latitude" not in ds.coords or "longitude" not in ds.coords:
         raise ValueError("Dataset must contain 'latitude' and 'longitude' coordinates.")
 
     lat_vals = np.asarray(ds["latitude"].values, dtype=float)
     lon_vals = np.asarray(ds["longitude"].values, dtype=float)
-    lat_lookup = {round(float(val), 5): idx for idx, val in enumerate(lat_vals)}
-    lon_lookup = {round(float(val), 5): idx for idx, val in enumerate(lon_vals)}
-
-    @lru_cache(maxsize=None)
-    def _coord_to_idx(lat_val: float, lon_val: float) -> tuple[int, int]:
-        lat_q = round(float(lat_val), 5)
-        lon_q = round(float(lon_val), 5)
-
-        ilat = lat_lookup.get(lat_q)
-        if ilat is None:
-            ilat = int(np.abs(lat_vals - float(lat_val)).argmin())
-            lat_lookup[lat_q] = ilat
-
-        ilon = lon_lookup.get(lon_q)
-        if ilon is None:
-            ilon = int(np.abs(lon_vals - float(lon_val)).argmin())
-            lon_lookup[lon_q] = ilon
-        return ilat, ilon
 
     # choose a dtype that can hold NaN
     out_dtype = (ds[variable].dtype
@@ -373,113 +818,163 @@ def extract_climate_timeseries(
                  else np.float32)
     out = np.full((n_rows, n_days), np.nan, dtype=out_dtype)
 
-    # keep original order
-    target_df_pl = target_df_pl.with_row_count(name="_row_idx")
+    target_pd = target_df_pl.select(["acq_date", "lat_rounded", "lon_rounded"]).to_pandas()
+    acq_dates = pd.to_datetime(target_pd["acq_date"]).to_numpy(dtype="datetime64[D]")
+    start_dates = acq_dates - np.timedelta64(n_days - 1, "D")
 
-    # ───────────── main loop over acquisition dates ─────────────
-    n_groups = int(target_df_pl.get_column("acq_date").n_unique())
+    xy = target_pd[["lat_rounded", "lon_rounded"]].to_numpy(dtype=np.float64)
+    unique_xy, row_to_location = np.unique(xy, axis=0, return_inverse=True)
+    n_locations = unique_xy.shape[0]
+
+    lat_indices = _nearest_coordinate_indices(lat_vals, unique_xy[:, 0])
+    lon_indices = _nearest_coordinate_indices(lon_vals, unique_xy[:, 1])
+
+    var_data = ds[variable]
+    lat_chunk_size = _chunk_size_for_dim(var_data, "latitude", len(lat_vals))
+    lon_chunk_size = _chunk_size_for_dim(var_data, "longitude", len(lon_vals))
+    location_order = _location_processing_order(lat_indices, lon_indices, lat_chunk_size, lon_chunk_size)
+    row_order, location_offsets = _rows_grouped_by_location(row_to_location, n_locations)
+
+    if location_batch_size is None:
+        location_batch_size = int(os.environ.get("CLIMATE_LOCATION_BATCH_SIZE", "0"))
+    location_batch_size = max(0, int(location_batch_size))
+
+    if max_time_span_days is None:
+        max_time_span_days = int(os.environ.get("CLIMATE_BATCH_MAX_SPAN_DAYS", "180"))
+    max_time_span_days = max(0, int(max_time_span_days))
+
+    if fill_row_batch_size is None:
+        fill_row_batch_size = int(os.environ.get("CLIMATE_FILL_ROW_BATCH_SIZE", "100000"))
+    fill_row_batch_size = max(1, int(fill_row_batch_size))
+
+    max_slab_spatial_cells = int(os.environ.get("CLIMATE_MAX_SLAB_SPATIAL_CELLS", "250000"))
+    max_slab_spatial_cells = max(1, max_slab_spatial_cells)
+
+    if debug:
+        log.info(
+            "unique locations: %d, location batch size: %d, max time span days: %d, fill row batch size: %d",
+            n_locations,
+            location_batch_size,
+            max_time_span_days,
+            fill_row_batch_size,
+        )
+
     progress_bar = None
-    if not debug and n_groups > 1:
+    if not debug and n_locations > 1:
         progress_bar = tqdm(
-            total=n_groups,
-            desc=f"{variable} windows",
-            unit="window",
+            total=n_locations,
+            desc=f"{variable} climate chunks",
+            unit="loc",
             mininterval=0.5,
             leave=False,
         )
 
-    var_data = ds[variable]
-    for key, group in target_df_pl.group_by("acq_date", maintain_order=True):
-        acq_date = pd.Timestamp(key[0])
-        end      = acq_date
-        start    = end - pd.Timedelta(days=n_days - 1)
-        time_rng = pd.date_range(end=end, periods=n_days, freq="D")
+    day_offsets = np.arange(n_days, dtype=np.int64)
 
-        if debug:
-            log.info("--- acq_date %s  (rows %d)", acq_date.date(), group.height)
-
-        # 1 ▸ slice by time (dataset already monotonic)
-        start64 = np.datetime64(start)
-        end64 = np.datetime64(end)
-        left = int(np.searchsorted(vt_numeric, start64, side="left"))
-        right = int(np.searchsorted(vt_numeric, end64, side="right"))
-
-        if right - left <= 0:
-            if debug:
-                log.warning("  • window empty - skipping (no overlapping timestamps)")
+    for batch_locations, lat_bin, lon_bin in _iter_location_chunk_batches(
+        location_order,
+        lat_indices,
+        lon_indices,
+        lat_chunk_size,
+        lon_chunk_size,
+        location_batch_size,
+    ):
+        row_indices = _rows_for_location_batch(batch_locations, row_order, location_offsets)
+        if row_indices.size == 0:
             if progress_bar:
-                progress_bar.update(1)
+                progress_bar.update(batch_locations.size)
             continue
 
-        ts = var_data.isel(valid_time=slice(left, right))
-
-        if ts.sizes.get("valid_time", 0) == 0:
-            if debug:
-                log.warning("  • window empty - skipping (all NaNs left intact)")
-            if progress_bar:
-                progress_bar.update(1)
-            continue
-
-        # 1b ▸ deduplicate & sort
-        vt_vals_slice = ts["valid_time"].values
-        if vt_vals_slice.size != np.unique(vt_vals_slice).size:
-            _, uniq_idx = np.unique(vt_vals_slice, return_index=True)
-            ts = ts.isel(valid_time=np.sort(uniq_idx))
-            if debug:
-                log.info("  • dropped %d duplicate timestamps",
-                         vt_vals_slice.size - uniq_idx.size)
-
-        ts = ts.sortby("valid_time")
-
-        if debug:
-            log.info("  • time slice size: %d  (%s … %s)",
-                     ts.sizes["valid_time"],
-                     pd.to_datetime(ts.valid_time.min().values),
-                     pd.to_datetime(ts.valid_time.max().values))
-
-        # 2 ▸ unique spatial lookup
-        xy          = np.column_stack([group["lat_rounded"], group["lon_rounded"]])
-        uniq_xy, inv = np.unique(xy, axis=0, return_inverse=True)
-        idx_pairs = np.array([_coord_to_idx(lat, lon) for lat, lon in uniq_xy], dtype=int)
-        lat_idx = xr.DataArray(idx_pairs[:, 0], dims="u_loc")
-        lon_idx = xr.DataArray(idx_pairs[:, 1], dims="u_loc")
-
-        grid = ts.isel(latitude=lat_idx, longitude=lon_idx).transpose("u_loc", "valid_time")
-
-        # quick stats before daily re-gridding
-        if debug:
-            gdat = grid.values
-            log.info(
-                indent(
-                    f"""grid: min={np.nanmin(gdat):.2f}  max={np.nanmax(gdat):.2f}"""
-                    f"""  nan%={np.isnan(gdat).mean()*100:.1f}%""",
-                    prefix="    ",
-                )
-            )
-
-        # 3 ▸ daily re-grid
-        daily = (
-            grid.interp(
-                valid_time=("valid_time", time_rng),
-                kwargs={"fill_value": None, "bounds_error": False},
-            )
-            .compute()
-            .values[inv]
+        lat_start, lat_stop, lon_start, lon_stop = _slab_bounds_for_locations(
+            batch_locations,
+            lat_indices,
+            lon_indices,
+            lat_bin,
+            lon_bin,
+            lat_chunk_size,
+            lon_chunk_size,
+            len(lat_vals),
+            len(lon_vals),
+            max_slab_spatial_cells,
         )
-        if debug:
-            log.info(
-                indent(
-                    f"""daily: min={np.nanmin(daily):.2f}  max={np.nanmax(daily):.2f}"""
-                    f"""  nan%={np.isnan(daily).mean()*100:.1f}%""",
-                    prefix="    ",
+        local_lat_by_location = lat_indices - lat_start
+        local_lon_by_location = lon_indices - lon_start
+
+        for time_block_rows in _iter_temporal_row_blocks(row_indices, acq_dates, max_time_span_days):
+            block_locations = np.unique(row_to_location[time_block_rows])
+            batch_start_day = start_dates[time_block_rows].min()
+            batch_end_day = acq_dates[time_block_rows].max()
+
+            if debug:
+                log.info(
+                    "chunk lat=%d lon=%d (%d loc, %d rows, %s … %s)",
+                    lat_bin,
+                    lon_bin,
+                    block_locations.size,
+                    time_block_rows.size,
+                    pd.Timestamp(batch_start_day).date(),
+                    pd.Timestamp(batch_end_day).date(),
                 )
+
+            left = int(np.searchsorted(vt_numeric, batch_start_day.astype("datetime64[ns]"), side="left"))
+            right = int(np.searchsorted(vt_numeric, batch_end_day.astype("datetime64[ns]"), side="right"))
+
+            if right - left <= 0:
+                if debug:
+                    log.warning("  • batch window empty - skipping (no overlapping timestamps)")
+                continue
+
+            cache_path = None
+            if block_cache_dir and block_cache_source_token:
+                cache_path = _climate_block_cache_path(
+                    block_cache_dir,
+                    block_cache_source_token,
+                    variable,
+                    batch_start_day,
+                    batch_end_day,
+                    lat_start,
+                    lat_stop,
+                    lon_start,
+                    lon_stop,
+                )
+
+            daily = _compute_daily_slab(
+                var_data,
+                left,
+                right,
+                batch_start_day,
+                batch_end_day,
+                lat_start,
+                lat_stop,
+                lon_start,
+                lon_stop,
+                cache_path,
             )
 
-        # 4 ▸ write into output
-        out[group["_row_idx"].to_numpy()] = daily
+            if debug:
+                log.info(
+                    indent(
+                        f"""daily: min={np.nanmin(daily):.2f}  max={np.nanmax(daily):.2f}"""
+                        f"""  nan%={np.isnan(daily).mean()*100:.1f}%""",
+                        prefix="    ",
+                    )
+                )
+
+            local_lats = local_lat_by_location[row_to_location[time_block_rows]]
+            local_lons = local_lon_by_location[row_to_location[time_block_rows]]
+            row_offsets_days = (acq_dates[time_block_rows] - batch_start_day).astype("timedelta64[D]").astype(np.int64)
+
+            for fill_start in range(0, time_block_rows.size, fill_row_batch_size):
+                fill_stop = min(time_block_rows.size, fill_start + fill_row_batch_size)
+                fill_rows = time_block_rows[fill_start:fill_stop]
+                fill_lats = local_lats[fill_start:fill_stop]
+                fill_lons = local_lons[fill_start:fill_stop]
+                fill_offsets = row_offsets_days[fill_start:fill_stop]
+                window_indices = fill_offsets[:, None] - (n_days - 1) + day_offsets[None, :]
+                out[fill_rows] = daily[window_indices, fill_lats[:, None], fill_lons[:, None]]
 
         if progress_bar:
-            progress_bar.update(1)
+            progress_bar.update(batch_locations.size)
 
     if progress_bar:
         progress_bar.close()
@@ -509,6 +1004,10 @@ def prepare_data(
     features_to_include_config: dict = None,
     use_cached_files: bool = False,
     return_features_df: bool = False,
+    location_batch_size: int | None = None,
+    max_time_span_days: int | None = None,
+    persist_dataset: bool = False,
+    strict_climate_bounds: bool = True,
 ):
     """
     Loads climate data, extracts time series, computes features, and merges them.
@@ -588,10 +1087,48 @@ def prepare_data(
 
     total_variables = len(climate_variables)
     elapsed_per_variable: list[float] = []
+    use_matrix_cache = use_cached_files and os.environ.get("CLIMATE_MATRIX_CACHE", "1") != "0"
+    use_block_cache = use_cached_files and os.environ.get("CLIMATE_BLOCK_CACHE", "1") != "0"
 
     for idx, variable in enumerate(climate_variables, start=1):
         print(f"\n[{idx}/{total_variables}] Processing variable: {variable}")
         load_start = time_lib.time()
+        matrix_cache_path = (
+            _climate_matrix_cache_path(
+                cache_dir,
+                climate_data_dir,
+                variable,
+                coords_pl,
+                n_days,
+            )
+            if use_matrix_cache
+            else None
+        )
+
+        if matrix_cache_path is not None and matrix_cache_path.exists():
+            cache_start = time_lib.time()
+            ts_matrix_var = np.load(matrix_cache_path, allow_pickle=False)
+            if ts_matrix_var.shape == (target_df_pl.height, n_days):
+                print(
+                    f"Loaded cached raw climate matrix for {variable} from "
+                    f"{matrix_cache_path} in {time_lib.time() - cache_start:.2f}s"
+                )
+                ts_matrix_var_list.append(ts_matrix_var)
+                elapsed = time_lib.time() - load_start
+                elapsed_per_variable.append(elapsed)
+                remaining = total_variables - idx
+                if remaining > 0:
+                    avg_time = sum(elapsed_per_variable) / len(elapsed_per_variable)
+                    eta_minutes = (avg_time * remaining) / 60
+                    print(f"Completed {variable} in {elapsed:.2f}s. Estimated remaining: {eta_minutes:.2f} minutes for {remaining} variables.")
+                else:
+                    print(f"Completed {variable} in {elapsed:.2f}s.")
+                continue
+
+            print(
+                f"Ignoring stale cache for {variable}: expected "
+                f"{(target_df_pl.height, n_days)}, got {ts_matrix_var.shape}"
+            )
 
         try:
             ds = load_climate_variable_mf(
@@ -605,22 +1142,36 @@ def prepare_data(
             raise ValueError(f"Error loading data for variable {variable}: {e}")
             
         print(f"Initial dataset load/reference for {variable}: {time_lib.time() - load_start:.2f}s")
-
-        dask_client = _get_dask_client()
-        persist_start = time_lib.time()
-        ds = ds.persist()
-        persist_time = time_lib.time() - persist_start
-        client_desc = "distributed" if dask_client else "local"
-        print(
-            f"Dataset persisted in distributed memory ({persist_time:.2f}s) using {client_desc} client."
+        block_cache_source_token = (
+            _climate_block_source_token(climate_data_dir, variable, ds)
+            if use_block_cache
+            else None
         )
+
+        if persist_dataset:
+            dask_client = _get_dask_client()
+            persist_start = time_lib.time()
+            ds = ds.persist()
+            persist_time = time_lib.time() - persist_start
+            client_desc = "distributed" if dask_client else "local"
+            print(
+                f"Dataset persisted in distributed memory ({persist_time:.2f}s) using {client_desc} client."
+            )
+        else:
+            print("Dataset-wide persist disabled; streaming location batches from disk.")
 
         # Perform bounds check (optional, but good for diagnostics)
         bounds_check_result = check_dataset_bounds(ds, target_df_pl, n_days=n_days)
         print_dataset_bounds_check(variable, bounds_check_result)
         if not bounds_check_result['sufficient']:
-                print(f"Warning: Dataset for {variable} may not fully cover required data ranges. Results might be incomplete.")
-                # Decide if to continue or raise error. For now, continue with warning.
+            message = (
+                f"Dataset for {variable} does not fully cover required target "
+                "time/latitude/longitude ranges. Climate features would contain "
+                "missing or partial windows."
+            )
+            if strict_climate_bounds:
+                raise ValueError(message)
+            print(f"Warning: {message}")
 
         raw_start = time_lib.time()
 
@@ -629,11 +1180,19 @@ def prepare_data(
             ds, variable,
             coords_pl,
             n_days=n_days,
+            location_batch_size=location_batch_size,
+            max_time_span_days=max_time_span_days,
+            block_cache_dir=cache_dir if use_block_cache else None,
+            block_cache_source_token=block_cache_source_token,
         )
 
         print(f"Raw‐series extraction time for {variable}: {time_lib.time() - raw_start:.2f}s")
         print(f"variable {variable} time series matrix shape: {ts_matrix_var.shape}")
         ts_matrix_var_list.append(ts_matrix_var)
+        if matrix_cache_path is not None:
+            cache_write_start = time_lib.time()
+            _save_matrix_cache(matrix_cache_path, ts_matrix_var)
+            print(f"Saved raw climate matrix cache for {variable} in {time_lib.time() - cache_write_start:.2f}s")
         ds.close()
 
         elapsed = time_lib.time() - load_start
