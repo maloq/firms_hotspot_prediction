@@ -6,10 +6,10 @@ artifacts. This script turns those outputs into per-experiment folders with:
 
   description.md
   analysis.md
-  tables/*.csv          (presentation tables, capped at six columns)
-  plots/png/*.png
-  plots/pdf/*.pdf
-  artifacts/*          (raw JSONL tables, manifests, symlinks to models/data)
+  tables/*.csv          (presentation tables, capped at six columns, when present)
+  plots/png/*.png       (when present)
+  plots/pdf/*.pdf       (when present)
+  artifacts/*          (raw JSONL tables, manifests, symlinks to models/data, when present)
 
 It also removes .tex files from the result directory and archives wide raw CSV
 tables as JSONL.GZ artifacts so that all remaining CSV files are small,
@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
+
+from .filesystem import prune_empty_dirs
 
 
 ROOT = Path("results/revision_experiments_complete")
@@ -148,6 +150,7 @@ def load_all_tables() -> dict[str, pd.DataFrame]:
             "feature_importance_native.csv",
             "grouped_permutation_importance.csv",
             "grouped_permutation_importance_by_year.csv",
+            "climate_window_permutation_importance.csv",
             "shap_importance.csv",
             "era5_feature_schema.csv",
             "era5_seas5_common_schema.csv",
@@ -369,8 +372,6 @@ class Builder:
 
     def start(self, exp: Experiment) -> Path:
         d = self.exp_dir(exp)
-        for sub in ["tables", "plots/png", "plots/pdf", "artifacts"]:
-            mkdir(d / sub)
         notes = "\n".join(f"- {note}" for note in exp.notes)
         sources = "\n".join(f"- `{name}`" for name in exp.source_tables)
         write_text(
@@ -403,6 +404,7 @@ class Builder:
             for suffix, subdir in [(".png", "png"), (".pdf", "pdf")]:
                 src = plot_source(stem, suffix)
                 if src:
+                    mkdir(d / "plots" / subdir)
                     shutil.copy2(src, d / "plots" / subdir / src.name)
 
     def write_artifacts(self, d: Path, exp: Experiment) -> None:
@@ -436,6 +438,7 @@ class Builder:
     def write_table(self, d: Path, filename: str, df: pd.DataFrame) -> None:
         if len(df.columns) > 6:
             raise ValueError(f"{filename} has {len(df.columns)} columns")
+        mkdir(d / "tables")
         df.to_csv(d / "tables" / filename, index=False)
 
     def write_analysis(self, d: Path, lines: Iterable[str]) -> None:
@@ -634,10 +637,10 @@ class Builder:
                 [
                     ("Model", "Model"),
                     ("Feature set", "Feature Set"),
-                    ("support", "Support"),
-                    ("positives", "Positives"),
                     ("f1", "F1"),
+                    ("F1 error", "F1 Error"),
                     ("PR-AUC", "PR-AUC"),
+                    ("PR-AUC error", "PR-AUC Error"),
                 ],
                 sort_by=["Model"],
             ),
@@ -678,10 +681,10 @@ class Builder:
                 [
                     ("Region", "Region"),
                     ("Model", "Model"),
-                    ("precision", "Precision"),
-                    ("recall", "Recall"),
                     ("f1", "F1"),
+                    ("F1 error", "F1 Error"),
                     ("PR-AUC", "PR-AUC"),
+                    ("PR-AUC error", "PR-AUC Error"),
                 ],
                 sort_by=["Region", "Model"],
             ),
@@ -707,10 +710,10 @@ class Builder:
                     [
                         ("period", "Year"),
                         ("model", "Model"),
-                        ("support", "Support"),
-                        ("positives", "Positives"),
                         ("f1", "F1"),
+                        ("f1_error", "F1 Error"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Year", "Model"],
                 ),
@@ -724,9 +727,10 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Year"),
                         ("model", "Model"),
-                        ("support", "Support"),
                         ("f1", "F1"),
+                        ("f1_error", "F1 Error"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Year", "Model"],
                 ),
@@ -740,9 +744,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Period"),
                         ("model", "Model"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Period", "Model"],
                 ),
@@ -771,10 +775,10 @@ class Builder:
                 g,
                 [
                     ("Experiment", "Experiment"),
-                    ("Feature set", "Feature Set"),
                     ("f1", "F1"),
+                    ("F1 error", "F1 Error"),
                     ("PR-AUC", "PR-AUC"),
-                    ("Delta F1 vs full", "Delta F1"),
+                    ("PR-AUC error", "PR-AUC Error"),
                     ("Delta PR-AUC vs full", "Delta PR-AUC"),
                 ],
                 sort_by=["Experiment"],
@@ -823,9 +827,9 @@ class Builder:
                     ("Region", "Region"),
                     ("Experiment", "Experiment"),
                     ("f1", "F1"),
+                    ("F1 error", "F1 Error"),
                     ("PR-AUC", "PR-AUC"),
-                    ("Delta F1 vs full", "Delta F1"),
-                    ("Delta PR-AUC vs full", "Delta PR-AUC"),
+                    ("PR-AUC error", "PR-AUC Error"),
                 ],
                 sort_by=["Region", "Experiment"],
             ),
@@ -854,7 +858,7 @@ class Builder:
                         ("feature_set", "Feature Set"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
-                        ("delta_average_precision_vs_full", "Delta PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Year", "Feature Set"],
                 ),
@@ -870,7 +874,7 @@ class Builder:
                         ("feature_set", "Feature Set"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
-                        ("delta_average_precision_vs_full", "Delta PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Period", "Feature Set"],
                 ),
@@ -907,10 +911,10 @@ class Builder:
                 g,
                 [
                     ("experiment", "Variant"),
-                    ("support", "Support"),
-                    ("positives", "Positives"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
+                    ("average_precision_error", "PR-AUC Error"),
                     ("threshold", "Threshold"),
                 ],
                 sort_by=["Variant"],
@@ -936,10 +940,10 @@ class Builder:
                 [
                     ("region_display", "Region"),
                     ("experiment", "Variant"),
-                    ("precision", "Precision"),
-                    ("recall", "Recall"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
+                    ("average_precision_error", "PR-AUC Error"),
                 ],
                 sort_by=["Region", "Variant"],
             ),
@@ -966,9 +970,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Year"),
                         ("experiment", "Variant"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Year", "Variant"],
                 ),
@@ -982,9 +986,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Period"),
                         ("experiment", "Variant"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Period", "Variant"],
                 ),
@@ -1012,11 +1016,11 @@ class Builder:
                 g,
                 [
                     ("experiment", "Variant"),
-                    ("support", "Support"),
                     ("positive_rate", "Positive Rate"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
-                    ("threshold", "Threshold"),
+                    ("average_precision_error", "PR-AUC Error"),
                 ],
                 sort_by=["Variant"],
             ),
@@ -1040,10 +1044,10 @@ class Builder:
                 [
                     ("region_display", "Region"),
                     ("experiment", "Variant"),
-                    ("precision", "Precision"),
-                    ("recall", "Recall"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
+                    ("average_precision_error", "PR-AUC Error"),
                 ],
                 sort_by=["Region", "Variant"],
             ),
@@ -1069,9 +1073,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Year"),
                         ("experiment", "Variant"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Year", "Variant"],
                 ),
@@ -1085,9 +1089,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Period"),
                         ("experiment", "Variant"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Period", "Variant"],
                 ),
@@ -1116,10 +1120,10 @@ class Builder:
                 g,
                 [
                     ("lead_time_days", "Lead Days"),
-                    ("support", "Support"),
-                    ("positives", "Positives"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
+                    ("average_precision_error", "PR-AUC Error"),
                     ("threshold", "Threshold"),
                 ],
                 sort_by=["Lead Days"],
@@ -1151,10 +1155,10 @@ class Builder:
                 [
                     ("region_display", "Region"),
                     ("lead_time_days", "Lead Days"),
-                    ("precision", "Precision"),
-                    ("recall", "Recall"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
+                    ("average_precision_error", "PR-AUC Error"),
                 ],
                 sort_by=["Region", "Lead Days"],
             ),
@@ -1181,9 +1185,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Year"),
                         ("lead_time_days", "Lead Days"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Year", "Lead Days"],
                 ),
@@ -1197,9 +1201,9 @@ class Builder:
                         ("region_display", "Region"),
                         ("period", "Period"),
                         ("lead_time_days", "Lead Days"),
-                        ("support", "Support"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Region", "Period", "Lead Days"],
                 ),
@@ -1227,10 +1231,10 @@ class Builder:
                 [
                     ("experiment", "Experiment"),
                     ("status", "Status"),
-                    ("precision", "Precision"),
-                    ("recall", "Recall"),
                     ("f1", "F1"),
+                    ("f1_error", "F1 Error"),
                     ("average_precision", "PR-AUC"),
+                    ("average_precision_error", "PR-AUC Error"),
                 ],
                 sort_by=["Experiment"],
             ),
@@ -1262,7 +1266,7 @@ class Builder:
                         ("region_display", "Region"),
                         ("f1", "F1"),
                         ("average_precision", "PR-AUC"),
-                        ("notes", "Notes"),
+                        ("average_precision_error", "PR-AUC Error"),
                     ],
                     sort_by=["Experiment"],
                 ),
@@ -1281,6 +1285,7 @@ class Builder:
         native = self.dfs.get("feature_importance_native.csv", pd.DataFrame())
         grouped = self.dfs.get("grouped_permutation_importance.csv", pd.DataFrame())
         grouped_y = self.dfs.get("grouped_permutation_importance_by_year.csv", pd.DataFrame())
+        climate_window = self.dfs.get("climate_window_permutation_importance.csv", pd.DataFrame())
         shap = self.dfs.get("shap_importance.csv", pd.DataFrame())
         if not native.empty:
             exp = Experiment(
@@ -1315,8 +1320,12 @@ class Builder:
                 "21_grouped_permutation_importance",
                 "Grouped Permutation Importance",
                 "Measures group-level performance drops after permuting feature sources.",
-                ["grouped_permutation_importance.csv", "grouped_permutation_importance_by_year.csv"],
-                ["grouped_permutation_importance"],
+                [
+                    "grouped_permutation_importance.csv",
+                    "grouped_permutation_importance_by_year.csv",
+                    "climate_window_permutation_importance.csv",
+                ],
+                ["grouped_permutation_importance", "climate_window_permutation_importance"],
                 artifact_globs=["models/catboost_full*"],
             )
             d = self.start(exp)
@@ -1329,12 +1338,28 @@ class Builder:
                         ("group", "Group"),
                         ("feature_count", "Features"),
                         ("pr_auc_drop", "PR-AUC Drop"),
+                        ("pr_auc_drop_error", "Drop Error"),
                         ("f1_drop", "F1 Drop"),
-                        ("roc_auc_drop", "ROC-AUC Drop"),
                     ],
                     sort_by=["Group"],
                 ),
             )
+            if not climate_window.empty:
+                self.write_table(
+                    d,
+                    "climate_window_permutation_importance.csv",
+                    select_table(
+                        climate_window,
+                        [
+                            ("group", "Window"),
+                            ("feature_count", "Features"),
+                            ("pr_auc_drop", "PR-AUC Drop"),
+                            ("pr_auc_drop_error", "Drop Error"),
+                            ("f1_drop", "F1 Drop"),
+                        ],
+                        sort_by=["Window"],
+                    ),
+                )
             if grouped_y is not None and not grouped_y.empty:
                 self.write_table(
                     d,
@@ -1427,10 +1452,9 @@ Each experiment folder contains:
 
 - `description.md`: what the experiment studies.
 - `analysis.md`: compact automatic interpretation.
-- `tables/`: readable CSV tables capped at six columns.
-- `plots/png/`: PNG plots for that experiment.
-- `plots/pdf/`: PDF plots for that experiment.
-- `artifacts/`: raw JSONL sources, schemas, manifests, and symlinks to reusable outputs.
+- `tables/`: readable CSV tables capped at six columns when the experiment has presentation tables.
+- `plots/png/` and `plots/pdf/`: copied only when plots exist.
+- `artifacts/`: raw JSONL sources, schemas, manifests, and symlinks to reusable outputs when available.
 
 ## Experiments
 {rows}
@@ -1466,7 +1490,7 @@ def write_root_readme() -> None:
 
 This directory has been reorganized into a clean experiment library.
 
-- `experiments/`: reader-facing experiment folders with descriptions, analysis, narrow CSV tables, PNG plots, PDF plots, and per-experiment artifacts.
+- `experiments/`: reader-facing experiment folders with descriptions, analysis, narrow CSV tables, plots, and per-experiment artifacts when those outputs exist.
 - `shared_artifacts/`: reusable raw sources, configs, logs, models, predictions, target caches, neural data, and original mixed plot files.
 No `.tex` files are kept in this result tree. All remaining CSV files are capped at six columns; wide raw tables were archived as JSONL.GZ plus schema JSON files under `shared_artifacts/`.
 
@@ -1505,6 +1529,7 @@ def main(argv: list[str] | None = None) -> None:
     builder.write_index()
 
     write_root_readme()
+    prune_empty_dirs(ROOT)
     verify_outputs()
 
 

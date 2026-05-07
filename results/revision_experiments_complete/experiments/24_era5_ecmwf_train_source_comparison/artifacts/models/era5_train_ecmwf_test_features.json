@@ -1,4 +1,76 @@
 {
+  "candidate_rows": [
+    {
+      "best_iteration": 11,
+      "candidate": "logloss_early_stop",
+      "eligible": false,
+      "eval_metric": "Logloss",
+      "params": {
+        "allow_writing_files": false,
+        "class_weights": [
+          1.0,
+          4.0
+        ],
+        "depth": 5,
+        "eval_metric": "Logloss",
+        "feature_weights": {
+          "ecoregion_name": 0.4,
+          "lat_rounded": 0.4,
+          "lon_rounded": 0.4
+        },
+        "iterations": 450,
+        "l2_leaf_reg": 0.35,
+        "learning_rate": 0.03,
+        "loss_function": "Logloss",
+        "min_data_in_leaf": 80,
+        "random_seed": 42,
+        "random_strength": 1.0,
+        "task_type": "CPU",
+        "verbose": 100
+      },
+      "status": "completed",
+      "tree_count": 12,
+      "use_best_model": true,
+      "validation_f1": 0.5628446142491208,
+      "validation_pr_auc": 0.46059043612247635,
+      "validation_threshold": 0.36915066838264465
+    },
+    {
+      "best_iteration": 11,
+      "candidate": "logloss_full_iterations",
+      "eligible": true,
+      "eval_metric": "Logloss",
+      "params": {
+        "allow_writing_files": false,
+        "class_weights": [
+          1.0,
+          4.0
+        ],
+        "depth": 5,
+        "eval_metric": "Logloss",
+        "feature_weights": {
+          "ecoregion_name": 0.4,
+          "lat_rounded": 0.4,
+          "lon_rounded": 0.4
+        },
+        "iterations": 450,
+        "l2_leaf_reg": 0.35,
+        "learning_rate": 0.03,
+        "loss_function": "Logloss",
+        "min_data_in_leaf": 80,
+        "random_seed": 42,
+        "random_strength": 1.0,
+        "task_type": "CPU",
+        "verbose": 100
+      },
+      "status": "completed",
+      "tree_count": 450,
+      "use_best_model": false,
+      "validation_f1": 0.6287208195393643,
+      "validation_pr_auc": 0.602019779030566,
+      "validation_threshold": 0.06242578104138374
+    }
+  ],
   "categorical_features": [
     "ecoregion_name",
     "ecoregion_realm",
@@ -270,14 +342,55 @@
       4.0
     ],
     "depth": 5,
-    "eval_metric": "F1",
-    "iterations": 260,
+    "eval_metric": "Logloss",
+    "feature_weights": {
+      "ecoregion_name": 0.4,
+      "lat_rounded": 0.4,
+      "lon_rounded": 0.4
+    },
+    "iterations": 450,
     "l2_leaf_reg": 0.35,
     "learning_rate": 0.03,
     "loss_function": "Logloss",
     "min_data_in_leaf": 80,
     "random_seed": 42,
     "random_strength": 1.0,
+    "task_type": "CPU",
     "verbose": 100
+  },
+  "selected_candidate": {
+    "best_iteration": 11,
+    "candidate": "logloss_full_iterations",
+    "eligible": true,
+    "eval_metric": "Logloss",
+    "params": {
+      "allow_writing_files": false,
+      "class_weights": [
+        1.0,
+        4.0
+      ],
+      "depth": 5,
+      "eval_metric": "Logloss",
+      "feature_weights": {
+        "ecoregion_name": 0.4,
+        "lat_rounded": 0.4,
+        "lon_rounded": 0.4
+      },
+      "iterations": 450,
+      "l2_leaf_reg": 0.35,
+      "learning_rate": 0.03,
+      "loss_function": "Logloss",
+      "min_data_in_leaf": 80,
+      "random_seed": 42,
+      "random_strength": 1.0,
+      "task_type": "CPU",
+      "verbose": 100
+    },
+    "status": "completed",
+    "tree_count": 450,
+    "use_best_model": false,
+    "validation_f1": 0.6287208195393643,
+    "validation_pr_auc": 0.602019779030566,
+    "validation_threshold": 0.06242578104138374
   }
 }

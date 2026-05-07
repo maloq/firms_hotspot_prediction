@@ -49,6 +49,10 @@ class EvaluationConfig:
     catboost_iterations: int = 450
     followup_catboost_iterations: int = 260
     catboost_task_type: str = "GPU"
+    random_error_trials: int = 5
+    random_error_sample_size: int = 50_000
+    permutation_trials: int = 5
+    permutation_sample_size: int = 50_000
     new_nn_models: list[str] = field(default_factory=lambda: list(ALL_NN_MODELS))
     nn_metrics_glob: str = "outputs/nn_global_full_*/metrics.json"
 

@@ -1,4 +1,19 @@
 {
+  "catboost_training": {
+    "early_stopping_rounds": 100,
+    "candidate_eval_metrics": [
+      "Logloss"
+    ],
+    "feature_weights": {
+      "ecoregion_name": 0.4,
+      "lat_rounded": 0.4,
+      "lon_rounded": 0.4
+    },
+    "iterations": 450,
+    "min_tree_count": 20,
+    "selection_metric": "validation_f1",
+    "training_mode": "robust"
+  },
   "climate_columns": [
     "t2m_lag_7",
     "t2m_lag_14",
@@ -165,23 +180,23 @@
   ],
   "common_footprint": {
     "era5_max_time": "2018-12-31T00:00:00",
-    "era5_min_time": "2009-01-01T00:00:00",
+    "era5_min_time": "2000-01-01T00:00:00",
     "lat_max": 75.0,
     "lat_min": 35.0,
     "lon_max": 179.0,
     "lon_min": 10.0,
     "train_end": "2018-12-31T00:00:00",
-    "train_start": "2009-05-09T00:00:00"
+    "train_start": "2001-01-01T00:00:00"
   },
   "positives": {
     "test": 50716,
-    "train": 99767,
+    "train": 177824,
     "validation": 29292
   },
   "rows": {
     "spatial_all_years": 2180173,
     "test": 406987,
-    "train": 854832,
+    "train": 1578715,
     "validation": 184739
   }
 }

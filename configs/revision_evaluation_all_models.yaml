@@ -25,6 +25,10 @@ era5_dir: /home/ids/vmorozov/era5
 catboost_iterations: 450
 followup_catboost_iterations: 260
 catboost_task_type: GPU
+random_error_trials: 5
+random_error_sample_size: 50000
+permutation_trials: 5
+permutation_sample_size: 50000
 
 nn_metrics_glob: outputs/nn_global_full_*/metrics.json
 new_nn_models:

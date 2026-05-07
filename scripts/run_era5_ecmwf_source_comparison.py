@@ -53,12 +53,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.feature_generation.prepare_climate_data import prepare_data
+from src.revision_evaluation.filesystem import prune_empty_dirs
 from src.revision_evaluation.tabular import (
     DATE_COLUMN,
     LAT_COLUMN,
     LON_COLUMN,
     TARGET_COLUMN,
     Region,
+    compute_metric_errors,
     load_regions,
     model_feature_columns,
     normalize_cat_columns,
@@ -74,6 +76,11 @@ WINDOWS = [7, 14, 30, 90, 120]
 SPANS = [7, 14, 30, 90, 120]
 TREND_WINDOWS = [21, 90]
 TEST_YEARS = [2021, 2022, 2023, 2024, 2025]
+DEFAULT_FEATURE_WEIGHTS = {
+    "ecoregion_name": 0.4,
+    "lat_rounded": 0.4,
+    "lon_rounded": 0.4,
+}
 
 
 @dataclass
@@ -189,6 +196,29 @@ def metric_dict(y_true: np.ndarray, y_prob: np.ndarray, threshold: float) -> dic
     }
 
 
+def metric_dict_with_error(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    threshold: float,
+    *,
+    trials: int,
+    sample_size: int,
+    seed: int,
+) -> dict[str, Any]:
+    metrics = metric_dict(y_true, y_prob, threshold)
+    metrics.update(
+        compute_metric_errors(
+            y_true,
+            y_prob,
+            threshold,
+            trials=trials,
+            sample_size=sample_size,
+            seed=seed,
+        )
+    )
+    return metrics
+
+
 def catboost_pool(X: pd.DataFrame, y: np.ndarray | None, cat_features: list[str]) -> Pool:
     cats = [c for c in cat_features if c in X.columns]
     return Pool(X, label=y, cat_features=cats) if y is not None else Pool(X, cat_features=cats)
@@ -196,6 +226,17 @@ def catboost_pool(X: pd.DataFrame, y: np.ndarray | None, cat_features: list[str]
 
 def predict_proba(model: CatBoostClassifier, X: pd.DataFrame, cat_features: list[str]) -> np.ndarray:
     return np.asarray(model.predict_proba(catboost_pool(X, None, cat_features)))[:, 1].astype(np.float32)
+
+
+def catboost_feature_weights(feature_columns: list[str], catboost_config: dict[str, Any]) -> dict[str, float]:
+    configured = (
+        catboost_config.get("catboost_train", {})
+        .get("features", {})
+        .get("feature_weights", DEFAULT_FEATURE_WEIGHTS)
+    )
+    if not isinstance(configured, dict):
+        configured = DEFAULT_FEATURE_WEIGHTS
+    return {str(k): float(v) for k, v in configured.items() if str(k) in feature_columns}
 
 
 def raw_era5_audit(raw_root: Path, output_dir: Path) -> dict[str, Any]:
@@ -418,6 +459,9 @@ def build_era5_training_frame(
         if missing:
             raise RuntimeError(f"ERA5 feature generation for {var} missed columns: {missing[:20]}")
         climate_feature_parts.append(feat_df[generated_cols].reset_index(drop=True))
+        var_block_cache = cache_dir / "climate_block_cache" / var
+        if var_block_cache.exists():
+            shutil.rmtree(var_block_cache)
         print(f"Finished {var}: {len(generated_cols)} columns in {(time.perf_counter() - start) / 60:.1f} min", flush=True)
 
     era5_train = train_base.copy()
@@ -427,7 +471,11 @@ def build_era5_training_frame(
             raise RuntimeError(f"Missing ERA5 climate column {col}")
         era5_train[col] = generated_climate[col].to_numpy(dtype=np.float32)
 
-    era5_train.to_parquet(matrix_path, index=False)
+    block_cache = cache_dir / "climate_block_cache"
+    if block_cache.exists():
+        shutil.rmtree(block_cache)
+
+    era5_train.to_parquet(matrix_path, index=False, compression="zstd")
     metadata = {
         "created_at": pd.Timestamp.now().isoformat(),
         "row_hash": expected_hash,
@@ -459,52 +507,189 @@ def fit_source_model(
     output_dir: Path,
     iterations: int,
     task_type: str,
+    training_mode: str,
+    eval_metric: str,
+    early_stopping_rounds: int,
+    min_tree_count: int,
+    selection_metric: str,
+    feature_weights: dict[str, float],
 ) -> dict[str, Any]:
     print(f"Training {experiment_id}: rows={len(train_df):,}, features={len(feature_columns)}", flush=True)
     X_train = normalize_cat_columns(train_df[feature_columns], cat_features, numerical_cat_features)
     X_val = normalize_cat_columns(val_df[feature_columns], cat_features, numerical_cat_features)
     X_test = normalize_cat_columns(test_df[feature_columns], cat_features, numerical_cat_features)
 
-    params = {
+    def candidate_specs() -> list[dict[str, Any]]:
+        if training_mode == "single":
+            return [
+                {
+                    "name": f"{eval_metric.lower()}_early_stop",
+                    "eval_metric": eval_metric,
+                    "use_best_model": True,
+                    "early_stopping_rounds": early_stopping_rounds,
+                }
+            ]
+        if training_mode == "robust":
+            return [
+                {
+                    "name": "logloss_early_stop",
+                    "eval_metric": "Logloss",
+                    "use_best_model": True,
+                    "early_stopping_rounds": early_stopping_rounds,
+                },
+                {
+                    "name": "logloss_full_iterations",
+                    "eval_metric": "Logloss",
+                    "use_best_model": False,
+                    "early_stopping_rounds": 0,
+                },
+            ]
+        return [
+            {
+                "name": "f1_early_stop",
+                "eval_metric": "F1",
+                "use_best_model": True,
+                "early_stopping_rounds": early_stopping_rounds,
+            },
+            {
+                "name": "prauc_early_stop",
+                "eval_metric": "PRAUC",
+                "use_best_model": True,
+                "early_stopping_rounds": early_stopping_rounds,
+            },
+            {
+                "name": "logloss_early_stop",
+                "eval_metric": "Logloss",
+                "use_best_model": True,
+                "early_stopping_rounds": early_stopping_rounds,
+            },
+            {
+                "name": "logloss_full_iterations",
+                "eval_metric": "Logloss",
+                "use_best_model": False,
+                "early_stopping_rounds": 0,
+            },
+        ]
+
+    base_params = {
         "iterations": iterations,
         "depth": 5,
         "learning_rate": 0.03,
         "l2_leaf_reg": 0.35,
         "min_data_in_leaf": 80,
         "loss_function": "Logloss",
-        "eval_metric": "F1",
         "class_weights": [1.0, 4.0],
         "random_seed": SEED,
         "random_strength": 1.0,
         "verbose": 100,
         "allow_writing_files": False,
     }
-    if task_type:
-        params["task_type"] = task_type
-    model = CatBoostClassifier(**params)
-    try:
-        model.fit(
-            catboost_pool(X_train, train_y, cat_features),
-            eval_set=catboost_pool(X_val, val_y, cat_features),
-            use_best_model=True,
-            early_stopping_rounds=100,
-        )
-    except Exception:
-        if params.get("task_type") == "GPU":
-            print(f"GPU failed for {experiment_id}; retrying CPU", flush=True)
-            params.pop("task_type", None)
-            model = CatBoostClassifier(**params)
-            model.fit(
-                catboost_pool(X_train, train_y, cat_features),
-                eval_set=catboost_pool(X_val, val_y, cat_features),
-                use_best_model=True,
-                early_stopping_rounds=100,
-            )
-        else:
-            raise
+    if feature_weights:
+        base_params["feature_weights"] = feature_weights
 
-    val_prob = predict_proba(model, X_val, cat_features)
-    threshold, threshold_info = choose_threshold(val_y, val_prob)
+    train_pool = catboost_pool(X_train, train_y, cat_features)
+    val_pool = catboost_pool(X_val, val_y, cat_features)
+    candidate_rows: list[dict[str, Any]] = []
+    best: dict[str, Any] | None = None
+
+    for spec in candidate_specs():
+        params = dict(base_params)
+        params["eval_metric"] = spec["eval_metric"]
+        if task_type:
+            params["task_type"] = task_type
+        fit_kwargs: dict[str, Any] = {
+            "eval_set": val_pool,
+            "use_best_model": bool(spec["use_best_model"]),
+        }
+        if spec["early_stopping_rounds"]:
+            fit_kwargs["early_stopping_rounds"] = int(spec["early_stopping_rounds"])
+
+        def fit_with_params(candidate_params: dict[str, Any]) -> CatBoostClassifier:
+            candidate_model = CatBoostClassifier(**candidate_params)
+            candidate_model.fit(train_pool, **fit_kwargs)
+            return candidate_model
+
+        try:
+            model = fit_with_params(params)
+        except Exception as exc:
+            if params.get("task_type") == "GPU":
+                print(
+                    f"GPU failed for {experiment_id}/{spec['name']}: {type(exc).__name__}: {str(exc).splitlines()[0] if str(exc) else exc}; retrying CPU",
+                    flush=True,
+                )
+                params.pop("task_type", None)
+                try:
+                    model = fit_with_params(params)
+                except Exception as cpu_exc:
+                    candidate_rows.append(
+                        {
+                            "candidate": spec["name"],
+                            "status": "failed",
+                            "error": f"{type(cpu_exc).__name__}: {cpu_exc}",
+                            "eval_metric": spec["eval_metric"],
+                        }
+                    )
+                    print(f"Candidate failed for {experiment_id}/{spec['name']}: {cpu_exc}", flush=True)
+                    continue
+            else:
+                candidate_rows.append(
+                    {
+                        "candidate": spec["name"],
+                        "status": "failed",
+                        "error": f"{type(exc).__name__}: {exc}",
+                        "eval_metric": spec["eval_metric"],
+                    }
+                )
+                print(f"Candidate failed for {experiment_id}/{spec['name']}: {exc}", flush=True)
+                continue
+
+        val_prob = predict_proba(model, X_val, cat_features)
+        threshold, threshold_info = choose_threshold(val_y, val_prob)
+        val_metrics = metric_dict(val_y, val_prob, threshold)
+        tree_count = int(getattr(model, "tree_count_", 0) or 0)
+        eligible = tree_count >= min_tree_count
+        score_key = "f1" if selection_metric == "validation_f1" else "average_precision"
+        score = val_metrics.get(score_key)
+        row = {
+            "candidate": spec["name"],
+            "status": "completed",
+            "eligible": eligible,
+            "eval_metric": spec["eval_metric"],
+            "use_best_model": spec["use_best_model"],
+            "tree_count": tree_count,
+            "best_iteration": model.get_best_iteration(),
+            "validation_f1": val_metrics.get("f1"),
+            "validation_pr_auc": val_metrics.get("average_precision"),
+            "validation_threshold": threshold,
+            "params": params,
+        }
+        candidate_rows.append(row)
+        print(
+            f"Candidate {experiment_id}/{spec['name']}: trees={tree_count}, val_f1={val_metrics.get('f1')}, val_pr_auc={val_metrics.get('average_precision')}, eligible={eligible}",
+            flush=True,
+        )
+        if score is None or not math.isfinite(float(score)):
+            continue
+        if not eligible and any(r.get("eligible") for r in candidate_rows):
+            continue
+        if best is None:
+            best = {"model": model, "row": row, "threshold": threshold, "threshold_info": threshold_info, "score": float(score)}
+            continue
+        best_eligible = bool(best["row"].get("eligible"))
+        if eligible and not best_eligible:
+            best = {"model": model, "row": row, "threshold": threshold, "threshold_info": threshold_info, "score": float(score)}
+        elif eligible == best_eligible and float(score) > float(best["score"]):
+            best = {"model": model, "row": row, "threshold": threshold, "threshold_info": threshold_info, "score": float(score)}
+
+    if best is None:
+        raise RuntimeError(f"No CatBoost candidate completed for {experiment_id}")
+
+    model = best["model"]
+    threshold = float(best["threshold"])
+    threshold_info = dict(best["threshold_info"])
+    threshold_info["selected_candidate"] = best["row"]["candidate"]
+    threshold_info["selection_metric"] = selection_metric
+    threshold_info["candidate_tree_count"] = best["row"]["tree_count"]
     test_prob = predict_proba(model, X_test, cat_features)
     model_dir = output_dir / "artifacts" / "models"
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -512,18 +697,26 @@ def fit_source_model(
     model.save_model(model_path)
     write_json(
         model_dir / f"{experiment_id}_features.json",
-        {"features": feature_columns, "categorical_features": cat_features, "params": params},
+        {
+            "features": feature_columns,
+            "categorical_features": cat_features,
+            "params": best["row"]["params"],
+            "selected_candidate": best["row"],
+            "candidate_rows": candidate_rows,
+        },
     )
     return {
         "model": model,
         "model_path": model_path,
-        "val_prob": val_prob,
+        "val_prob": predict_proba(model, X_val, cat_features),
         "test_prob": test_prob,
         "threshold": threshold,
         "threshold_info": threshold_info,
         "best_iteration": model.get_best_iteration(),
         "train_rows": int(len(train_df)),
-        "params": params,
+        "params": best["row"]["params"],
+        "selected_candidate": best["row"],
+        "candidate_rows": candidate_rows,
     }
 
 
@@ -537,6 +730,8 @@ def evaluate_experiment(
     test_df: pd.DataFrame,
     test_y: np.ndarray,
     regions: list[Region],
+    random_error_trials: int = 5,
+    random_error_sample_size: int = 50_000,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     threshold = float(result["threshold"])
     rows: list[dict[str, Any]] = []
@@ -548,7 +743,14 @@ def evaluate_experiment(
             "region": "global",
             "region_display": "Global",
             "period": "2019-2020",
-            **metric_dict(val_y, result["val_prob"], threshold),
+            **metric_dict_with_error(
+                val_y,
+                result["val_prob"],
+                threshold,
+                trials=random_error_trials,
+                sample_size=random_error_sample_size,
+                seed=SEED,
+            ),
             "train_rows": result["train_rows"],
             "best_iteration": result["best_iteration"],
             "threshold_source": result["threshold_info"].get("reason"),
@@ -565,7 +767,14 @@ def evaluate_experiment(
                 "region": region,
                 "region_display": display,
                 "period": period,
-                **metric_dict(test_y[mask], result["test_prob"][mask], threshold),
+                **metric_dict_with_error(
+                    test_y[mask],
+                    result["test_prob"][mask],
+                    threshold,
+                    trials=random_error_trials,
+                    sample_size=random_error_sample_size,
+                    seed=SEED + len(rows),
+                ),
                 "train_rows": result["train_rows"],
                 "best_iteration": result["best_iteration"],
                 "threshold_source": result["threshold_info"].get("reason"),
@@ -617,6 +826,8 @@ def evaluate_experiment(
 
 
 def save_predictions(output_dir: Path, pred_specs: list[dict[str, Any]]) -> None:
+    if not pred_specs:
+        return
     pred_dir = output_dir / "artifacts" / "predictions"
     pred_dir.mkdir(parents=True, exist_ok=True)
     for spec in pred_specs:
@@ -671,8 +882,8 @@ def make_tables(output_dir: Path, metrics: pd.DataFrame, fp: Footprint) -> None:
     write_table(
         tables / "global_metrics.csv",
         test_combined[
-            ["experiment", "train_source", "support", "positives", "f1", "average_precision"]
-        ].rename(columns={"experiment": "Experiment", "train_source": "Train Source", "support": "Support", "positives": "Positives", "f1": "F1", "average_precision": "PR-AUC"}),
+            ["experiment", "train_source", "f1", "f1_error", "average_precision", "average_precision_error"]
+        ].rename(columns={"experiment": "Experiment", "train_source": "Train Source", "f1": "F1", "f1_error": "F1 Error", "average_precision": "PR-AUC", "average_precision_error": "PR-AUC Error"}),
     )
     write_table(
         tables / "global_precision_recall.csv",
@@ -684,15 +895,15 @@ def make_tables(output_dir: Path, metrics: pd.DataFrame, fp: Footprint) -> None:
     write_table(
         tables / "regional_metrics.csv",
         regional[
-            ["region_display", "experiment", "support", "positives", "f1", "average_precision"]
-        ].rename(columns={"region_display": "Region", "experiment": "Experiment", "support": "Support", "positives": "Positives", "f1": "F1", "average_precision": "PR-AUC"}),
+            ["region_display", "experiment", "f1", "f1_error", "average_precision", "average_precision_error"]
+        ].rename(columns={"region_display": "Region", "experiment": "Experiment", "f1": "F1", "f1_error": "F1 Error", "average_precision": "PR-AUC", "average_precision_error": "PR-AUC Error"}),
     )
     yearly = metrics[(metrics["split"].eq("test")) & (metrics["region"].eq("global")) & (metrics["period"].isin([str(y) for y in TEST_YEARS]))]
     write_table(
         tables / "yearly_global_metrics.csv",
         yearly[
-            ["period", "experiment", "support", "positives", "f1", "average_precision"]
-        ].rename(columns={"period": "Year", "experiment": "Experiment", "support": "Support", "positives": "Positives", "f1": "F1", "average_precision": "PR-AUC"}),
+            ["period", "experiment", "f1", "f1_error", "average_precision", "average_precision_error"]
+        ].rename(columns={"period": "Year", "experiment": "Experiment", "f1": "F1", "f1_error": "F1 Error", "average_precision": "PR-AUC", "average_precision_error": "PR-AUC Error"}),
     )
     footprint_rows = pd.DataFrame(
         [
@@ -710,43 +921,47 @@ def make_tables(output_dir: Path, metrics: pd.DataFrame, fp: Footprint) -> None:
 def make_plots(output_dir: Path, metrics: pd.DataFrame) -> None:
     png_dir = output_dir / "plots" / "png"
     pdf_dir = output_dir / "plots" / "pdf"
-    png_dir.mkdir(parents=True, exist_ok=True)
-    pdf_dir.mkdir(parents=True, exist_ok=True)
 
     combined = metrics[(metrics["split"].eq("test")) & (metrics["region"].eq("global")) & (metrics["period"].eq("2021-2025"))].copy()
-    for metric, ylabel, stem in [
-        ("average_precision", "PR-AUC", "input_source_train_pr_auc"),
-        ("f1", "F1", "input_source_train_f1"),
-    ]:
-        fig, ax = plt.subplots(figsize=(7.5, 4.2))
-        plot_df = combined.sort_values(metric)
-        ax.barh(plot_df["experiment"], plot_df[metric].astype(float), color=["#5b8def", "#e07054", "#55a868"])
-        ax.set_xlabel(ylabel)
-        ax.set_title(f"ECMWF Test {ylabel} By Training Source")
-        ax.grid(axis="x", alpha=0.25)
-        fig.tight_layout()
-        fig.savefig(png_dir / f"{stem}.png", dpi=320)
-        fig.savefig(pdf_dir / f"{stem}.pdf")
-        plt.close(fig)
+    if not combined.empty:
+        png_dir.mkdir(parents=True, exist_ok=True)
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        for metric, ylabel, stem in [
+            ("average_precision", "PR-AUC", "input_source_train_pr_auc"),
+            ("f1", "F1", "input_source_train_f1"),
+        ]:
+            fig, ax = plt.subplots(figsize=(7.5, 4.2))
+            plot_df = combined.sort_values(metric)
+            ax.barh(plot_df["experiment"], plot_df[metric].astype(float), color=["#5b8def", "#e07054", "#55a868"])
+            ax.set_xlabel(ylabel)
+            ax.set_title(f"ECMWF Test {ylabel} By Training Source")
+            ax.grid(axis="x", alpha=0.25)
+            fig.tight_layout()
+            fig.savefig(png_dir / f"{stem}.png", dpi=320)
+            fig.savefig(pdf_dir / f"{stem}.pdf")
+            plt.close(fig)
 
     yearly = metrics[(metrics["split"].eq("test")) & (metrics["region"].eq("global")) & (metrics["period"].isin([str(y) for y in TEST_YEARS]))].copy()
-    for metric, ylabel, stem in [
-        ("average_precision", "PR-AUC", "input_source_train_yearly_pr_auc"),
-        ("f1", "F1", "input_source_train_yearly_f1"),
-    ]:
-        fig, ax = plt.subplots(figsize=(7.5, 4.4))
-        for exp, group in yearly.groupby("experiment", sort=False):
-            group = group.sort_values("period")
-            ax.plot(group["period"].astype(str), group[metric].astype(float), marker="o", label=exp)
-        ax.set_xlabel("ECMWF test year")
-        ax.set_ylabel(ylabel)
-        ax.set_title(f"Yearly ECMWF Test {ylabel}")
-        ax.grid(alpha=0.25)
-        ax.legend(fontsize=8)
-        fig.tight_layout()
-        fig.savefig(png_dir / f"{stem}.png", dpi=320)
-        fig.savefig(pdf_dir / f"{stem}.pdf")
-        plt.close(fig)
+    if not yearly.empty:
+        png_dir.mkdir(parents=True, exist_ok=True)
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        for metric, ylabel, stem in [
+            ("average_precision", "PR-AUC", "input_source_train_yearly_pr_auc"),
+            ("f1", "F1", "input_source_train_yearly_f1"),
+        ]:
+            fig, ax = plt.subplots(figsize=(7.5, 4.4))
+            for exp, group in yearly.groupby("experiment", sort=False):
+                group = group.sort_values("period")
+                ax.plot(group["period"].astype(str), group[metric].astype(float), marker="o", label=exp)
+            ax.set_xlabel("ECMWF test year")
+            ax.set_ylabel(ylabel)
+            ax.set_title(f"Yearly ECMWF Test {ylabel}")
+            ax.grid(alpha=0.25)
+            ax.legend(fontsize=8)
+            fig.tight_layout()
+            fig.savefig(png_dir / f"{stem}.png", dpi=320)
+            fig.savefig(pdf_dir / f"{stem}.pdf")
+            plt.close(fig)
 
 
 def write_description(output_dir: Path, fp: Footprint, raw_audit: dict[str, Any]) -> None:
@@ -853,8 +1068,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--raw-era5-root", type=Path, default=Path("/home/ids/vmorozov/era5"))
     parser.add_argument("--result-root", type=Path, default=Path("results/revision_experiments_complete"))
     parser.add_argument("--output-dir", type=Path, default=None)
-    parser.add_argument("--iterations", type=int, default=300)
+    parser.add_argument("--iterations", type=int, default=450)
     parser.add_argument("--task-type", default="GPU")
+    parser.add_argument("--training-mode", choices=["single", "robust", "best"], default="best")
+    parser.add_argument("--eval-metric", default="F1")
+    parser.add_argument("--early-stopping-rounds", type=int, default=100)
+    parser.add_argument("--min-tree-count", type=int, default=20)
+    parser.add_argument("--selection-metric", choices=["validation_f1", "average_precision"], default="validation_f1")
+    parser.add_argument("--random-error-trials", type=int, default=5)
+    parser.add_argument("--random-error-sample-size", type=int, default=50_000)
     parser.add_argument("--force-era5-features", action="store_true")
     return parser.parse_args()
 
@@ -866,9 +1088,6 @@ def main() -> int:
     for stale in [output_dir / "tables", output_dir / "plots", output_dir / "artifacts" / "models", output_dir / "artifacts" / "predictions"]:
         if stale.exists():
             shutil.rmtree(stale)
-    for sub in ["tables", "plots/png", "plots/pdf", "artifacts/models", "artifacts/predictions"]:
-        (output_dir / sub).mkdir(parents=True, exist_ok=True)
-
     command = " ".join(["conda", "run", "-n", "pointnet", "python", "scripts/run_era5_ecmwf_source_comparison.py", *sys.argv[1:]])
     write_text(output_dir / "artifacts" / "command.txt", command)
     write_json(
@@ -887,7 +1106,7 @@ def main() -> int:
     df[DATE_COLUMN] = pd.to_datetime(df[DATE_COLUMN], errors="coerce")
     raw_audit = raw_era5_audit(args.raw_era5_root, output_dir)
     schema_all = processed_era5_schema(args.era5_root)
-    schema_train = processed_era5_schema(args.era5_root, year_start=2009, year_end=2018)
+    schema_train = processed_era5_schema(args.era5_root, year_start=2000, year_end=2018)
     for stale_schema in (output_dir / "artifacts").glob("processed_era5_schema*.csv"):
         stale_schema.unlink()
     write_json(output_dir / "artifacts" / "processed_era5_schema_all_years.json", schema_all.to_dict(orient="records"))
@@ -902,15 +1121,17 @@ def main() -> int:
     feature_columns = model_feature_columns(df, ignored)
     cat_features = [c for c in feature_config.get("cat_features", []) if c in feature_columns]
     numerical_cat_features = [c for c in feature_config.get("numerical_cat_features", []) if c in feature_columns]
+    feature_weights = catboost_feature_weights(feature_columns, catboost_config)
     climate_cols = climate_columns(feature_columns)
     if not climate_cols:
         raise RuntimeError("No shared climate columns found in ECMWF feature matrix.")
 
     fp = common_footprint(schema_train, df)
+    lookback_start_year = (fp.train_start - pd.Timedelta(days=N_DAYS)).year
     filtered_era5_root = make_filtered_era5_root(
         args.era5_root,
         output_dir / "artifacts" / "era5_zarr_train_year_view",
-        range(fp.train_start.year, fp.train_end.year + 1),
+        range(lookback_start_year, fp.train_end.year + 1),
     )
     masks = footprint_masks(df, fp)
     train_pos = np.flatnonzero(masks["train"])
@@ -934,6 +1155,19 @@ def main() -> int:
             "test": int(y_all[test_pos].sum()),
         },
         "climate_columns": climate_cols,
+        "catboost_training": {
+            "iterations": args.iterations,
+            "training_mode": args.training_mode,
+            "candidate_eval_metrics": (
+                ["Logloss"]
+                if args.training_mode == "robust"
+                else ([args.eval_metric] if args.training_mode == "single" else ["F1", "PRAUC", "Logloss"])
+            ),
+            "early_stopping_rounds": args.early_stopping_rounds,
+            "min_tree_count": args.min_tree_count,
+            "selection_metric": args.selection_metric,
+            "feature_weights": feature_weights,
+        },
     }
     write_json(output_dir / "artifacts" / "split_and_feature_metadata.json", split_info)
 
@@ -965,6 +1199,7 @@ def main() -> int:
 
     all_metric_rows: list[dict[str, Any]] = []
     all_pred_specs: list[dict[str, Any]] = []
+    model_selection_rows: list[dict[str, Any]] = []
     for experiment_id, label, train_source, train_df, train_y in specs:
         result = fit_source_model(
             experiment_id=experiment_id,
@@ -979,7 +1214,23 @@ def main() -> int:
             output_dir=output_dir,
             iterations=args.iterations,
             task_type=args.task_type,
+            training_mode=args.training_mode,
+            eval_metric=args.eval_metric,
+            early_stopping_rounds=args.early_stopping_rounds,
+            min_tree_count=args.min_tree_count,
+            selection_metric=args.selection_metric,
+            feature_weights=feature_weights,
         )
+        selected_candidate = result.get("selected_candidate", {}).get("candidate")
+        for row in result.get("candidate_rows", []):
+            model_selection_rows.append(
+                {
+                    "experiment": label,
+                    "train_source": train_source,
+                    "selected": row.get("candidate") == selected_candidate,
+                    **row,
+                }
+            )
         metric_rows, pred_specs = evaluate_experiment(
             experiment=label,
             train_source=train_source,
@@ -989,19 +1240,40 @@ def main() -> int:
             test_df=test_df,
             test_y=y_test,
             regions=regions,
+            random_error_trials=args.random_error_trials,
+            random_error_sample_size=args.random_error_sample_size,
         )
         all_metric_rows.extend(metric_rows)
         all_pred_specs.extend(pred_specs)
 
     metrics = pd.DataFrame(all_metric_rows)
     write_raw_jsonl(output_dir / "artifacts" / "input_source_train_metrics_raw.jsonl.gz", all_metric_rows)
+    write_raw_jsonl(output_dir / "artifacts" / "model_selection_raw.jsonl.gz", model_selection_rows)
     metrics.to_parquet(output_dir / "artifacts" / "input_source_train_metrics.parquet", index=False)
+    if model_selection_rows:
+        selection_df = pd.DataFrame(model_selection_rows)
+        write_table(
+            output_dir / "tables" / "model_selection.csv",
+            selection_df[
+                ["experiment", "candidate", "selected", "tree_count", "validation_f1", "validation_pr_auc"]
+            ].rename(
+                columns={
+                    "experiment": "Experiment",
+                    "candidate": "Candidate",
+                    "selected": "Selected",
+                    "tree_count": "Trees",
+                    "validation_f1": "Val F1",
+                    "validation_pr_auc": "Val PR-AUC",
+                }
+            ),
+        )
     save_predictions(output_dir, all_pred_specs)
     make_tables(output_dir, metrics, fp)
     make_plots(output_dir, metrics)
     write_description(output_dir, fp, raw_audit)
     write_analysis(output_dir, metrics)
     update_index(output_dir, args.result_root)
+    prune_empty_dirs(output_dir)
     return 0
 
 

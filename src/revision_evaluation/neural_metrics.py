@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 from .commands import copy_if_exists
 from .config import EvaluationConfig, NN_LABELS
+from .filesystem import prune_empty_dirs
 
 
 LEGACY_FAILED_NN_IDS = ["lstm_mlp_full", "minimal_mlp_full", "ft_transformer_full"]
@@ -66,7 +67,9 @@ def import_neural_metrics(config: EvaluationConfig) -> None:
                 "precision": test.get("precision"),
                 "recall": test.get("recall"),
                 "f1": test.get("f1"),
+                "F1 error": test.get("f1_error"),
                 "PR-AUC": test.get("ap"),
+                "PR-AUC error": test.get("ap_error"),
                 "ROC-AUC": None,
                 "Brier": None,
                 "threshold": threshold,
@@ -87,7 +90,9 @@ def import_neural_metrics(config: EvaluationConfig) -> None:
                 "precision": test.get("precision"),
                 "recall": test.get("recall"),
                 "f1": test.get("f1"),
+                "f1_error": test.get("f1_error"),
                 "average_precision": test.get("ap"),
+                "average_precision_error": test.get("ap_error"),
                 "roc_auc": None,
                 "brier_score": None,
                 "threshold": threshold,
@@ -152,15 +157,19 @@ def write_neural_plots(output_dir: Path, neural_table: pd.DataFrame) -> None:
         neural_table["region"].astype(str).eq("global")
         & neural_table["period"].astype(str).eq("2021-2025")
     ].copy()
-    (output_dir / "plots").mkdir(parents=True, exist_ok=True)
 
     for metric, stem in [("average_precision", "embedding_fusion_pr_auc"), ("f1", "embedding_fusion_f1")]:
         work = plot_df.dropna(subset=[metric]).sort_values(metric)
+        if work.empty:
+            continue
+        plot_dir = output_dir / "plots"
+        plot_dir.mkdir(parents=True, exist_ok=True)
         fig, ax = plt.subplots(figsize=(9, max(4, 0.35 * len(work) + 1.5)))
         ax.barh(work["experiment"], work[metric], color="#2563eb")
         ax.set_xlabel(metric)
         ax.grid(axis="x", alpha=0.25)
         fig.tight_layout()
-        fig.savefig(output_dir / "plots" / f"{stem}.png", dpi=240, bbox_inches="tight")
-        fig.savefig(output_dir / "plots" / f"{stem}.pdf", bbox_inches="tight")
+        fig.savefig(plot_dir / f"{stem}.png", dpi=240, bbox_inches="tight")
+        fig.savefig(plot_dir / f"{stem}.pdf", bbox_inches="tight")
         plt.close(fig)
+    prune_empty_dirs(output_dir)

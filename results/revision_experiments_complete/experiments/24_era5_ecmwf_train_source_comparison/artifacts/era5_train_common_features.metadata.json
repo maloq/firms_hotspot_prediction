@@ -163,7 +163,7 @@
     "stl1_trend_slope_90",
     "stl1_trend_intercept_90"
   ],
-  "created_at": "2026-05-06T14:51:06.111120",
+  "created_at": "2026-05-06T21:24:14.320831",
   "feature_count": 254,
   "lags": [
     7,
@@ -173,8 +173,8 @@
     120
   ],
   "n_days": 128,
-  "row_hash": "50996c04567d66f192e9a861352b9584",
-  "rows": 854832,
+  "row_hash": "5025d170091524b93013ecc1339dcda9",
+  "rows": 1578715,
   "source": "results/revision_experiments_complete/experiments/24_era5_ecmwf_train_source_comparison/artifacts/era5_zarr_train_year_view",
   "spans": [
     7,

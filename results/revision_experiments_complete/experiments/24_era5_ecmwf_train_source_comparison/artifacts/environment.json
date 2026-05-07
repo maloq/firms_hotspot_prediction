@@ -1,5 +1,5 @@
 {
-  "command": "conda run -n pointnet python scripts/run_era5_ecmwf_source_comparison.py --iterations 260 --task-type GPU",
+  "command": "conda run -n pointnet python scripts/run_era5_ecmwf_source_comparison.py --iterations 450 --task-type CPU --training-mode robust --selection-metric validation_f1 --min-tree-count 20",
   "cwd": "/home/infres/vmorozov/Misc",
   "platform": "Linux-6.12.0-124.52.1.el10_1.x86_64-x86_64-with-glibc2.39",
   "python": "3.12.13 | packaged by conda-forge | (main, Mar  5 2026, 16:50:00) [GCC 14.3.0]",

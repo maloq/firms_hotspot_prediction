@@ -49,6 +49,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from .filesystem import prune_empty_dirs
 from .tabular import (
     DATE_COLUMN,
     LAT_COLUMN,
@@ -56,6 +57,7 @@ from .tabular import (
     TARGET_COLUMN,
     Region,
     build_feature_sets,
+    compute_metric_errors,
     feature_group,
     load_regions,
     markdown_table,
@@ -176,6 +178,9 @@ def evaluate_periods(
     threshold: float,
     regions: list[Region],
     extra: dict[str, Any] | None = None,
+    error_trials: int = 5,
+    error_sample_size: int = 50_000,
+    seed: int = SEED,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     extra = extra or {}
     rows: list[dict[str, Any]] = []
@@ -183,6 +188,19 @@ def evaluate_periods(
     years = pd.to_datetime(frame[DATE_COLUMN]).dt.year.to_numpy()
 
     def add(target: list[dict[str, Any]], region_name: str, display: str, period: str, mask: np.ndarray) -> None:
+        mask_y = y_true[mask]
+        mask_prob = y_prob[mask]
+        metrics = metric_dict(mask_y, mask_prob, threshold)
+        metrics.update(
+            compute_metric_errors(
+                mask_y,
+                mask_prob,
+                threshold,
+                trials=error_trials,
+                sample_size=error_sample_size,
+                seed=seed + len(rows) + len(by_period_rows),
+            )
+        )
         row = {
             "experiment": experiment,
             "model": model,
@@ -190,7 +208,7 @@ def evaluate_periods(
             "region": region_name,
             "region_display": display,
             "period": period,
-            **metric_dict(y_true[mask], y_prob[mask], threshold),
+            **metrics,
             **extra,
         }
         target.append(row)
@@ -486,6 +504,9 @@ def run_label_sensitivity(
             threshold=threshold,
             regions=regions,
             extra={"notes": spec["notes"], "validation_threshold": threshold, "train_rows": diag["train_rows"]},
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=SEED,
         )
         rows_all.append(rows)
         rows_year.append(by_year)
@@ -556,6 +577,9 @@ def run_lead_time(
             threshold=threshold,
             regions=regions,
             extra={"lead_time_days": lead_days, "validation_threshold": threshold, "matrix_path": str(path)},
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=SEED,
         )
         rows_all.append(rows)
         rows_year.append(by_year)
@@ -848,6 +872,9 @@ def run_neural_ablation(
                 threshold=threshold,
                 regions=regions,
                 extra={"validation_threshold": threshold, "train_rows": args.neural_train_rows},
+                error_trials=args.random_error_trials,
+                error_sample_size=args.random_error_sample_size,
+                seed=SEED,
             )
             rows_all.append(rows)
             rows_year.append(by_year)
@@ -946,13 +973,13 @@ def write_era5_schema_and_status(failures: list[dict[str, Any]]) -> None:
     rows2 = []
     if not seas5.empty:
         r = seas5.iloc[0]
-        rows2.append({"experiment": "SEAS5/ECMWF -> SEAS5/ECMWF", "status": "completed", "interpretation": "Operationally matched setting.", "region": "global", "region_display": "Global", "precision": r["precision"], "recall": r["recall"], "f1": r["f1"], "average_precision": r["PR-AUC"], "roc_auc": r["ROC-AUC"], "notes": "Threshold selected on SEAS5/ECMWF validation and applied to 2021-2025 test."})
+        rows2.append({"experiment": "SEAS5/ECMWF -> SEAS5/ECMWF", "status": "completed", "interpretation": "Operationally matched setting.", "region": "global", "region_display": "Global", "precision": r["precision"], "recall": r["recall"], "f1": r["f1"], "f1_error": r.get("F1 error"), "average_precision": r["PR-AUC"], "average_precision_error": r.get("PR-AUC error"), "roc_auc": r["ROC-AUC"], "notes": "Threshold selected on SEAS5/ECMWF validation and applied to 2021-2025 test."})
     for exp, interp in [
         ("ERA5 -> ERA5", "Retrospective upper bound, not operational forecast."),
         ("ERA5 -> SEAS5/ECMWF", "Input-source domain shift, not just model quality."),
         ("ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF", "Mixed-source operational robustness."),
     ]:
-        rows2.append({"experiment": exp, "status": "schema_ready_full_matrix_blocked", "interpretation": interp, "region": "global", "region_display": "Global", "precision": None, "recall": None, "f1": None, "average_precision": None, "roc_auc": None, "notes": "Common schema documented; full matrix blocked by processed ERA5 domain/year coverage."})
+        rows2.append({"experiment": exp, "status": "schema_ready_full_matrix_blocked", "interpretation": interp, "region": "global", "region_display": "Global", "precision": None, "recall": None, "f1": None, "f1_error": None, "average_precision": None, "average_precision_error": None, "roc_auc": None, "notes": "Common schema documented; full matrix blocked by processed ERA5 domain/year coverage."})
     inp = pd.DataFrame(rows2)
     inp.to_csv(OUT / "input_source_comparison.csv", index=False)
     inp.to_csv(OUT / "input_source_comparison_by_year.csv", index=False)
@@ -998,8 +1025,8 @@ def regenerate_report(failures: list[dict[str, Any]], command: str) -> None:
 
     interpretation = f"""# Paper-Ready Interpretation
 
-## Revised Experimental Setup
-We used a chronological split with training in 2001-2018, validation/threshold selection in 2019-2020, and testing in 2021-2025. Thresholds were selected only on validation by maximizing F1 and then applied unchanged to all test years and regions.
+	## Revised Experimental Setup
+We used a chronological split with training in 2001-2018, validation/threshold selection in 2019-2020, and testing in 2021-2025. Thresholds were selected only on validation by maximizing F1 and then applied unchanged to all test years and regions. Random error columns are estimated with five stratified bootstrap trials over saved predictions.
 
 ## Main Performance
 The best global 2021-2025 model was {best['Model'] if best is not None else 'NA'} with PR-AUC {best['PR-AUC']:.3f} and F1 {best['f1']:.3f}. Full CatBoost reached PR-AUC {float(main_global[main_global['Model'].eq('CatBoost')]['PR-AUC'].iloc[0]):.3f} on the same test period.
@@ -1124,6 +1151,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=OUT)
     parser.add_argument("--catboost-iterations", type=int, default=260)
     parser.add_argument("--catboost-task-type", default="GPU")
+    parser.add_argument("--random-error-trials", type=int, default=5)
+    parser.add_argument("--random-error-sample-size", type=int, default=50_000)
     parser.add_argument("--neural-train-rows", type=int, default=300_000)
     parser.add_argument("--neural-epochs", type=int, default=3)
     parser.add_argument("--neural-batch-size", type=int, default=4096)
@@ -1135,7 +1164,6 @@ def main() -> int:
     global OUT
     OUT = args.output_dir
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "plots").mkdir(exist_ok=True)
     set_seeds(SEED)
     command = "conda run -n pointnet python -m src.revision_evaluation.followups " + " ".join(os.sys.argv[1:])
     with (OUT / "commands_used.txt").open("a", encoding="utf-8") as fh:
@@ -1160,9 +1188,12 @@ def main() -> int:
     manifest = {
         "completed_at": pd.Timestamp.now().isoformat(),
         "command": command,
+        "random_error_trials": args.random_error_trials,
+        "random_error_sample_size": args.random_error_sample_size,
         "failures": failures,
     }
     (OUT / "followup_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    prune_empty_dirs(OUT)
     return 0
 
 

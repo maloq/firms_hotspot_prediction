@@ -41,6 +41,14 @@ def run_main_tabular(config: EvaluationConfig) -> None:
             str(config.catboost_iterations),
             "--catboost-task-type",
             config.catboost_task_type,
+            "--random-error-trials",
+            str(config.random_error_trials),
+            "--random-error-sample-size",
+            str(config.random_error_sample_size),
+            "--permutation-trials",
+            str(config.permutation_trials),
+            "--permutation-sample-size",
+            str(config.permutation_sample_size),
         ]
     )
 
@@ -57,6 +65,10 @@ def run_followups(config: EvaluationConfig) -> None:
             str(config.followup_catboost_iterations),
             "--catboost-task-type",
             config.catboost_task_type,
+            "--random-error-trials",
+            str(config.random_error_trials),
+            "--random-error-sample-size",
+            str(config.random_error_sample_size),
         ]
     )
 

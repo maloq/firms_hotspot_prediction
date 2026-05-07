@@ -23,7 +23,7 @@
   "variables": [
     {
       "grib_files": 26,
-      "nc_files": 1,
+      "nc_files": 9,
       "sample_grib": "2m_dewpoint_temperature_2000.grib",
       "sample_nc": "2m_dewpoint_temperature_2000.nc",
       "variable_dir": "2m_dewpoint_temperature"
@@ -44,16 +44,16 @@
     },
     {
       "grib_files": 26,
-      "nc_files": 0,
+      "nc_files": 9,
       "sample_grib": "soil_temperature_level_1_2000.grib",
-      "sample_nc": null,
+      "sample_nc": "soil_temperature_level_1_2000.nc",
       "variable_dir": "soil_temperature_level_1"
     },
     {
       "grib_files": 25,
-      "nc_files": 0,
+      "nc_files": 9,
       "sample_grib": "total_precipitation_2000.grib",
-      "sample_nc": null,
+      "sample_nc": "total_precipitation_2000.nc",
       "variable_dir": "total_precipitation"
     }
   ]

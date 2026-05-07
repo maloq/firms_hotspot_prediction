@@ -494,7 +494,77 @@ def train_pipeline(
     return results
 
 
-def calculate_metrics(y_true, y_probs, threshold=0.5, sample_weight=None):
+def calculate_metric_errors(
+    y_true,
+    y_probs,
+    threshold=0.5,
+    sample_weight=None,
+    trials: int = 5,
+    sample_size: int = 50_000,
+    seed: int = 17,
+):
+    y_true = np.asarray(y_true).astype(int)
+    y_probs = np.asarray(y_probs, dtype=float)
+    if trials <= 1 or len(y_true) <= 1:
+        return {
+            "precision_error": None,
+            "recall_error": None,
+            "f1_error": None,
+            "ap_error": None,
+        }
+    sample_weight = None if sample_weight is None else np.asarray(sample_weight, dtype=float)
+    n = min(len(y_true), int(sample_size)) if sample_size and sample_size > 0 else len(y_true)
+    if n <= 1:
+        return {
+            "precision_error": None,
+            "recall_error": None,
+            "f1_error": None,
+            "ap_error": None,
+        }
+
+    pos = np.flatnonzero(y_true == 1)
+    neg = np.flatnonzero(y_true == 0)
+    pos_frac = len(pos) / len(y_true) if len(y_true) else 0.0
+    rng = np.random.default_rng(seed)
+    values = {"precision": [], "recall": [], "f1": [], "ap": []}
+    for _ in range(trials):
+        if len(pos) and len(neg):
+            n_pos = min(max(1, int(round(n * pos_frac))), n - 1)
+            idx = np.concatenate(
+                [
+                    rng.choice(pos, size=n_pos, replace=True),
+                    rng.choice(neg, size=n - n_pos, replace=True),
+                ]
+            )
+            rng.shuffle(idx)
+        else:
+            idx = rng.choice(np.arange(len(y_true)), size=n, replace=True)
+        sw = None if sample_weight is None else sample_weight[idx]
+        y_pred = (y_probs[idx] >= threshold).astype(int)
+        scores = {
+            "precision": precision_score(y_true[idx], y_pred, zero_division=0, sample_weight=sw),
+            "recall": recall_score(y_true[idx], y_pred, zero_division=0, sample_weight=sw),
+            "f1": f1_score(y_true[idx], y_pred, zero_division=0, sample_weight=sw),
+            "ap": average_precision_score(y_true[idx], y_probs[idx], sample_weight=sw),
+        }
+        for key, value in scores.items():
+            if np.isfinite(float(value)):
+                values[key].append(float(value))
+    return {
+        f"{key}_error": float(np.std(vals, ddof=1)) if len(vals) > 1 else None
+        for key, vals in values.items()
+    }
+
+
+def calculate_metrics(
+    y_true,
+    y_probs,
+    threshold=0.5,
+    sample_weight=None,
+    error_trials: int = 5,
+    error_sample_size: int = 50_000,
+    error_seed: int = 17,
+):
     y_pred = (y_probs >= threshold).astype(int)
 
     precision = precision_score(y_true, y_pred, zero_division=0, sample_weight=sample_weight)
@@ -502,13 +572,25 @@ def calculate_metrics(y_true, y_probs, threshold=0.5, sample_weight=None):
     f1 = f1_score(y_true, y_pred, zero_division=0, sample_weight=sample_weight)
     ap = average_precision_score(y_true, y_probs, sample_weight=sample_weight)
 
-    return {
+    metrics = {
         "precision": precision,
         "recall": recall,
         "f1": f1,
         "ap": ap,
         "threshold": threshold,
     }
+    metrics.update(
+        calculate_metric_errors(
+            y_true,
+            y_probs,
+            threshold=threshold,
+            sample_weight=sample_weight,
+            trials=error_trials,
+            sample_size=error_sample_size,
+            seed=error_seed,
+        )
+    )
+    return metrics
 
 
 def print_metrics(metrics_train, metrics_val, metrics_test):
@@ -998,6 +1080,8 @@ if __name__ == "__main__":
 
     thr, best_f1_val = choose_threshold_f1(y_val, y_val_probs)
     print("Val threshold for F1:", thr, "val_f1:", best_f1_val)
+    random_error_trials = int(config.get("random_error_trials", 5))
+    random_error_sample_size = int(config.get("random_error_sample_size", 50_000))
 
     metrics_train = (
         calculate_metrics(
@@ -1005,12 +1089,39 @@ if __name__ == "__main__":
             y_train_probs,
             threshold=thr,
             sample_weight=sample_w_train,
+            error_trials=random_error_trials,
+            error_sample_size=random_error_sample_size,
+            error_seed=17,
         )
         if y_train_probs is not None
-        else {"precision": float("nan"), "recall": float("nan"), "f1": float("nan"), "ap": float("nan"), "threshold": thr}
+        else {
+            "precision": float("nan"),
+            "recall": float("nan"),
+            "f1": float("nan"),
+            "ap": float("nan"),
+            "precision_error": None,
+            "recall_error": None,
+            "f1_error": None,
+            "ap_error": None,
+            "threshold": thr,
+        }
     )
-    metrics_val = calculate_metrics(y_val, y_val_probs, threshold=thr)
-    metrics_test = calculate_metrics(y_test, y_test_probs, threshold=thr)
+    metrics_val = calculate_metrics(
+        y_val,
+        y_val_probs,
+        threshold=thr,
+        error_trials=random_error_trials,
+        error_sample_size=random_error_sample_size,
+        error_seed=18,
+    )
+    metrics_test = calculate_metrics(
+        y_test,
+        y_test_probs,
+        threshold=thr,
+        error_trials=random_error_trials,
+        error_sample_size=random_error_sample_size,
+        error_seed=19,
+    )
 
     print_metrics(metrics_train, metrics_val, metrics_test)
 

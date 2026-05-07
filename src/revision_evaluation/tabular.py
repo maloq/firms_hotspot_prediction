@@ -59,6 +59,11 @@ except Exception as exc:  # pragma: no cover - handled at runtime
 else:
     CATBOOST_IMPORT_ERROR = None
 
+try:
+    from .filesystem import prune_empty_dirs
+except ImportError:  # pragma: no cover - supports direct script execution
+    from src.revision_evaluation.filesystem import prune_empty_dirs
+
 
 SEED = 42
 TARGET_COLUMN = "count"
@@ -307,6 +312,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--spline-fit-sample-rows", type=int, default=200_000)
     parser.add_argument("--prediction-batch-size", type=int, default=100_000)
     parser.add_argument("--permutation-sample-size", type=int, default=50_000)
+    parser.add_argument("--permutation-trials", type=int, default=5)
+    parser.add_argument("--random-error-trials", type=int, default=5)
+    parser.add_argument("--random-error-sample-size", type=int, default=50_000)
     parser.add_argument("--shap-sample-size", type=int, default=8_000)
     parser.add_argument("--skip-shap", action="store_true")
     return parser.parse_args(argv)
@@ -792,6 +800,24 @@ def model_feature_columns(df: pd.DataFrame, ignored_features: Sequence[str]) -> 
     return [col for col in df.columns if col not in ignored]
 
 
+def feature_window_days(feature: str) -> int | None:
+    for token in reversed(feature.lower().split("_")):
+        if token.isdigit():
+            return int(token)
+    return None
+
+
+def is_periodic_seasonality_feature(feature: str) -> bool:
+    name = feature.lower()
+    season_tokens = ("dayofyear", "day_of_year", "doy")
+    return ("sin" in name or "cos" in name) and any(token in name for token in season_tokens)
+
+
+def is_gaussian_smoothed_anthropogenic_feature(feature: str) -> bool:
+    name = feature.lower()
+    return "gaussian" in name and any(token in name for token in ["road", "light", "population", "pop"])
+
+
 def build_feature_sets(
     all_features: list[str],
 ) -> dict[str, dict[str, Any]]:
@@ -806,6 +832,15 @@ def build_feature_sets(
     terrain = by_group.get("terrain_topography", [])
     seasonality = by_group.get("seasonality", [])
     history = by_group.get("historical_fire_context", [])
+    long_weather_context = []
+    for col in weather:
+        window = feature_window_days(col)
+        if window is not None and window > 30:
+            long_weather_context.append(col)
+    periodic_seasonality = [col for col in all_features if is_periodic_seasonality_feature(col)]
+    gaussian_smoothed_anthropogenic = [
+        col for col in all_features if is_gaussian_smoothed_anthropogenic_feature(col)
+    ]
 
     def minus(cols: Sequence[str]) -> list[str]:
         drop = set(cols)
@@ -822,6 +857,9 @@ def build_feature_sets(
         "no_seasonality": {"label": "No seasonality", "feature_set": "full minus month/day-of-year features", "columns": minus(seasonality), "dropped": seasonality},
         "no_history": {"label": "No history", "feature_set": "full minus prior-fire/proximity features", "columns": minus(history), "dropped": history},
         "no_temporal_history": {"label": "No temporal-history/weather lags", "feature_set": "full minus lagged meteorology", "columns": minus(weather), "dropped": weather},
+        "shorter_sequence_30d": {"label": "Shorter sequence (<=30d climate windows)", "feature_set": "full minus >30-day weather-history windows", "columns": minus(long_weather_context), "dropped": long_weather_context},
+        "no_periodic_seasonality": {"label": "No sine/cos day-of-year encoding", "feature_set": "full minus periodic seasonality encodings", "columns": minus(periodic_seasonality), "dropped": periodic_seasonality},
+        "no_gaussian_smoothing": {"label": "No Gaussian-smoothed anthropogenic rasters", "feature_set": "full minus Gaussian road/light/population rasters", "columns": minus(gaussian_smoothed_anthropogenic), "dropped": gaussian_smoothed_anthropogenic},
         "static_only": {"label": "Static only", "feature_set": "static non-weather features", "columns": static_cols},
         "dynamic_weather_fwi_only": {"label": "Dynamic weather+FWI only", "feature_set": "meteorology plus fire-weather variables", "columns": weather + fwi},
     }
@@ -888,6 +926,54 @@ def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray, threshold: float) ->
     }
 
 
+def compute_metric_errors(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    threshold: float,
+    *,
+    trials: int,
+    sample_size: int,
+    seed: int,
+) -> dict[str, Any]:
+    if trials <= 1 or len(y_true) == 0:
+        return {f"{metric}_error": None for metric in METRIC_COLUMNS}
+
+    y_true = np.asarray(y_true).astype(int)
+    y_prob = np.asarray(y_prob, dtype=float)
+    pos = np.flatnonzero(y_true == 1)
+    neg = np.flatnonzero(y_true == 0)
+    n = min(len(y_true), sample_size) if sample_size > 0 else len(y_true)
+    if n <= 1:
+        return {f"{metric}_error": None for metric in METRIC_COLUMNS}
+
+    rng = np.random.default_rng(seed)
+    values: dict[str, list[float]] = {metric: [] for metric in METRIC_COLUMNS}
+    pos_frac = len(pos) / len(y_true) if len(y_true) else 0.0
+    for _ in range(trials):
+        if len(pos) and len(neg):
+            n_pos = min(max(1, int(round(n * pos_frac))), n - 1)
+            n_neg = n - n_pos
+            idx = np.concatenate(
+                [
+                    rng.choice(pos, size=n_pos, replace=True),
+                    rng.choice(neg, size=n_neg, replace=True),
+                ]
+            )
+            rng.shuffle(idx)
+        else:
+            idx = rng.choice(np.arange(len(y_true)), size=n, replace=True)
+        metrics = compute_metrics(y_true[idx], y_prob[idx], threshold)
+        for metric in METRIC_COLUMNS:
+            value = metrics.get(metric)
+            if value is not None and math.isfinite(float(value)):
+                values[metric].append(float(value))
+
+    return {
+        f"{metric}_error": float(np.std(vals, ddof=1)) if len(vals) > 1 else None
+        for metric, vals in values.items()
+    }
+
+
 def evaluate_predictions(
     experiment_id: str,
     experiment_type: str,
@@ -899,13 +985,28 @@ def evaluate_predictions(
     y_prob: np.ndarray,
     threshold: float,
     regions: list[Region],
+    error_trials: int = 5,
+    error_sample_size: int = 50_000,
+    seed: int = SEED,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
     def add(region_name: str, display: str, mask: np.ndarray | None = None) -> None:
         if mask is None:
             mask = np.ones(len(frame), dtype=bool)
-        metrics = compute_metrics(y_true[mask], y_prob[mask], threshold)
+        mask_y = y_true[mask]
+        mask_prob = y_prob[mask]
+        metrics = compute_metrics(mask_y, mask_prob, threshold)
+        metrics.update(
+            compute_metric_errors(
+                mask_y,
+                mask_prob,
+                threshold,
+                trials=error_trials,
+                sample_size=error_sample_size,
+                seed=seed + len(rows),
+            )
+        )
         rows.append(
             {
                 "experiment_id": experiment_id,
@@ -1106,6 +1207,9 @@ def run_catboost_experiment(
             predictions["validation"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     metric_rows.extend(
@@ -1120,6 +1224,9 @@ def run_catboost_experiment(
             predictions["test"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     registry_row = {
@@ -1246,6 +1353,9 @@ def run_linear_logistic_experiment(
             predictions["validation"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     metric_rows.extend(
@@ -1260,6 +1370,9 @@ def run_linear_logistic_experiment(
             predictions["test"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     registry_row = {
@@ -1357,6 +1470,9 @@ def run_poisson_point_process_experiment(
             predictions["validation"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     metric_rows.extend(
@@ -1371,6 +1487,9 @@ def run_poisson_point_process_experiment(
             predictions["test"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     registry_row = {
@@ -1479,6 +1598,9 @@ def run_spline_logistic_experiment(
             predictions["validation"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     metric_rows.extend(
@@ -1493,6 +1615,9 @@ def run_spline_logistic_experiment(
             predictions["test"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     registry_row = {
@@ -1601,6 +1726,9 @@ def run_random_forest_experiment(
             predictions["validation"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     metric_rows.extend(
@@ -1615,6 +1743,9 @@ def run_random_forest_experiment(
             predictions["test"],
             threshold,
             regions,
+            error_trials=args.random_error_trials,
+            error_sample_size=args.random_error_sample_size,
+            seed=args.seed,
         )
     )
     registry_row = {
@@ -1691,6 +1822,37 @@ def grouped_permutation_importance(
     args: argparse.Namespace,
     output_dir: Path,
 ) -> pd.DataFrame:
+    return permutation_importance_for_groups(
+        model=model,
+        feature_columns=feature_columns,
+        cat_features=cat_features,
+        df=df,
+        masks=masks,
+        config=config,
+        threshold=threshold,
+        args=args,
+        output_dir=output_dir,
+        groups={group_display(feature_group(col)): [] for col in feature_columns},
+        output_name="grouped_permutation_importance",
+        title="Grouped Permutation Importance",
+    )
+
+
+def permutation_importance_for_groups(
+    *,
+    model: Any,
+    feature_columns: list[str],
+    cat_features: list[str],
+    df: pd.DataFrame,
+    masks: dict[str, np.ndarray],
+    config: dict[str, Any],
+    threshold: float,
+    args: argparse.Namespace,
+    output_dir: Path,
+    groups: dict[str, list[str]],
+    output_name: str,
+    title: str,
+) -> pd.DataFrame:
     test_frame_all = df.loc[masks["test"]].reset_index(drop=True)
     y_all = positive_labels(test_frame_all[TARGET_COLUMN])
     sample_positions = stratified_sample_positions(y_all, args.permutation_sample_size, args.seed)
@@ -1700,46 +1862,118 @@ def grouped_permutation_importance(
     base_prob = predict_catboost(model, X_base, cat_features)
     base = compute_metrics(y_sample, base_prob, threshold)
 
-    groups: dict[str, list[str]] = {}
-    for col in feature_columns:
-        groups.setdefault(feature_group(col), []).append(col)
+    if not any(groups.values()):
+        for col in feature_columns:
+            groups.setdefault(group_display(feature_group(col)), []).append(col)
 
     rows: list[dict[str, Any]] = []
     rng = np.random.default_rng(args.seed)
+    trials = max(1, int(getattr(args, "permutation_trials", 1)))
     for group, cols in groups.items():
-        X_perm = X_base.copy()
-        for col in cols:
-            X_perm[col] = rng.permutation(X_perm[col].to_numpy(copy=True))
-        perm_prob = predict_catboost(model, X_perm, cat_features)
-        perm = compute_metrics(y_sample, perm_prob, threshold)
+        trial_rows: list[dict[str, Any]] = []
+        for _ in range(trials):
+            X_perm = X_base.copy()
+            for col in cols:
+                X_perm[col] = rng.permutation(X_perm[col].to_numpy(copy=True))
+            perm_prob = predict_catboost(model, X_perm, cat_features)
+            perm = compute_metrics(y_sample, perm_prob, threshold)
+            trial_rows.append(
+                {
+                    "permuted_pr_auc": perm.get("average_precision"),
+                    "pr_auc_drop": metric_drop(base.get("average_precision"), perm.get("average_precision")),
+                    "permuted_f1": perm.get("f1"),
+                    "f1_drop": metric_drop(base.get("f1"), perm.get("f1")),
+                    "permuted_roc_auc": perm.get("roc_auc"),
+                    "roc_auc_drop": metric_drop(base.get("roc_auc"), perm.get("roc_auc")),
+                }
+            )
+        trial_df = pd.DataFrame(trial_rows)
         rows.append(
             {
-                "group": group_display(group),
+                "group": group,
                 "raw_group": group,
                 "feature_count": len(cols),
                 "sample_rows": len(sample_frame),
+                "trials": trials,
                 "baseline_pr_auc": base.get("average_precision"),
-                "permuted_pr_auc": perm.get("average_precision"),
-                "pr_auc_drop": metric_drop(base.get("average_precision"), perm.get("average_precision")),
+                "permuted_pr_auc": trial_df["permuted_pr_auc"].mean(),
+                "pr_auc_drop": trial_df["pr_auc_drop"].mean(),
+                "pr_auc_drop_error": trial_df["pr_auc_drop"].std(ddof=1) if trials > 1 else None,
                 "baseline_f1": base.get("f1"),
-                "permuted_f1": perm.get("f1"),
-                "f1_drop": metric_drop(base.get("f1"), perm.get("f1")),
+                "permuted_f1": trial_df["permuted_f1"].mean(),
+                "f1_drop": trial_df["f1_drop"].mean(),
+                "f1_drop_error": trial_df["f1_drop"].std(ddof=1) if trials > 1 else None,
                 "baseline_roc_auc": base.get("roc_auc"),
-                "permuted_roc_auc": perm.get("roc_auc"),
-                "roc_auc_drop": metric_drop(base.get("roc_auc"), perm.get("roc_auc")),
+                "permuted_roc_auc": trial_df["permuted_roc_auc"].mean(),
+                "roc_auc_drop": trial_df["roc_auc_drop"].mean(),
+                "roc_auc_drop_error": trial_df["roc_auc_drop"].std(ddof=1) if trials > 1 else None,
             }
         )
     imp = pd.DataFrame(rows).sort_values("pr_auc_drop", ascending=False, na_position="last")
-    imp.to_csv(output_dir / "grouped_permutation_importance.csv", index=False)
+    imp.to_csv(output_dir / f"{output_name}.csv", index=False)
     plot_bar(
         imp,
         x_col="pr_auc_drop",
         y_col="group",
-        title="Grouped Permutation Importance",
-        output_base=output_dir / "plots/grouped_permutation_importance",
+        title=title,
+        output_base=output_dir / f"plots/{output_name}",
         xlabel="PR-AUC drop after permutation",
     )
     return imp
+
+
+def climate_window_permutation_importance(
+    model: Any,
+    feature_columns: list[str],
+    cat_features: list[str],
+    df: pd.DataFrame,
+    masks: dict[str, np.ndarray],
+    config: dict[str, Any],
+    threshold: float,
+    args: argparse.Namespace,
+    output_dir: Path,
+) -> pd.DataFrame:
+    groups: dict[str, list[str]] = {}
+    for col in feature_columns:
+        if feature_group(col) != "weather_history":
+            continue
+        window = feature_window_days(col)
+        if window is not None:
+            groups.setdefault(f"{window}-day climate window", []).append(col)
+    if not groups:
+        out = pd.DataFrame(
+            columns=[
+                "group",
+                "raw_group",
+                "feature_count",
+                "sample_rows",
+                "trials",
+                "baseline_pr_auc",
+                "permuted_pr_auc",
+                "pr_auc_drop",
+                "pr_auc_drop_error",
+                "baseline_f1",
+                "permuted_f1",
+                "f1_drop",
+                "f1_drop_error",
+            ]
+        )
+        out.to_csv(output_dir / "climate_window_permutation_importance.csv", index=False)
+        return out
+    return permutation_importance_for_groups(
+        model=model,
+        feature_columns=feature_columns,
+        cat_features=cat_features,
+        df=df,
+        masks=masks,
+        config=config,
+        threshold=threshold,
+        args=args,
+        output_dir=output_dir,
+        groups=dict(sorted(groups.items(), key=lambda item: int(item[0].split("-")[0]))),
+        output_name="climate_window_permutation_importance",
+        title="Climate Window Permutation Importance",
+    )
 
 
 def metric_drop(base: Any, new: Any) -> float | None:
@@ -2003,7 +2237,11 @@ def build_metrics_long(metrics_wide: pd.DataFrame) -> pd.DataFrame:
         "positives",
         "threshold",
     ]
-    value_cols = [col for col in METRIC_COLUMNS if col in metrics_wide.columns]
+    value_cols = [
+        col
+        for col in list(METRIC_COLUMNS) + [f"{metric}_error" for metric in METRIC_COLUMNS]
+        if col in metrics_wide.columns
+    ]
     return metrics_wide.melt(id_vars=id_cols, value_vars=value_cols, var_name="metric", value_name="value")
 
 
@@ -2022,11 +2260,16 @@ def make_main_model_table(metrics_wide: pd.DataFrame, registry: pd.DataFrame, ou
         "precision",
         "recall",
         "f1",
+        "f1_error",
         "average_precision",
+        "average_precision_error",
         "roc_auc",
         "brier_score",
         "threshold",
     ]
+    for col in cols:
+        if col not in df.columns:
+            df[col] = np.nan
     df = df[cols].sort_values(["region_display", "average_precision"], ascending=[True, False])
     df = df.rename(
         columns={
@@ -2034,6 +2277,8 @@ def make_main_model_table(metrics_wide: pd.DataFrame, registry: pd.DataFrame, ou
             "feature_set": "Feature set",
             "region_display": "Region",
             "average_precision": "PR-AUC",
+            "average_precision_error": "PR-AUC error",
+            "f1_error": "F1 error",
             "roc_auc": "ROC-AUC",
             "brier_score": "Brier",
         }
@@ -2048,6 +2293,9 @@ def make_main_model_table(metrics_wide: pd.DataFrame, registry: pd.DataFrame, ou
     ].copy()
     if not by_year.empty:
         by_year["period"] = by_year["split"].astype(str).str.replace("test_", "", regex=False)
+        for col in ["f1_error", "average_precision_error"]:
+            if col not in by_year.columns:
+                by_year[col] = np.nan
         by_year = by_year[
             [
                 "model",
@@ -2060,7 +2308,9 @@ def make_main_model_table(metrics_wide: pd.DataFrame, registry: pd.DataFrame, ou
                 "precision",
                 "recall",
                 "f1",
+                "f1_error",
                 "average_precision",
+                "average_precision_error",
                 "roc_auc",
                 "brier_score",
                 "threshold",
@@ -2077,6 +2327,9 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
     ].copy()
     if df.empty:
         return df
+    for col in ["f1_error", "average_precision_error"]:
+        if col not in df.columns:
+            df[col] = np.nan
     full = df[df["experiment_id"].eq("ablation_full")][["region", "f1", "average_precision"]].rename(
         columns={"f1": "full_f1", "average_precision": "full_average_precision"}
     )
@@ -2092,7 +2345,9 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
             "precision",
             "recall",
             "f1",
+            "f1_error",
             "average_precision",
+            "average_precision_error",
             "delta_f1_vs_full",
             "delta_average_precision_vs_full",
         ]
@@ -2103,6 +2358,8 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
             "feature_set": "Feature set",
             "region_display": "Region",
             "average_precision": "PR-AUC",
+            "average_precision_error": "PR-AUC error",
+            "f1_error": "F1 error",
             "delta_f1_vs_full": "Delta F1 vs full",
             "delta_average_precision_vs_full": "Delta PR-AUC vs full",
         }
@@ -2118,6 +2375,9 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
     ].copy()
     if not by_year.empty:
         by_year["period"] = by_year["split"].astype(str).str.replace("test_", "", regex=False)
+        for col in ["f1_error", "average_precision_error"]:
+            if col not in by_year.columns:
+                by_year[col] = np.nan
         full_by_period = by_year[by_year["experiment_id"].eq("ablation_full")][
             ["region", "period", "f1", "average_precision"]
         ].rename(columns={"f1": "full_f1", "average_precision": "full_average_precision"})
@@ -2138,7 +2398,9 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
                 "precision",
                 "recall",
                 "f1",
+                "f1_error",
                 "average_precision",
+                "average_precision_error",
                 "delta_f1_vs_full",
                 "delta_average_precision_vs_full",
                 "threshold",
@@ -2161,7 +2423,9 @@ def placeholder_blocked_tables(
                 "precision": None,
                 "recall": None,
                 "f1": None,
+                "f1_error": None,
                 "average_precision": None,
+                "average_precision_error": None,
             }
             for name in [
                 "LSTM-MLP full current model",
@@ -2194,7 +2458,9 @@ def placeholder_blocked_tables(
             "precision": (full_global_metrics or {}).get("precision"),
             "recall": (full_global_metrics or {}).get("recall"),
             "f1": (full_global_metrics or {}).get("f1"),
+            "f1_error": (full_global_metrics or {}).get("f1_error"),
             "average_precision": (full_global_metrics or {}).get("average_precision"),
+            "average_precision_error": (full_global_metrics or {}).get("average_precision_error"),
             "interpretation": "Main MODIS target with configured thresholds, high-latitude relaxation, stationary-point filtering, positive expansion, sampled negatives, and land mask.",
         },
         {
@@ -2203,7 +2469,9 @@ def placeholder_blocked_tables(
             "precision": (full_global_metrics or {}).get("precision"),
             "recall": (full_global_metrics or {}).get("recall"),
             "f1": (full_global_metrics or {}).get("f1"),
+            "f1_error": (full_global_metrics or {}).get("f1_error"),
             "average_precision": (full_global_metrics or {}).get("average_precision"),
+            "average_precision_error": (full_global_metrics or {}).get("average_precision_error"),
             "interpretation": "No historical-fire/proximity/density columns were present in the saved feature matrix, so this sensitivity is equivalent to the main model.",
         },
         {
@@ -2212,7 +2480,9 @@ def placeholder_blocked_tables(
             "precision": None,
             "recall": None,
             "f1": None,
+            "f1_error": None,
             "average_precision": None,
+            "average_precision_error": None,
             "interpretation": "Requires rebuilding target caches with expansion disabled; no no-dilation cache exists in the current workspace.",
         },
         {
@@ -2221,7 +2491,9 @@ def placeholder_blocked_tables(
             "precision": None,
             "recall": None,
             "f1": None,
+            "f1_error": None,
             "average_precision": None,
+            "average_precision_error": None,
             "interpretation": "Requires rebuilding target caches with modified target_config thresholds.",
         },
         {
@@ -2230,7 +2502,9 @@ def placeholder_blocked_tables(
             "precision": None,
             "recall": None,
             "f1": None,
+            "f1_error": None,
             "average_precision": None,
+            "average_precision_error": None,
             "interpretation": "Requires regenerating per-country targets/features with a different samples_per_area_per_year.",
         },
     ]
@@ -2264,7 +2538,9 @@ def placeholder_blocked_tables(
                 "precision": None,
                 "recall": None,
                 "f1": None,
+                "f1_error": None,
                 "average_precision": None,
+                "average_precision_error": None,
             }
         ]
     )
@@ -2304,7 +2580,9 @@ def input_source_table(
                 "precision": row["precision"],
                 "recall": row["recall"],
                 "f1": row["f1"],
+                "f1_error": row.get("f1_error"),
                 "average_precision": row["average_precision"],
+                "average_precision_error": row.get("average_precision_error"),
                 "roc_auc": row["roc_auc"],
                 "notes": "Threshold selected on ECMWF validation split and applied to ECMWF test split.",
             }
@@ -2330,7 +2608,9 @@ def input_source_table(
                 "precision": None,
                 "recall": None,
                 "f1": None,
+                "f1_error": None,
                 "average_precision": None,
+                "average_precision_error": None,
                 "roc_auc": None,
                 "notes": reason,
             }
@@ -2411,6 +2691,7 @@ def generate_interpretation(
     input_source: pd.DataFrame,
     native_importance: pd.DataFrame | None,
     grouped_perm: pd.DataFrame | None,
+    climate_window_perm: pd.DataFrame | None,
     shap_df: pd.DataFrame | None,
     failures: list[dict[str, Any]],
 ) -> str:
@@ -2436,13 +2717,16 @@ def generate_interpretation(
     top_group = None
     if grouped_perm is not None and not grouped_perm.empty:
         top_group = grouped_perm.sort_values("pr_auc_drop", ascending=False).iloc[0]
+    top_window = None
+    if climate_window_perm is not None and not climate_window_perm.empty:
+        top_window = climate_window_perm.sort_values("pr_auc_drop", ascending=False).iloc[0]
     top_features = []
     if native_importance is not None and not native_importance.empty:
         top_features = native_importance.head(5)["feature"].tolist()
 
     paragraphs = [
         "## Experimental Setup",
-        "We evaluated all feasible revision experiments on the existing precomputed feature matrix using a fixed chronological split: 2001-2018 for training, 2019-2020 for threshold selection and validation, and 2021-2025 for testing. Binary decision thresholds were selected only on validation by maximizing F1 and then applied unchanged to the test split and all regional/yearly subsets.",
+        "We evaluated all feasible revision experiments on the existing precomputed feature matrix using a fixed chronological split: 2001-2018 for training, 2019-2020 for threshold selection and validation, and 2021-2025 for testing. Binary decision thresholds were selected only on validation by maximizing F1 and then applied unchanged to the test split and all regional/yearly subsets. Metric error columns are estimated with five stratified bootstrap trials over saved predictions for efficient uncertainty summaries.",
         "",
         "## Dataset Statistics",
         f"The saved dataset uses a detected grid spacing of {dataset_stats.iloc[0]['grid_resolution']}. Negatives are sampled rather than full-grid negatives, and the feature merge retains land rows according to the configured land/sea mask rule. The global train, validation, and test sample counts are reported in `dataset_statistics.csv`.",
@@ -2468,7 +2752,7 @@ def generate_interpretation(
         "SEAS5/ECMWF -> SEAS5/ECMWF is the clean operationally matched setting available from the existing feature matrix. ERA5->ERA5 would represent a retrospective upper-bound setting, while ERA5->SEAS5 measures input-source domain shift, not simply model quality. The raw ERA5 files are readable, but exact feature-schema parity was blocked by the absence of a precomputed ERA5-derived feature parquet.",
         "",
         "## Interpretability",
-        f"Native CatBoost importance ranks the following features highest: {', '.join(top_features) if top_features else 'NA'}. Grouped permutation importance shows the largest PR-AUC drop for `{top_group['group'] if top_group is not None else 'NA'}` ({fmt(top_group['pr_auc_drop'] if top_group is not None else None)}). These attributions are model explanations, not causal effects.",
+        f"Native CatBoost importance ranks the following features highest: {', '.join(top_features) if top_features else 'NA'}. Grouped permutation importance shows the largest PR-AUC drop for `{top_group['group'] if top_group is not None else 'NA'}` ({fmt(top_group['pr_auc_drop'] if top_group is not None else None)}), while climate-window permutation is strongest for `{top_window['group'] if top_window is not None else 'NA'}` ({fmt(top_window['pr_auc_drop'] if top_window is not None else None)}). These attributions are model explanations, not causal effects.",
         "",
         "## Lead Time",
         "Lead-time sensitivity was not directly supported by the saved 30-day aggregate feature matrix because it does not retain forecast lead-time metadata.",
@@ -2524,6 +2808,7 @@ def generate_reports(
     input_source: pd.DataFrame,
     native_importance: pd.DataFrame | None,
     grouped_perm: pd.DataFrame | None,
+    climate_window_perm: pd.DataFrame | None,
     shap_df: pd.DataFrame | None,
     metrics_wide: pd.DataFrame,
     registry: pd.DataFrame,
@@ -2555,6 +2840,9 @@ def generate_reports(
         "## Grouped Permutation Importance",
         markdown_table(grouped_perm if grouped_perm is not None else pd.DataFrame()),
         "",
+        "## Climate Window Permutation Importance",
+        markdown_table(climate_window_perm if climate_window_perm is not None else pd.DataFrame()),
+        "",
     ]
     (output_dir / "paper_ready_tables.md").write_text("\n".join(tables_md), encoding="utf-8")
     tex_parts = [
@@ -2568,6 +2856,8 @@ def generate_reports(
         tex_parts.append(native_importance.head(30).to_latex(index=False, escape=True, caption="Native CatBoost feature importance."))
     if grouped_perm is not None:
         tex_parts.append(grouped_perm.to_latex(index=False, escape=True, caption="Grouped permutation importance."))
+    if climate_window_perm is not None:
+        tex_parts.append(climate_window_perm.to_latex(index=False, escape=True, caption="Climate-window permutation importance."))
     (output_dir / "paper_ready_tables.tex").write_text("\n\n".join(tex_parts), encoding="utf-8")
 
     report = [
@@ -2604,7 +2894,7 @@ def generate_reports(
         markdown_table(input_source),
         "",
         "## Feature Importance And Interpretability",
-        "Native feature importance and grouped permutation importance were generated for the best/full CatBoost model. SHAP is reported when CatBoost-native SHAP completed.",
+        "Native feature importance, grouped permutation importance, and climate-window permutation importance were generated for the best/full CatBoost model. SHAP is reported when CatBoost-native SHAP completed.",
         "",
         "## Recommended Manuscript Changes",
         "- State that the grid is 0.1 degree and that negatives are sampled.",
@@ -2670,7 +2960,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "plots").mkdir(parents=True, exist_ok=True)
     setup_logging(output_dir)
     started_at = datetime.now()
     command = "conda run -n pointnet python " + " ".join([str(Path(__file__)), *sys.argv[1:]])
@@ -2693,6 +2982,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     full_cat_features: list[str] = []
     native_importance = None
     grouped_perm = None
+    climate_window_perm = None
     shap_df = None
 
     df = load_dataset(args.features_path)
@@ -2915,19 +3205,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         ("ablation_no_seasonality", feature_sets["no_seasonality"]),
         ("ablation_no_history", feature_sets["no_history"]),
         ("ablation_no_temporal_history", feature_sets["no_temporal_history"]),
+        ("ablation_shorter_sequence_30d", feature_sets["shorter_sequence_30d"]),
+        ("ablation_no_periodic_seasonality", feature_sets["no_periodic_seasonality"]),
+        ("ablation_no_gaussian_smoothing", feature_sets["no_gaussian_smoothing"]),
         ("ablation_static_only", feature_sets["static_only"]),
         ("ablation_dynamic_weather_fwi_only", feature_sets["dynamic_weather_fwi_only"]),
     ]
     for experiment_id, spec in ablation_specs:
-        if spec.get("dropped") == [] and experiment_id == "ablation_no_history":
-            # No explicit historical-fire columns exist; copy full metrics as a no-op sensitivity.
+        if spec.get("dropped") == []:
+            # No matching columns exist; copy full metrics as a documented no-op sensitivity.
+            note = f"No columns matched this ablation pattern for `{spec['feature_set']}`."
             for row in [r for r in registry_rows if r["experiment_id"] == "ablation_full" and r["status"] == "completed"]:
                 cloned = dict(row)
                 cloned["experiment_id"] = experiment_id
                 cloned["experiment_type"] = "feature_ablation"
                 cloned["feature_set"] = spec["feature_set"]
                 cloned["status"] = "completed_no_op"
-                cloned["notes"] = "No historical-fire/proximity/fire-density columns were present in the feature matrix."
+                cloned["notes"] = note
                 registry_rows.append(cloned)
             for row in [r for r in metric_rows if r["experiment_id"] == "ablation_full"]:
                 cloned = dict(row)
@@ -3028,6 +3322,31 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "Reduce permutation sample size or rerun from the saved CatBoost model.",
             )
         try:
+            full_row = next(row for row in registry_rows if row["experiment_id"] == "catboost_full" and row["status"] == "completed")
+            climate_window_perm = climate_window_permutation_importance(
+                full_model,
+                feature_sets["full"]["columns"],
+                full_cat_features,
+                df,
+                masks,
+                feature_config,
+                float(full_row["threshold"]),
+                args,
+                output_dir,
+            )
+        except Exception as exc:
+            record_failure(
+                failures,
+                registry_rows,
+                "climate_window_permutation_importance",
+                "interpretability",
+                "CatBoost",
+                "full features",
+                exc,
+                "Moderate for climate-window interpretation only.",
+                "Reduce permutation sample size or inspect climate window feature names.",
+            )
+        try:
             shap_df = catboost_native_shap(
                 full_model,
                 feature_sets["full"]["columns"],
@@ -3082,6 +3401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         input_source,
         native_importance,
         grouped_perm,
+        climate_window_perm,
         shap_df,
         failures,
     )
@@ -3098,6 +3418,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         input_source,
         native_importance,
         grouped_perm,
+        climate_window_perm,
         shap_df,
         metrics_wide,
         registry_df,
@@ -3120,7 +3441,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "split": {
             "train": "2001-2018",
             "validation": "2019-2020",
-            "test": "2021-2023",
+            "test": "2021-2025",
             "thresholding": "Validation F1-max threshold applied unchanged to test.",
         },
         "package_availability": packages,
@@ -3135,6 +3456,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "failures": failures,
     }
     write_json(output_dir / "run_manifest.json", manifest)
+    prune_empty_dirs(output_dir)
     logging.info("Revision experiment package complete: %s", output_dir)
     return 0
 
