@@ -1,0 +1,159 @@
+{
+  "config_path": "configs/nn_global_full_ft_transformer.yaml",
+  "data_path": "data/saved_features/nn_train_data/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_ft_transformer-ft_transformer-epoch=00-val_f1=0.4462.ckpt",
+  "architecture": "ft_transformer",
+  "model_config": {
+    "token_dim": 96,
+    "num_layers": 3,
+    "num_heads": 8,
+    "ffn_dim": 256,
+    "dropout": 0.12,
+    "dynamic_mode": "flatten",
+    "head_units": 96,
+    "head_dropout": 0.08,
+    "norm_first": false,
+    "categorical_mode": "embedding",
+    "seq_len": 5,
+    "n_channels": 6,
+    "n_static": 84,
+    "n_categorical": 6,
+    "categorical_embeddings": [
+      {
+        "name": "cat_0",
+        "cardinality": 131,
+        "embedding_dim": 14
+      },
+      {
+        "name": "cat_1",
+        "cardinality": 3,
+        "embedding_dim": 5
+      },
+      {
+        "name": "cat_2",
+        "cardinality": 8,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_3",
+        "cardinality": 11,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_4",
+        "cardinality": 7,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_5",
+        "cardinality": 8,
+        "embedding_dim": 7
+      }
+    ]
+  },
+  "input_ablation": {},
+  "loss_training": {
+    "enabled": false,
+    "soft_labels": {
+      "enabled": false
+    }
+  },
+  "spatial_training": {
+    "coordinate_features": {
+      "enabled": false
+    },
+    "static_branch": {
+      "enabled": false
+    }
+  },
+  "feature_set": null,
+  "selection_metric": "val_f1",
+  "validation_threshold": 0.15465986728668213,
+  "validation_best_f1": 0.4462673994139231,
+  "train": {
+    "precision": NaN,
+    "recall": NaN,
+    "f1": NaN,
+    "ap": NaN,
+    "precision_error": null,
+    "recall_error": null,
+    "f1_error": null,
+    "ap_error": null,
+    "threshold": 0.15465986728668213
+  },
+  "validation": {
+    "precision": 0.31518705820690435,
+    "recall": 0.7640009614394121,
+    "f1": 0.44626739941433674,
+    "ap": 0.3587622055132863,
+    "threshold": 0.15465986728668213,
+    "precision_error": 0.0008937809572013228,
+    "recall_error": 0.003371344072360287,
+    "f1_error": 0.00125561771405253,
+    "ap_error": 0.002542874965046009
+  },
+  "test": {
+    "precision": 0.2888103258513157,
+    "recall": 0.8598863997457896,
+    "f1": 0.43239275567117896,
+    "ap": 0.4215167542277999,
+    "threshold": 0.15465986728668213,
+    "precision_error": 0.001403958310855379,
+    "recall_error": 0.0029661228530944465,
+    "f1_error": 0.0018016387257110814,
+    "ap_error": 0.0053629675173756195
+  },
+  "legacy_sampled_metrics": {
+    "train": {
+      "precision": NaN,
+      "recall": NaN,
+      "f1": NaN,
+      "ap": NaN,
+      "precision_error": null,
+      "recall_error": null,
+      "f1_error": null,
+      "ap_error": null,
+      "threshold": 0.15465986728668213
+    },
+    "validation": {
+      "precision": 0.31518705820690435,
+      "recall": 0.7640009614394121,
+      "f1": 0.44626739941433674,
+      "ap": 0.3587622055132863,
+      "threshold": 0.15465986728668213,
+      "precision_error": 0.0008937809572013228,
+      "recall_error": 0.003371344072360287,
+      "f1_error": 0.00125561771405253,
+      "ap_error": 0.002542874965046009
+    },
+    "test": {
+      "precision": 0.2888103258513157,
+      "recall": 0.8598863997457896,
+      "f1": 0.43239275567117896,
+      "ap": 0.4215167542277999,
+      "threshold": 0.15465986728668213,
+      "precision_error": 0.001403958310855379,
+      "recall_error": 0.0029661228530944465,
+      "f1_error": 0.0018016387257110814,
+      "ap_error": 0.0053629675173756195
+    },
+    "evaluation_type": "legacy_sampled_case_control",
+    "note": "Metrics are computed on the undersampled/case-control neural dataset."
+  },
+  "primary_full_grid_calibrated_metrics": {
+    "status": "adapter_required",
+    "evaluation_type": "primary_full_grid_calibrated",
+    "is_primary": false,
+    "calibration_method": "prior_offset_month",
+    "note": "Full-grid calibrated NN evaluation is part of revision_evaluation, but this architecture requires a deployment-grid tensor adapter before it can generate calibrated deployment predictions. Legacy sampled logits are saved separately and are not reported as deployment probabilities."
+  },
+  "prediction_artifacts": {
+    "validation": "outputs/nn_global_full_ft_transformer/legacy_sampled_predictions/validation_predictions.parquet",
+    "test": "outputs/nn_global_full_ft_transformer/legacy_sampled_predictions/test_predictions.parquet"
+  },
+  "split_sizes": {
+    "train": 1217788,
+    "validation": 150671,
+    "test": 328317
+  }
+}

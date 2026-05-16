@@ -1,0 +1,34 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_observed_count_ratio"
+    }
+  ],
+  "rows": 30,
+  "source_csv": "primary_full_grid_calibrated/region_count_calibration.csv"
+}

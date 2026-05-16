@@ -1,0 +1,34 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "table_type"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "str",
+      "name": "country"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_observed_count_ratio"
+    }
+  ],
+  "rows": 6,
+  "source_csv": "primary_full_grid_calibrated/country_count_calibration.csv"
+}

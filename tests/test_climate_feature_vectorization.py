@@ -5,9 +5,12 @@ import xarray as xr
 
 from src.feature_generation.prepare_climate_data import (
     _build_feature_matrix_vectorized,
+    check_fragmented_dataset_bounds,
     check_dataset_bounds,
     extract_climate_timeseries,
+    extract_climate_timeseries_fragmented,
 )
+from src.feature_generation.load_climate_data import ClimateFragment
 from src.feature_generation.prepare_climate_features import (
     _extract_single_series,
     get_feature_configs_and_names,
@@ -182,3 +185,81 @@ def test_dataset_bounds_reject_missing_future_time_coverage():
 
     assert not result["sufficient"]
     assert not result["details"]["time"]["sufficient"]
+
+
+def _write_fragment_dataset(path, lon_values, base_value):
+    times = pd.date_range("2020-01-01", periods=6, freq="D")
+    lats = np.array([10.0, 11.0], dtype=np.float32)
+    lons = np.asarray(lon_values, dtype=np.float32)
+    values = np.empty((len(times), len(lats), len(lons)), dtype=np.float32)
+    for t_idx in range(len(times)):
+        for lat_idx in range(len(lats)):
+            for lon_idx in range(len(lons)):
+                values[t_idx, lat_idx, lon_idx] = base_value + t_idx * 100 + lat_idx * 10 + lon_idx
+
+    ds = xr.Dataset(
+        {"t2m": (("valid_time", "latitude", "longitude"), values)},
+        coords={"valid_time": times, "latitude": lats, "longitude": lons},
+    )
+    ds.to_netcdf(path)
+
+
+def _test_fragment(path, lon_min, lon_max):
+    return ClimateFragment(
+        variable="t2m",
+        files=(str(path),),
+        time_start=np.datetime64("2020-01-01", "ns"),
+        time_end=np.datetime64("2020-01-06", "ns"),
+        lat_min=10.0,
+        lat_max=11.0,
+        lon_min=lon_min,
+        lon_max=lon_max,
+        lat_step=1.0,
+        lon_step=1.0,
+        lat_size=2,
+        lon_size=2,
+        dtype="float32",
+    )
+
+
+def test_fragmented_extraction_routes_rows_and_leaves_gaps_nan(tmp_path):
+    west_path = tmp_path / "west.nc"
+    east_path = tmp_path / "east.nc"
+    _write_fragment_dataset(west_path, [20.0, 21.0], 0.0)
+    _write_fragment_dataset(east_path, [40.0, 41.0], 1000.0)
+    fragments = [_test_fragment(west_path, 20.0, 21.0), _test_fragment(east_path, 40.0, 41.0)]
+
+    target = pl.DataFrame(
+        {
+            "acq_date": [
+                pd.Timestamp("2020-01-04"),
+                pd.Timestamp("2020-01-05"),
+                pd.Timestamp("2020-01-04"),
+            ],
+            "lat_rounded": [10.0, 11.0, 10.0],
+            "lon_rounded": [20.0, 41.0, 30.0],
+        }
+    )
+
+    coverage = check_fragmented_dataset_bounds(fragments, target, n_days=2)
+    assert not coverage["sufficient"]
+    assert coverage["details"]["covered_rows"] == 2
+    assert coverage["details"]["missing_rows"] == 1
+
+    result = extract_climate_timeseries_fragmented(
+        fragments,
+        "t2m",
+        target,
+        n_days=2,
+        assignments=coverage["assignments"],
+    )
+
+    expected = np.array(
+        [
+            [200.0, 300.0],
+            [1311.0, 1411.0],
+            [np.nan, np.nan],
+        ],
+        dtype=np.float32,
+    )
+    np.testing.assert_allclose(result, expected, equal_nan=True)

@@ -1,0 +1,126 @@
+{
+  "config_path": "configs/nn_global_full_lstm_attention.yaml",
+  "data_path": "data/saved_features/nn_train_data/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_lstm_attention-lstm_attention-epoch=00-val_f1=0.4686.ckpt",
+  "architecture": "lstm_attention",
+  "model_config": {
+    "lstm_units": 224,
+    "num_layers": 1,
+    "bidirectional": true,
+    "dropout_lstm": 0.15,
+    "static_units": 512,
+    "dropout_static": 0.05,
+    "merge_units": 384,
+    "dropout_merged": 0.2,
+    "categorical_mode": "raw",
+    "seq_len": 5,
+    "n_channels": 6,
+    "n_static": 84,
+    "n_categorical": 6
+  },
+  "input_ablation": {},
+  "loss_training": {
+    "enabled": false,
+    "soft_labels": {
+      "enabled": false
+    }
+  },
+  "spatial_training": {
+    "coordinate_features": {
+      "enabled": false
+    },
+    "static_branch": {
+      "enabled": false
+    }
+  },
+  "feature_set": null,
+  "selection_metric": "val_f1",
+  "validation_threshold": 0.3231827914714813,
+  "validation_best_f1": 0.4686776577863627,
+  "train": {
+    "precision": NaN,
+    "recall": NaN,
+    "f1": NaN,
+    "ap": NaN,
+    "precision_error": null,
+    "recall_error": null,
+    "f1_error": null,
+    "ap_error": null,
+    "threshold": 0.3231827914714813
+  },
+  "validation": {
+    "precision": 0.3562598256395598,
+    "recall": 0.6847508841808879,
+    "f1": 0.46867765778681303,
+    "ap": 0.39401696749040604,
+    "threshold": 0.3231827914714813,
+    "precision_error": 0.00027779147776929423,
+    "recall_error": 0.004619170991054481,
+    "f1_error": 0.0009399001716735576,
+    "ap_error": 0.0032994188338791287
+  },
+  "test": {
+    "precision": 0.3400342098897681,
+    "recall": 0.781716714331109,
+    "f1": 0.4739205817901606,
+    "ap": 0.48097413392482924,
+    "threshold": 0.3231827914714813,
+    "precision_error": 0.0010704144619777237,
+    "recall_error": 0.003007123232588591,
+    "f1_error": 0.001372284017206103,
+    "ap_error": 0.005080252550690938
+  },
+  "legacy_sampled_metrics": {
+    "train": {
+      "precision": NaN,
+      "recall": NaN,
+      "f1": NaN,
+      "ap": NaN,
+      "precision_error": null,
+      "recall_error": null,
+      "f1_error": null,
+      "ap_error": null,
+      "threshold": 0.3231827914714813
+    },
+    "validation": {
+      "precision": 0.3562598256395598,
+      "recall": 0.6847508841808879,
+      "f1": 0.46867765778681303,
+      "ap": 0.39401696749040604,
+      "threshold": 0.3231827914714813,
+      "precision_error": 0.00027779147776929423,
+      "recall_error": 0.004619170991054481,
+      "f1_error": 0.0009399001716735576,
+      "ap_error": 0.0032994188338791287
+    },
+    "test": {
+      "precision": 0.3400342098897681,
+      "recall": 0.781716714331109,
+      "f1": 0.4739205817901606,
+      "ap": 0.48097413392482924,
+      "threshold": 0.3231827914714813,
+      "precision_error": 0.0010704144619777237,
+      "recall_error": 0.003007123232588591,
+      "f1_error": 0.001372284017206103,
+      "ap_error": 0.005080252550690938
+    },
+    "evaluation_type": "legacy_sampled_case_control",
+    "note": "Metrics are computed on the undersampled/case-control neural dataset."
+  },
+  "primary_full_grid_calibrated_metrics": {
+    "status": "adapter_required",
+    "evaluation_type": "primary_full_grid_calibrated",
+    "is_primary": false,
+    "calibration_method": "prior_offset_month",
+    "note": "Full-grid calibrated NN evaluation is part of revision_evaluation, but this architecture requires a deployment-grid tensor adapter before it can generate calibrated deployment predictions. Legacy sampled logits are saved separately and are not reported as deployment probabilities."
+  },
+  "prediction_artifacts": {
+    "validation": "outputs/nn_global_full_lstm_attention/legacy_sampled_predictions/validation_predictions.parquet",
+    "test": "outputs/nn_global_full_lstm_attention/legacy_sampled_predictions/test_predictions.parquet"
+  },
+  "split_sizes": {
+    "train": 1217788,
+    "validation": 150671,
+    "test": 328317
+  }
+}

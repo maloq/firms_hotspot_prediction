@@ -25,12 +25,35 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
+from tqdm.auto import tqdm
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 from src.neural_net.models.lightning import SequenceStaticLightningModule
 from src.utils.prediction_adjustments import adjust_probabilities_for_prior
 
 torch.set_float32_matmul_precision('high')
+
+DEFAULT_SPATIAL_STATIC_PREFIXES = [
+    "coord_",
+    "elevation_",
+    "road_",
+    "distance_to_road",
+    "night_light_",
+    "light_density_",
+    "distance_to_light",
+    "fire_index_",
+    "lai_",
+    "landseamask",
+    "population",
+    "anor",
+    "isor",
+    "z",
+    "lsm",
+    "slor",
+    "sdfor",
+    "sdor",
+    "distance_to_coast",
+]
 
 print("PyTorch version:", torch.__version__)
 print("CUDA available:", torch.cuda.is_available())
@@ -41,15 +64,20 @@ if torch.cuda.is_available():
 
 
 class FireDataset(Dataset):
-    """Dataset that returns dynamic, static, categorical features, labels, and sample weights."""
+    """Dataset that returns model inputs, hard labels, loss targets, and sample weights."""
 
-    def __init__(self, x_dyn, x_stat, x_cat, y, sample_weight=None):
-        self.x_dyn = torch.as_tensor(x_dyn, dtype=torch.float32)
+    def __init__(self, x_dyn, x_stat, x_cat, y, sample_weight=None, loss_target=None):
+        self.x_dyn = torch.as_tensor(x_dyn)
+        if not torch.is_floating_point(self.x_dyn):
+            self.x_dyn = self.x_dyn.float()
         self.x_stat = torch.as_tensor(x_stat, dtype=torch.float32)
         if x_cat is None:
             x_cat = np.zeros((self.x_dyn.shape[0], 0), dtype=np.int64)
         self.x_cat = torch.as_tensor(x_cat, dtype=torch.long)
         self.y = torch.as_tensor(y, dtype=torch.float32).view(-1)
+        if loss_target is None:
+            loss_target = y
+        self.loss_target = torch.as_tensor(loss_target, dtype=torch.float32).view(-1)
         if sample_weight is None:
             self.sample_weight = torch.ones_like(self.y)
         else:
@@ -60,10 +88,11 @@ class FireDataset(Dataset):
 
     def __getitem__(self, idx):
         return (
-            self.x_dyn[idx],
+            self.x_dyn[idx].float(),
             self.x_stat[idx],
             self.x_cat[idx],
             self.y[idx],
+            self.loss_target[idx],
             self.sample_weight[idx],
         )
 
@@ -175,7 +204,16 @@ def infer_categorical_embeddings(x_cat: np.ndarray) -> list[dict[str, int]]:
     return embeddings
 
 
-def predict_probs(model, x_dyn, x_stat, x_cat=None, batch_size=256, device=None):
+def predict_logits(
+    model,
+    x_dyn,
+    x_stat,
+    x_cat=None,
+    batch_size=256,
+    device=None,
+    show_progress: bool = False,
+    desc: str | None = None,
+):
     if len(x_dyn) == 0:
         return np.zeros((0,), dtype=np.float32)
     model.eval()
@@ -184,16 +222,69 @@ def predict_probs(model, x_dyn, x_stat, x_cat=None, batch_size=256, device=None)
         x_cat = np.zeros((len(x_dyn), 0), dtype=np.int64)
     dataset = FireDataset(x_dyn, x_stat, x_cat, np.zeros(len(x_dyn), dtype=np.float32))
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    iterator = loader
+    if show_progress:
+        iterator = tqdm(
+            loader,
+            desc=desc or "Predict",
+            dynamic_ncols=True,
+            leave=True,
+        )
     preds = []
     with torch.no_grad():
-        for dyn, stat, cat, _, _ in loader:
+        for dyn, stat, cat, *_ in iterator:
             dyn = dyn.to(device)
             stat = stat.to(device)
             cat = cat.to(device)
             logits = model(dyn, stat, cat if cat.numel() else None)
-            probs = torch.sigmoid(logits).cpu().numpy()
-            preds.append(probs)
-    return np.concatenate(preds)
+            preds.append(logits.cpu().numpy())
+    return np.concatenate(preds).reshape(-1)
+
+
+def logits_to_probs(logits):
+    return 1.0 / (1.0 + np.exp(-np.asarray(logits, dtype=np.float32)))
+
+
+def predict_probs(
+    model,
+    x_dyn,
+    x_stat,
+    x_cat=None,
+    batch_size=256,
+    device=None,
+    show_progress: bool = False,
+    desc: str | None = None,
+):
+    logits = predict_logits(
+        model,
+        x_dyn,
+        x_stat,
+        x_cat=x_cat,
+        batch_size=batch_size,
+        device=device,
+        show_progress=show_progress,
+        desc=desc,
+    )
+    return logits_to_probs(logits)
+
+
+def save_sampled_prediction_table(path, y_true, logits, split_name):
+    y_true = np.asarray(y_true).reshape(-1).astype(int)
+    logits = np.asarray(logits, dtype=float).reshape(-1)
+    prob = logits_to_probs(logits)
+    frame = pd.DataFrame(
+        {
+            "split_name": split_name,
+            "is_fire": y_true,
+            "raw_score": logits.astype(np.float32),
+            "prob_raw": prob.astype(np.float32),
+            "raw_score_source": "neural_logit_before_sigmoid",
+            "evaluation_type": "legacy_sampled_case_control",
+        }
+    )
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    frame.to_parquet(path, index=False)
+    return path
 
 
 def train_pipeline(
@@ -219,6 +310,9 @@ def train_pipeline(
     class_weights=None,
     selection_metric: str = "sel_ap",
     compute_train_predictions: bool = True,
+    y_loss_train=None,
+    y_loss_val=None,
+    loss_config=None,
 ):
     n_train = x_dyn_train.shape[0]
     steps_per_epoch = math.ceil(n_train / batch_size)
@@ -254,9 +348,27 @@ def train_pipeline(
         weight_1 = 1
         print(f"Class weights default: 1:{weight_1/weight_0:.4f}")
 
+    if y_loss_train is None:
+        y_loss_train = y_train
+    if y_loss_val is None:
+        y_loss_val = y_val
+
     model_kwargs = dict(model_config or {})
-    model_kwargs.setdefault("seq_len", x_dyn_train.shape[1])
-    model_kwargs.setdefault("n_channels", x_dyn_train.shape[2])
+    if x_dyn_train.ndim == 3:
+        seq_len = int(x_dyn_train.shape[1])
+        n_channels = int(x_dyn_train.shape[2])
+    elif x_dyn_train.ndim == 5:
+        seq_len = int(x_dyn_train.shape[1])
+        n_channels = int(x_dyn_train.shape[4])
+        model_kwargs.setdefault("spatial_height", int(x_dyn_train.shape[2]))
+        model_kwargs.setdefault("spatial_width", int(x_dyn_train.shape[3]))
+    else:
+        raise ValueError(
+            "Expected dynamic training tensor shaped (N, T, C) or (N, T, H, W, C), "
+            f"got {x_dyn_train.shape}."
+        )
+    model_kwargs.setdefault("seq_len", seq_len)
+    model_kwargs.setdefault("n_channels", n_channels)
     model_kwargs.setdefault("n_static", x_stat_train.shape[1])
     model_kwargs.setdefault("n_categorical", x_cat_train.shape[1] if x_cat_train.ndim == 2 else 0)
     if (
@@ -270,6 +382,15 @@ def train_pipeline(
     print(f"Using architecture: {model_name} with params: {model_kwargs}")
 
     lightning_kwargs = dict(lightning_config or {})
+    loss_config = dict(loss_config or {})
+    if loss_config:
+        loss_name = loss_config.get("name", loss_config.get("type"))
+        if loss_name is not None:
+            lightning_kwargs["loss_name"] = loss_name
+        if "focal_gamma" in loss_config:
+            lightning_kwargs["focal_gamma"] = loss_config["focal_gamma"]
+        if "focal_alpha" in loss_config:
+            lightning_kwargs["focal_alpha"] = loss_config["focal_alpha"]
     # Support alias `weight_decay` in config; map to module arg `l2`
     if "weight_decay" in lightning_kwargs and "l2" not in lightning_kwargs:
         try:
@@ -343,8 +464,9 @@ def train_pipeline(
         x_cat_train,
         y_train,
         sample_weight=sample_w_train,
+        loss_target=y_loss_train,
     )
-    val_dataset = FireDataset(x_dyn_val, x_stat_val, x_cat_val, y_val)
+    val_dataset = FireDataset(x_dyn_val, x_stat_val, x_cat_val, y_val, loss_target=y_loss_val)
 
     train_loader = DataLoader(
         train_dataset,
@@ -420,6 +542,7 @@ def train_pipeline(
         "enable_checkpointing": checkpoint_callback is not None,
     }
     default_trainer_params.update(trainer_params)
+    prediction_progress_bar = bool(default_trainer_params.get("enable_progress_bar", True))
 
     trainer = pl.Trainer(**default_trainer_params)
 
@@ -456,14 +579,17 @@ def train_pipeline(
         plot_loss(history_cb.history, out_path=os.path.join(plot_path, "loss.png"))
 
     # Compute validation scores and, when needed, train scores to report selection metrics.
-    y_val_probs = predict_probs(
+    y_val_logits = predict_logits(
         best_model,
         x_dyn_val,
         x_stat_val,
         x_cat_val,
         batch_size=batch_size,
         device=device,
+        show_progress=prediction_progress_bar,
+        desc="Predict validation",
     )
+    y_val_probs = logits_to_probs(y_val_logits)
     val_ap = plot_recall_precision(
         y_val,
         y_val_probs,
@@ -471,20 +597,28 @@ def train_pipeline(
         title="Validation PR",
     )
     train_ap = float("nan")
+    y_train_logits_for_sel = None
+    y_train_probs_for_sel = None
     sel_ap = float(val_ap)
     if compute_train_predictions or monitor_metric == "sel_ap":
-        y_train_probs_for_sel = predict_probs(
+        y_train_logits_for_sel = predict_logits(
             best_model,
             x_dyn_train,
             x_stat_train,
             x_cat_train,
             batch_size=batch_size,
             device=device,
+            show_progress=prediction_progress_bar,
+            desc="Predict train",
         )
+        y_train_probs_for_sel = logits_to_probs(y_train_logits_for_sel)
         train_ap = float(average_precision_score(y_train, y_train_probs_for_sel))
         sel_ap = float(val_ap) + float(train_ap)
     results.update({
+        "y_val_logits": y_val_logits,
         "y_val_probs": y_val_probs,
+        "y_train_logits": y_train_logits_for_sel,
+        "y_train_probs": y_train_probs_for_sel,
         "val_ap": float(val_ap),
         "train_ap": train_ap,
         "sel_ap": sel_ap,
@@ -633,7 +767,7 @@ def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
             x_cat_train = np.zeros((x_dyn_train.shape[0], 0), dtype=np.int64)
             x_cat_val = np.zeros((x_dyn_val.shape[0], 0), dtype=np.int64)
             x_cat_test = np.zeros((x_dyn_test.shape[0], 0), dtype=np.int64)
-        return {
+        out = {
             "format": "split",
             "x_dyn_train": x_dyn_train,
             "x_dyn_val": x_dyn_val,
@@ -648,9 +782,27 @@ def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
             "y_val": y_val,
             "y_test": y_test,
         }
+        for base_name in ("soft_label",):
+            for split_name, fallback_len in (
+                ("train", len(y_train)),
+                ("val", len(y_val)),
+                ("test", len(y_test)),
+            ):
+                key = f"{base_name}_{split_name}"
+                if key in keys:
+                    out[key] = data[key]
+                else:
+                    out[key] = None
+        for base_name in ("lat", "lon"):
+            for split_name in ("train", "val", "test"):
+                key = f"{base_name}_{split_name}"
+                out[key] = data[key] if key in keys else None
+        return out
 
     if {"x_dyn", "y", "split"}.issubset(keys) and ("x_static" in keys or "x_stat" in keys):
-        x_dyn = np.asarray(data["x_dyn"], dtype=np.float32)
+        x_dyn = np.asarray(data["x_dyn"])
+        if not np.issubdtype(x_dyn.dtype, np.floating):
+            x_dyn = x_dyn.astype(np.float32)
         x_stat = np.asarray(data["x_static" if "x_static" in keys else "x_stat"], dtype=np.float32)
         y = np.asarray(data["y"], dtype=np.float32)
         split = np.asarray(data["split"], dtype=np.int8)
@@ -671,7 +823,7 @@ def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
         if masks["train"].sum() == 0 or masks["val"].sum() == 0:
             raise ValueError("Full-array prepared data must contain split codes 0=train and 1=validation.")
 
-        return {
+        out = {
             "format": "full",
             "x_dyn_train": x_dyn[masks["train"]],
             "x_dyn_val": x_dyn[masks["val"]],
@@ -686,10 +838,242 @@ def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
             "y_val": y[masks["val"]],
             "y_test": y[masks["test"]],
         }
+        optional_specs = {
+            "soft_label": (np.float32, None),
+            "lat": (np.float32, None),
+            "lon": (np.float32, None),
+        }
+        for base_name, (dtype, fill_value) in optional_specs.items():
+            if base_name in keys:
+                values = np.asarray(data[base_name], dtype=dtype)
+            elif fill_value is None:
+                values = None
+            else:
+                values = np.full(y.shape[0], fill_value, dtype=dtype)
+            for split_name, mask in masks.items():
+                key = f"{base_name}_{split_name}"
+                out[key] = None if values is None else values[mask]
+        return out
 
     raise KeyError(
         "prepared_data.npz must contain either split arrays "
         "(x_dyn_train/x_stat_train/y_train) or full arrays (x_dyn/x_static/y/split)."
+    )
+
+
+def build_loss_targets(
+    *,
+    y_train: np.ndarray,
+    y_val: np.ndarray,
+    soft_label_train: np.ndarray | None,
+    soft_label_val: np.ndarray | None,
+    loss_config: dict[str, Any],
+) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    cfg = dict(loss_config or {})
+    info: dict[str, Any] = {"enabled": bool(cfg)}
+
+    y_loss_train = np.asarray(y_train, dtype=np.float32)
+    y_loss_val = np.asarray(y_val, dtype=np.float32)
+    if cfg.get("use_soft_labels", False):
+        if soft_label_train is None:
+            raise ValueError("loss.use_soft_labels is true, but prepared_data.npz has no soft_label array.")
+        y_loss_train = np.maximum(
+            np.asarray(soft_label_train, dtype=np.float32),
+            np.asarray(y_train, dtype=np.float32),
+        ).clip(0.0, 1.0)
+        if soft_label_val is not None:
+            y_loss_val = np.maximum(
+                np.asarray(soft_label_val, dtype=np.float32),
+                np.asarray(y_val, dtype=np.float32),
+            ).clip(0.0, 1.0)
+        info["soft_labels"] = {
+            "enabled": True,
+            "train_mean": float(np.mean(y_loss_train)) if len(y_loss_train) else None,
+            "train_soft_negative_rows": int(((np.asarray(y_train) == 0) & (y_loss_train > 0)).sum()),
+        }
+    else:
+        info["soft_labels"] = {"enabled": False}
+
+    return y_loss_train, y_loss_val, info
+
+
+def build_spatial_coordinate_features(lat: np.ndarray | None, lon: np.ndarray | None) -> np.ndarray | None:
+    if lat is None or lon is None:
+        return None
+    lat = np.asarray(lat, dtype=np.float32).reshape(-1)
+    lon = np.asarray(lon, dtype=np.float32).reshape(-1)
+    if lat.shape[0] != lon.shape[0]:
+        raise ValueError(f"Latitude/longitude row mismatch: {lat.shape[0]} vs {lon.shape[0]}")
+    lat_clean = np.nan_to_num(lat, nan=0.0, posinf=90.0, neginf=-90.0)
+    lon_clean = np.nan_to_num(lon, nan=0.0, posinf=180.0, neginf=-180.0)
+    lat_rad = np.deg2rad(lat_clean).astype(np.float32)
+    lon_rad = np.deg2rad(lon_clean).astype(np.float32)
+    return np.column_stack(
+        [
+            np.clip(lat_clean / 90.0, -1.0, 1.0),
+            np.clip(lon_clean / 180.0, -1.0, 1.0),
+            np.sin(lat_rad),
+            np.cos(lat_rad),
+            np.sin(lon_rad),
+            np.cos(lon_rad),
+        ]
+    ).astype(np.float32)
+
+
+def append_spatial_coordinate_features(
+    *,
+    config: dict[str, Any],
+    x_stat_train: np.ndarray,
+    x_stat_val: np.ndarray,
+    x_stat_test: np.ndarray,
+    lat_train: np.ndarray | None,
+    lon_train: np.ndarray | None,
+    lat_val: np.ndarray | None,
+    lon_val: np.ndarray | None,
+    lat_test: np.ndarray | None,
+    lon_test: np.ndarray | None,
+    static_columns: list[str],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], dict[str, Any]]:
+    cfg = dict(config.get("spatial_coordinate_features") or {})
+    if not cfg.get("enabled", False):
+        return x_stat_train, x_stat_val, x_stat_test, static_columns, {"enabled": False}
+
+    train_features = build_spatial_coordinate_features(lat_train, lon_train)
+    val_features = build_spatial_coordinate_features(lat_val, lon_val)
+    test_features = build_spatial_coordinate_features(lat_test, lon_test)
+    if train_features is None or val_features is None or test_features is None:
+        raise ValueError(
+            "spatial_coordinate_features.enabled is true, but prepared_data.npz does not contain lat/lon arrays."
+        )
+
+    names = [
+        "coord_lat_scaled",
+        "coord_lon_scaled",
+        "coord_lat_sin",
+        "coord_lat_cos",
+        "coord_lon_sin",
+        "coord_lon_cos",
+    ]
+    info = {
+        "enabled": True,
+        "columns": names,
+        "description": "Latitude/longitude coordinate encodings appended to x_static at train time.",
+    }
+    return (
+        np.concatenate([x_stat_train, train_features], axis=1).astype(np.float32),
+        np.concatenate([x_stat_val, val_features], axis=1).astype(np.float32),
+        np.concatenate([x_stat_test, test_features], axis=1).astype(np.float32),
+        [*static_columns, *names],
+        info,
+    )
+
+
+def resolve_spatial_static_indices(
+    model_params: dict[str, Any],
+    static_columns: list[str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    params = dict(model_params)
+    explicit_indices = params.pop("spatial_static_indices", None)
+    explicit_columns = params.pop("spatial_static_columns", None)
+    prefixes = params.pop("spatial_static_prefixes", None)
+    auto = bool(params.pop("auto_spatial_static", explicit_indices is None and explicit_columns is None))
+
+    selected: set[int] = set()
+    if explicit_indices is not None:
+        selected.update(int(idx) for idx in explicit_indices)
+
+    column_to_idx = {name: idx for idx, name in enumerate(static_columns)}
+    if explicit_columns:
+        missing = [str(name) for name in explicit_columns if str(name) not in column_to_idx]
+        if missing:
+            raise ValueError(f"spatial_static_columns not found in prepared static columns: {missing}")
+        selected.update(column_to_idx[str(name)] for name in explicit_columns)
+
+    prefix_values = list(prefixes or (DEFAULT_SPATIAL_STATIC_PREFIXES if auto else []))
+    for idx, name in enumerate(static_columns):
+        if any(name == prefix or name.startswith(str(prefix)) for prefix in prefix_values):
+            selected.add(idx)
+
+    indices = sorted(selected)
+    if not indices:
+        raise ValueError(
+            "Spatial TSN requires at least one spatial static feature. "
+            "Set nn_model.params.spatial_static_columns, spatial_static_prefixes, "
+            "or enable auto_spatial_static."
+        )
+    invalid = [idx for idx in indices if idx < 0 or idx >= len(static_columns)]
+    if invalid:
+        raise ValueError(f"spatial_static_indices outside static feature range: {invalid}")
+
+    params["spatial_static_indices"] = indices
+    info = {
+        "enabled": True,
+        "count": len(indices),
+        "indices": indices,
+        "columns": [static_columns[idx] for idx in indices],
+        "prefixes": prefix_values,
+        "auto_spatial_static": auto,
+    }
+    return params, info
+
+
+def zero_like(array: np.ndarray) -> np.ndarray:
+    return np.zeros_like(array).astype(array.dtype, copy=False)
+
+
+def apply_input_ablation(
+    *,
+    config: dict[str, Any],
+    x_dyn_train: np.ndarray,
+    x_dyn_val: np.ndarray,
+    x_dyn_test: np.ndarray,
+    x_stat_train: np.ndarray,
+    x_stat_val: np.ndarray,
+    x_stat_test: np.ndarray,
+    x_cat_train: np.ndarray,
+    x_cat_val: np.ndarray,
+    x_cat_test: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
+    ablation = dict(config.get("input_ablation") or {})
+    if not ablation.get("enabled", False):
+        return (
+            x_dyn_train,
+            x_dyn_val,
+            x_dyn_test,
+            x_stat_train,
+            x_stat_val,
+            x_stat_test,
+            x_cat_train,
+            x_cat_val,
+            x_cat_test,
+            ablation,
+        )
+
+    if ablation.get("zero_dynamic", False):
+        x_dyn_train = zero_like(x_dyn_train)
+        x_dyn_val = zero_like(x_dyn_val)
+        x_dyn_test = zero_like(x_dyn_test)
+    if ablation.get("zero_static", False):
+        x_stat_train = zero_like(x_stat_train)
+        x_stat_val = zero_like(x_stat_val)
+        x_stat_test = zero_like(x_stat_test)
+    if ablation.get("zero_categorical", False):
+        x_cat_train = zero_like(x_cat_train)
+        x_cat_val = zero_like(x_cat_val)
+        x_cat_test = zero_like(x_cat_test)
+
+    print("[input_ablation]", json.dumps(ablation, sort_keys=True))
+    return (
+        x_dyn_train,
+        x_dyn_val,
+        x_dyn_test,
+        x_stat_train,
+        x_stat_val,
+        x_stat_test,
+        x_cat_train,
+        x_cat_val,
+        x_cat_test,
+        ablation,
     )
 
 
@@ -752,7 +1136,19 @@ if __name__ == "__main__":
     y_train = prepared_arrays["y_train"]
     y_val = prepared_arrays["y_val"]
     y_test = prepared_arrays["y_test"]
+    soft_label_train = prepared_arrays.get("soft_label_train")
+    soft_label_val = prepared_arrays.get("soft_label_val")
+    lat_train = prepared_arrays.get("lat_train")
+    lon_train = prepared_arrays.get("lon_train")
+    lat_val = prepared_arrays.get("lat_val")
+    lon_val = prepared_arrays.get("lon_val")
+    lat_test = prepared_arrays.get("lat_test")
+    lon_test = prepared_arrays.get("lon_test")
     print(f"Loaded prepared NN data from {DATA_PATH} using '{data_format}' format.")
+
+    static_columns = list(metadata.get("static_columns") or [])
+    if len(static_columns) != x_stat_train.shape[1]:
+        static_columns = [f"static_{idx}" for idx in range(x_stat_train.shape[1])]
 
     train_end_cfg = config.get("train_end")
     val_end_cfg = config.get("val_end")
@@ -991,7 +1387,56 @@ if __name__ == "__main__":
             y_train = new_splits["y_train"]
             y_val = new_splits["y_val"]
             y_test = new_splits["y_test"]
+            soft_label_train = None
+            soft_label_val = None
+            lat_train = lon_train = lat_val = lon_val = lat_test = lon_test = None
             print(new_splits["message"])
+
+    (
+        x_stat_train,
+        x_stat_val,
+        x_stat_test,
+        static_columns,
+        spatial_coordinate_info,
+    ) = append_spatial_coordinate_features(
+        config=config,
+        x_stat_train=x_stat_train,
+        x_stat_val=x_stat_val,
+        x_stat_test=x_stat_test,
+        lat_train=lat_train,
+        lon_train=lon_train,
+        lat_val=lat_val,
+        lon_val=lon_val,
+        lat_test=lat_test,
+        lon_test=lon_test,
+        static_columns=static_columns,
+    )
+    if spatial_coordinate_info.get("enabled"):
+        print("[spatial_coordinate_features]", json.dumps(spatial_coordinate_info, sort_keys=True))
+
+    (
+        x_dyn_train,
+        x_dyn_val,
+        x_dyn_test,
+        x_stat_train,
+        x_stat_val,
+        x_stat_test,
+        x_cat_train,
+        x_cat_val,
+        x_cat_test,
+        input_ablation,
+    ) = apply_input_ablation(
+        config=config,
+        x_dyn_train=x_dyn_train,
+        x_dyn_val=x_dyn_val,
+        x_dyn_test=x_dyn_test,
+        x_stat_train=x_stat_train,
+        x_stat_val=x_stat_val,
+        x_stat_test=x_stat_test,
+        x_cat_train=x_cat_train,
+        x_cat_val=x_cat_val,
+        x_cat_test=x_cat_test,
+    )
 
     print("Shapes:")
     print("x_dyn_train:", x_dyn_train.shape)
@@ -1013,6 +1458,22 @@ if __name__ == "__main__":
     lightning_params = nn_model_cfg.get("lightning") or {}
     trainer_params = nn_model_cfg.get("trainer") or {}
 
+    spatial_branch_info: dict[str, Any] = {"enabled": False}
+    spatial_architectures = {"spatial_tsn_mlp", "tsn_spatial_mlp"}
+    if str(model_name).lower() in spatial_architectures:
+        model_params, spatial_branch_info = resolve_spatial_static_indices(model_params, static_columns)
+        print(
+            "[spatial_static_branch]",
+            json.dumps(
+                {
+                    "enabled": True,
+                    "count": spatial_branch_info["count"],
+                    "columns": spatial_branch_info["columns"],
+                },
+                sort_keys=True,
+            ),
+        )
+
     categorical_embeddings_meta = metadata.get("categorical_embeddings") or []
     if categorical_embeddings_meta:
         model_params["categorical_embeddings"] = categorical_embeddings_meta
@@ -1026,6 +1487,16 @@ if __name__ == "__main__":
 
     # Extract class weights from config if provided
     class_weights_cfg = config.get('class_weights', None)
+    loss_cfg = dict(config.get("loss") or {})
+    y_loss_train, y_loss_val, loss_training_info = build_loss_targets(
+        y_train=y_train,
+        y_val=y_val,
+        soft_label_train=soft_label_train,
+        soft_label_val=soft_label_val,
+        loss_config=loss_cfg,
+    )
+    if loss_training_info.get("enabled"):
+        print("[loss_training]", json.dumps(loss_training_info, sort_keys=True))
     
     # Selection metric can be configured in YAML: selection_metric: "sel_ap" or "val_ap"
     selection_metric = str(config.get("selection_metric", "sel_ap"))
@@ -1052,31 +1523,43 @@ if __name__ == "__main__":
         class_weights=class_weights_cfg,
         selection_metric=selection_metric,
         compute_train_predictions=compute_train_metrics,
+        y_loss_train=y_loss_train,
+        y_loss_val=y_loss_val,
+        loss_config=loss_cfg,
     )
 
     model = results["model"]
     sample_w_train = results.get("sample_w_train", None)
     device = next(model.parameters()).device
+    progress_bar_enabled = bool(trainer_params.get("enable_progress_bar", True))
 
-    y_train_probs = None
-    if compute_train_metrics:
-        y_train_probs = predict_probs(
+    y_train_probs = results.get("y_train_probs")
+    y_train_logits = results.get("y_train_logits")
+    if compute_train_metrics and y_train_probs is None:
+        y_train_logits = predict_logits(
             model,
             x_dyn_train,
             x_stat_train,
             x_cat_train,
             batch_size=config['batch_size'],
             device=device,
+            show_progress=progress_bar_enabled,
+            desc="Predict train",
         )
+        y_train_probs = logits_to_probs(y_train_logits)
     y_val_probs = results["y_val_probs"]
-    y_test_probs = predict_probs(
+    y_val_logits = results.get("y_val_logits")
+    y_test_logits = predict_logits(
         model,
         x_dyn_test,
         x_stat_test,
         x_cat_test,
         batch_size=config['batch_size'],
         device=device,
+        show_progress=progress_bar_enabled,
+        desc="Predict test",
     )
+    y_test_probs = logits_to_probs(y_test_logits)
 
     thr, best_f1_val = choose_threshold_f1(y_val, y_val_probs)
     print("Val threshold for F1:", thr, "val_f1:", best_f1_val)
@@ -1141,18 +1624,86 @@ if __name__ == "__main__":
     )
 
     if METRICS_PATH:
+        prediction_artifacts = {}
+        pred_dir = os.path.join(os.path.dirname(METRICS_PATH), "legacy_sampled_predictions")
+        if y_val_logits is None:
+            y_val_logits = predict_logits(
+                model,
+                x_dyn_val,
+                x_stat_val,
+                x_cat_val,
+                batch_size=config['batch_size'],
+                device=device,
+                show_progress=progress_bar_enabled,
+                desc="Save validation logits",
+            )
+        prediction_artifacts["validation"] = save_sampled_prediction_table(
+            os.path.join(pred_dir, "validation_predictions.parquet"),
+            y_val,
+            y_val_logits,
+            "validation",
+        )
+        prediction_artifacts["test"] = save_sampled_prediction_table(
+            os.path.join(pred_dir, "test_predictions.parquet"),
+            y_test,
+            y_test_logits,
+            "test",
+        )
+        if y_train_probs is not None:
+            if y_train_logits is None:
+                y_train_logits = predict_logits(
+                    model,
+                    x_dyn_train,
+                    x_stat_train,
+                    x_cat_train,
+                    batch_size=config['batch_size'],
+                    device=device,
+                    show_progress=progress_bar_enabled,
+                    desc="Save train logits",
+                )
+            prediction_artifacts["train"] = save_sampled_prediction_table(
+                os.path.join(pred_dir, "train_predictions.parquet"),
+                y_train,
+                y_train_logits,
+                "train",
+            )
         metrics_out = {
             "config_path": CONFIG_PATH,
             "data_path": DATA_PATH,
             "model_path": results.get("checkpoint_path") or MODEL_PATH,
             "architecture": results.get("model_architecture"),
             "model_config": results.get("model_config"),
+            "input_ablation": input_ablation,
+            "loss_training": loss_training_info,
+            "spatial_training": {
+                "coordinate_features": spatial_coordinate_info,
+                "static_branch": spatial_branch_info,
+            },
+            "feature_set": input_ablation.get("label") if input_ablation else None,
             "selection_metric": results.get("selection_metric"),
             "validation_threshold": thr,
             "validation_best_f1": best_f1_val,
             "train": metrics_train,
             "validation": metrics_val,
             "test": metrics_test,
+            "legacy_sampled_metrics": {
+                "train": metrics_train,
+                "validation": metrics_val,
+                "test": metrics_test,
+                "evaluation_type": "legacy_sampled_case_control",
+                "note": "Metrics are computed on the undersampled/case-control neural dataset.",
+            },
+            "primary_full_grid_calibrated_metrics": {
+                "status": "not_run",
+                "evaluation_type": "primary_full_grid_calibrated",
+                "note": (
+                    "The revision_evaluation wrapper records the dedicated calibrated deployment-grid "
+                    "status after training. Raw neural logits are saved in legacy_sampled_predictions."
+                ),
+            },
+            "prediction_artifacts": {
+                key: str(value) for key, value in prediction_artifacts.items()
+            },
             "split_sizes": {
                 "train": int(len(y_train)),
                 "validation": int(len(y_val)),

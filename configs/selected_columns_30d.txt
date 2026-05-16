@@ -4,6 +4,12 @@ lon_rounded
 month
 day
 year
+past_fire_count_r0_last_month
+past_fire_count_r0_last_year
+past_fire_count_r1_last_month
+past_fire_count_r1_last_year
+past_fire_count_r2_last_month
+past_fire_count_r2_last_year
 t2m_lag_7
 t2m_lag_14
 t2m_lag_30
@@ -193,6 +199,11 @@ road_density_gaussian_5km
 road_density_gaussian_10km
 road_density_gaussian_25km
 night_light_radiance_2024
+night_light_radiance_recent
+night_light_black_marble_recent
+night_light_black_marble_quality_recent
+night_light_black_marble_observations_recent
+night_light_black_marble_quality_filtered
 night_light_presence_1km
 light_density_gaussian_5km
 light_density_gaussian_10km
@@ -253,7 +264,5 @@ sdor
 tvh
 tvl
 slt_soil_type_stream_oper_daily_mean
-ecoregion_name
-ecoregion_realm
 distance_to_coast_km
 distance_to_coast_dilated_km

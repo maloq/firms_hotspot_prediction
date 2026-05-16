@@ -1,0 +1,20 @@
+# ERA5 daily-statistics download for the part of Europe west of the current
+# Eurasia domain. Used by scripts/download_missing_era5_daily.py.
+# CDS area order is: north, west, south, east.
+
+raw_root: "/home/ids/vmorozov/era5"
+output_root: "/home/ids/vmorozov/era5_rest_of_europe"
+start_year: 2000
+end_year: 2025
+
+# Western/rest-of-Europe: includes UK/Ireland/Iceland, Iberia, France west of 1E,
+# and overlaps the existing 1E boundary.
+area: [75, -25, 35, 1]
+
+variables: ["t2m", "d2m", "tp", "stl1"]
+include_msl: false
+extension: ".nc"
+overwrite: false
+use_cds_cache: false
+manifest: "results/download_manifests/era5_rest_of_europe_manifest.json"
+log_level: "INFO"

@@ -63,6 +63,12 @@ outputs/             # Prediction outputs (created during execution)
 
 ## Usage
 
+Revision evaluation keeps deployment-like calibrated full-grid testing in its
+own full-grid study, while the main model-comparison tables remain sampled
+case-control diagnostics with random-error estimates. See
+[`docs/revision_evaluation_calibrated.md`](docs/revision_evaluation_calibrated.md)
+for the split, calibration, and count-interpretation details.
+
 ### Step 1: Download Historical Data
 
 To download historical climate data:
@@ -209,4 +215,3 @@ The project integrates multiple data sources:
   - Land/sea mask from IMERG
 - **Administrative Boundaries**: Natural Earth country boundaries
 - **Ecoregions**: WWF Terrestrial Ecoregions dataset
-

@@ -36,14 +36,20 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_SEARCH_SPACE: Dict[str, List[Any]] = {
-    "iterations": [200, 400, 600, 900],
-    "learning_rate": [0.015, 0.02, 0.03, 0.04, 0.06],
-    "depth": [3, 4, 5, 6],
-    "l2_leaf_reg": [5.0, 10.0, 20.0, 40.0, 80.0],
-    "min_data_in_leaf": [200, 300, 500, 800, 1200],
-    "random_strength": [3.0, 5.0, 8.0, 12.0, 20.0],
-    "bagging_temperature": [0.5, 1.0, 2.0, 4.0, 8.0],
-    "class_weight_positive": [2.5, 3.0, 4.0, 5.0, 6.0],
+    "iterations": [600, 900, 1200, 1800, 2400, 3200, 4200, 5500],
+    "learning_rate": [0.003, 0.005, 0.008, 0.01, 0.015, 0.02, 0.03, 0.05, 0.08, 0.12],
+    "depth": [3, 4, 5, 6, 7, 8, 9, 10],
+    "l2_leaf_reg": [0.03, 0.1, 0.3, 1.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0],
+    "min_data_in_leaf": [1, 2, 5, 10, 25, 50, 100, 200, 500, 1000, 2000],
+    "random_strength": [0.0, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0],
+    "bootstrap_type": ["Bayesian", "Bernoulli", "No"],
+    "bagging_temperature": [0.0, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0],
+    "subsample": [0.4, 0.5, 0.6, 0.66, 0.75, 0.8, 0.9, 1.0],
+    "border_count": [32, 64, 128, 254],
+    "leaf_estimation_iterations": [1, 3, 5, 10],
+    "one_hot_max_size": [2, 5, 10, 20, 50],
+    "max_ctr_complexity": [1, 2, 3, 4],
+    "class_weight_positive": [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 16.0, 20.0, 25.0],
 }
 
 
@@ -73,7 +79,10 @@ class TrialResult:
             "feature_count": self.feature_plan.get("feature_count"),
             "feature_mode": self.feature_plan.get("mode"),
             "top_k": self.feature_plan.get("top_k"),
+            "column_sample_fraction": self.feature_plan.get("column_sample_fraction"),
+            "group_sample_fraction": self.feature_plan.get("group_sample_fraction"),
             "dropped_groups": ",".join(self.feature_plan.get("dropped_groups", [])),
+            "sampled_groups": ",".join(self.feature_plan.get("sampled_groups", [])),
             "error": self.error or "",
         }
         for split, split_metrics in self.metrics.items():
@@ -194,16 +203,27 @@ def build_args_from_config(config_path: Path) -> argparse.Namespace:
         max_train_rows=sampling.get("max_train_rows"),
         feature_search=feature_search.get("mode", "both"),
         importance_csv=tc._path_or_none(feature_search.get("importance_csv")),
-        top_k_choices=feature_search.get("top_k_choices", "60,80,120,160,all"),
+        top_k_choices=feature_search.get("top_k_choices", "40,60,80,120,160,220,all"),
         top_k_probability=float(feature_search.get("top_k_probability", 0.65)),
         max_drop_groups=int(feature_search.get("max_drop_groups", 3)),
         drop_group_probability=float(feature_search.get("drop_group_probability", 0.45)),
+        group_sample_probability=float(feature_search.get("group_sample_probability", 0.20)),
+        group_sample_fraction_choices=feature_search.get(
+            "group_sample_fraction_choices",
+            "0.45,0.60,0.75,0.90,1.0",
+        ),
+        column_sample_probability=float(feature_search.get("column_sample_probability", 0.35)),
+        column_sample_fraction_choices=feature_search.get(
+            "column_sample_fraction_choices",
+            "0.35,0.50,0.65,0.80,0.90,1.0",
+        ),
+        min_features=int(feature_search.get("min_features", 25)),
         protected_feature=tc._as_list(feature_search.get("protected_features")),
         objective_split=objective.get("split", "test"),
         objective_metric=objective.get("metric", "average_precision"),
-        train_test_gap_weight=float(objective.get("train_test_gap_weight", 0.7)),
-        validation_test_gap_weight=float(objective.get("validation_test_gap_weight", 0.5)),
-        train_validation_gap_weight=float(objective.get("train_validation_gap_weight", 0.2)),
+        train_test_gap_weight=float(objective.get("train_test_gap_weight", 0.0)),
+        validation_test_gap_weight=float(objective.get("validation_test_gap_weight", 0.0)),
+        train_validation_gap_weight=float(objective.get("train_validation_gap_weight", 0.0)),
         prediction_threshold=thresholding.get("prediction_threshold"),
         threshold_min_precision=thresholding.get("min_precision"),
         threshold_min_recall=thresholding.get("min_recall"),
@@ -236,8 +256,16 @@ def write_yaml(path: Path, data: Dict[str, Any]) -> None:
         yaml.safe_dump(tc.sanitize_for_json(data), handle, sort_keys=False)
 
 
-def load_search_space(path_or_mapping: Optional[Path | str | Dict[str, Any]]) -> Dict[str, List[Any]]:
+def load_search_space(
+    path_or_mapping: Optional[Path | str | Dict[str, Any]],
+) -> Dict[str, List[Any]]:
     if path_or_mapping is None:
+        return {key: list(values) for key, values in DEFAULT_SEARCH_SPACE.items()}
+    if isinstance(path_or_mapping, str) and path_or_mapping.strip().lower() in {
+        "default",
+        "wide",
+        "default_wide",
+    }:
         return {key: list(values) for key, values in DEFAULT_SEARCH_SPACE.items()}
     if isinstance(path_or_mapping, dict):
         data = path_or_mapping
@@ -274,10 +302,18 @@ def iter_assignments(
         yield {name: rng.choice(values) for name, values in search_space.items()}
 
 
-def parse_top_k_choices(raw: str) -> List[Optional[int]]:
+def split_choice_values(raw: Any) -> List[Any]:
+    if isinstance(raw, str):
+        return [part.strip() for part in raw.split(",") if part.strip()]
+    if isinstance(raw, (list, tuple)):
+        return list(raw)
+    return [raw]
+
+
+def parse_top_k_choices(raw: Any) -> List[Optional[int]]:
     choices: List[Optional[int]] = []
-    for part in raw.split(","):
-        value = part.strip().lower()
+    for part in split_choice_values(raw):
+        value = str(part).strip().lower()
         if not value:
             continue
         if value in {"all", "none"}:
@@ -288,6 +324,16 @@ def parse_top_k_choices(raw: str) -> List[Optional[int]]:
                 raise ValueError("--top-k-choices values must be positive integers or 'all'.")
             choices.append(top_k)
     return choices or [None]
+
+
+def parse_fraction_choices(raw: Any, name: str) -> List[float]:
+    choices: List[float] = []
+    for part in split_choice_values(raw):
+        value = float(part)
+        if not 0.0 < value <= 1.0:
+            raise ValueError(f"{name} values must be in (0, 1], got {value}.")
+        choices.append(value)
+    return choices or [1.0]
 
 
 def choose_importance_sort_column(df: pd.DataFrame) -> Tuple[str, bool]:
@@ -524,16 +570,61 @@ def build_feature_plan(
     mode_parts: List[str] = []
     top_k: Optional[int] = None
     dropped_groups: List[str] = []
+    sampled_groups: List[str] = []
+    column_sample_fraction: Optional[float] = None
+    group_sample_fraction: Optional[float] = None
     protected = [feature for feature in args.protected_feature if feature in all_features]
+    feature_search_mode = str(args.feature_search or "both").lower()
+    wide_feature_mode = feature_search_mode in {"all", "wide", "any"}
 
-    can_use_importance = args.feature_search in {"importance", "both"} and bool(importance_order)
+    can_use_importance = (
+        (feature_search_mode in {"importance", "both"} or wide_feature_mode)
+        and bool(importance_order)
+    )
     if can_use_importance and rng.random() < args.top_k_probability:
         top_k = rng.choice(parse_top_k_choices(args.top_k_choices))
         if top_k is not None and top_k < len(all_features):
             selected = list(importance_order[:top_k])
             mode_parts.append("top_k")
 
-    can_drop_groups = args.feature_search in {"groups", "both"}
+    can_sample_groups = feature_search_mode in {"groups", "both"} or wide_feature_mode
+    if can_sample_groups and rng.random() < args.group_sample_probability:
+        groups = sorted({tc.infer_feature_group(feature) for feature in selected})
+        if len(groups) > 1:
+            sampled_group_fraction = rng.choice(
+                parse_fraction_choices(
+                    args.group_sample_fraction_choices,
+                    "group_sample_fraction_choices",
+                )
+            )
+            protected_groups = {tc.infer_feature_group(feature) for feature in protected}
+            keep_count = min(
+                len(groups),
+                max(
+                    1,
+                    len(protected_groups),
+                    int(round(len(groups) * sampled_group_fraction)),
+                ),
+            )
+            optional_groups = [group for group in groups if group not in protected_groups]
+            sampled_group_set = set(protected_groups)
+            optional_keep_count = min(
+                len(optional_groups),
+                max(0, keep_count - len(sampled_group_set)),
+            )
+            if optional_keep_count:
+                sampled_group_set.update(rng.sample(optional_groups, optional_keep_count))
+            if len(sampled_group_set) < len(groups):
+                selected = [
+                    feature
+                    for feature in selected
+                    if tc.infer_feature_group(feature) in sampled_group_set
+                ]
+                sampled_groups = sorted(sampled_group_set)
+                group_sample_fraction = sampled_group_fraction
+                mode_parts.append("sample_groups")
+
+    can_drop_groups = feature_search_mode in {"groups", "both"} or wide_feature_mode
     if can_drop_groups and rng.random() < args.drop_group_probability:
         groups = sorted({tc.infer_feature_group(feature) for feature in selected})
         if groups and args.max_drop_groups > 0:
@@ -547,22 +638,79 @@ def build_feature_plan(
                 ]
                 mode_parts.append("drop_groups")
 
+    can_sample_columns = feature_search_mode in {"columns", "column", "both"} or wide_feature_mode
+    if can_sample_columns and rng.random() < args.column_sample_probability:
+        if len(selected) > 1:
+            sampled_column_fraction = rng.choice(
+                parse_fraction_choices(
+                    args.column_sample_fraction_choices,
+                    "column_sample_fraction_choices",
+                )
+            )
+            protected_set = set(protected)
+            protected_in_selected = [feature for feature in selected if feature in protected_set]
+            keep_count = min(
+                len(selected),
+                max(
+                    1,
+                    len(protected_in_selected),
+                    int(round(len(selected) * sampled_column_fraction)),
+                    min(args.min_features, len(selected)),
+                ),
+            )
+            candidate_features = [feature for feature in selected if feature not in protected_set]
+            candidate_set = set(candidate_features)
+            ranked_candidates = [
+                feature for feature in importance_order if feature in candidate_set
+            ]
+            slots_after_protected = max(0, keep_count - len(protected_in_selected))
+            elite_count = min(
+                len(ranked_candidates),
+                slots_after_protected,
+                max(0, int(round(keep_count * 0.25))),
+            )
+            elite_features = ranked_candidates[:elite_count]
+            elite_set = set(elite_features)
+            random_pool = [feature for feature in candidate_features if feature not in elite_set]
+            random_keep_count = min(
+                len(random_pool),
+                max(0, keep_count - len(protected_in_selected) - len(elite_features)),
+            )
+            sampled_features = (
+                rng.sample(random_pool, random_keep_count)
+                if random_keep_count < len(random_pool)
+                else list(random_pool)
+            )
+            selected_set = protected_set | elite_set | set(sampled_features)
+            sampled_selected = [feature for feature in selected if feature in selected_set]
+            if 0 < len(sampled_selected) < len(selected):
+                selected = sampled_selected
+                column_sample_fraction = sampled_column_fraction
+                mode_parts.append("sample_columns")
+
     selected = tc.ordered_unique(list(selected) + protected)
     if not selected:
         selected = list(all_features)
         mode_parts = ["all_fallback"]
         top_k = None
         dropped_groups = []
+        sampled_groups = []
+        column_sample_fraction = None
+        group_sample_fraction = None
 
-    dropped_features = [feature for feature in all_features if feature not in set(selected)]
+    selected_set = set(selected)
+    dropped_features = [feature for feature in all_features if feature not in selected_set]
     return {
         "mode": "+".join(mode_parts) if mode_parts else "all",
         "top_k": top_k,
+        "column_sample_fraction": column_sample_fraction,
+        "group_sample_fraction": group_sample_fraction,
         "feature_count": len(selected),
         "features": selected,
         "dropped_feature_count": len(dropped_features),
         "dropped_features": dropped_features,
         "dropped_groups": dropped_groups,
+        "sampled_groups": sampled_groups,
     }
 
 
@@ -576,6 +724,7 @@ def build_model_params(
 ) -> Dict[str, Any]:
     verbose: Any = args.verbose if args.verbose > 0 else False
     defaults = {key: values[0] for key, values in DEFAULT_SEARCH_SPACE.items()}
+    class_weight_negative = float(assignments.pop("class_weight_negative", 1.0))
     class_weight_positive = float(
         assignments.pop("class_weight_positive", defaults["class_weight_positive"])
     )
@@ -592,7 +741,7 @@ def build_model_params(
         ),
         "loss_function": args.loss_function,
         "eval_metric": args.eval_metric,
-        "class_weights": [1.0, class_weight_positive],
+        "class_weights": [class_weight_negative, class_weight_positive],
         "random_seed": random_seed,
         "verbose": verbose,
         "cat_features": list(cat_features),
@@ -605,14 +754,25 @@ def build_model_params(
         defaults["bagging_temperature"],
     )
     bootstrap_type = assignments.pop("bootstrap_type", "Bayesian")
+    if (
+        isinstance(bootstrap_type, str)
+        and bootstrap_type.strip().lower() in {"", "none", "null"}
+    ):
+        bootstrap_type = None
     if bootstrap_type:
         params["bootstrap_type"] = bootstrap_type
     if bootstrap_type in {None, "Bayesian"} and bagging_temperature is not None:
         params["bagging_temperature"] = float(bagging_temperature)
-    if "subsample" in assignments and assignments["subsample"] is not None:
-        params["subsample"] = float(assignments.pop("subsample"))
-    if "rsm" in assignments and assignments["rsm"] is not None and args.task_type != "GPU":
-        params["rsm"] = float(assignments.pop("rsm"))
+    subsample = assignments.pop("subsample", None)
+    if bootstrap_type in {"Bernoulli", "MVS", "Poisson"} and subsample is not None:
+        params["subsample"] = float(subsample)
+    rsm = assignments.pop("rsm", None)
+    if rsm is not None and args.task_type != "GPU":
+        params["rsm"] = float(rsm)
+
+    for name, value in list(assignments.items()):
+        if value is not None:
+            params[name] = value
     assignments.clear()
 
     if args.task_type:
@@ -837,6 +997,82 @@ def best_row_by_metric(
     return row
 
 
+def compact_metric_summary(result: TrialResult) -> Dict[str, Any]:
+    return {
+        "trial": result.trial,
+        "objective": result.objective,
+        "threshold": result.threshold,
+        "feature_count": result.feature_plan.get("feature_count"),
+        "feature_mode": result.feature_plan.get("mode"),
+        "validation_average_precision": result.metrics.get("validation", {}).get(
+            "average_precision"
+        ),
+        "validation_f1": result.metrics.get("validation", {}).get("f1"),
+        "test_average_precision": result.metrics.get("test", {}).get("average_precision"),
+        "test_f1": result.metrics.get("test", {}).get("f1"),
+        "test_precision": result.metrics.get("test", {}).get("precision"),
+        "test_recall": result.metrics.get("test", {}).get("recall"),
+    }
+
+
+def write_best_copy_paste_artifacts(
+    run_dir: Path,
+    best_dir: Path,
+    result: TrialResult,
+    suggested_config: Dict[str, Any],
+    suggested_config_path: Path,
+    train_catboost_features_path: Path,
+) -> None:
+    catboost_train = suggested_config["catboost_train"]
+    snippet = {
+        "catboost_train": {
+            "features": catboost_train["features"],
+            "model": catboost_train["model"],
+            "thresholding": catboost_train["thresholding"],
+        }
+    }
+    write_yaml(best_dir / "best_train_snippet.yaml", snippet)
+    write_yaml(
+        best_dir / "selected_model_features.yaml",
+        {"selected_feature_columns": result.feature_plan["features"]},
+    )
+
+    summary = compact_metric_summary(result)
+    snippet_text = yaml.safe_dump(
+        tc.sanitize_for_json(snippet),
+        sort_keys=False,
+    ).strip()
+    selected_features_text = yaml.safe_dump(
+        tc.sanitize_for_json({"selected_feature_columns": result.feature_plan["features"]}),
+        sort_keys=False,
+    ).strip()
+    summary_text = yaml.safe_dump(tc.sanitize_for_json(summary), sort_keys=False).strip()
+    command = f"python train_catboost.py {suggested_config_path.resolve()}"
+    copy_paste_text = "\n\n".join(
+        [
+            "# Best CatBoost tuning result so far",
+            f"# Updated: {datetime.now().isoformat(timespec='seconds')}",
+            f"# Full suggested config: {suggested_config_path.resolve()}",
+            f"# Selected feature file: {train_catboost_features_path.resolve()}",
+            "# Run this to train the current best configuration",
+            command,
+            "# Metric summary",
+            summary_text,
+            "# Pasteable catboost_train snippet",
+            snippet_text,
+            "# Pasteable selected model feature columns",
+            selected_features_text,
+        ]
+    )
+    for path in (
+        best_dir / "best_so_far_copy_paste.txt",
+        run_dir / "best_so_far_copy_paste.txt",
+    ):
+        with path.open("w", encoding="utf-8") as handle:
+            handle.write(copy_paste_text)
+            handle.write("\n")
+
+
 def copy_best_artifacts(
     run_dir: Path,
     result: TrialResult,
@@ -955,6 +1191,14 @@ def copy_best_artifacts(
     write_yaml(suggested_config_path, suggested_config)
     with (best_dir / "train_catboost_command.txt").open("w", encoding="utf-8") as handle:
         handle.write(f"python train_catboost.py {suggested_config_path.resolve()}\n")
+    write_best_copy_paste_artifacts(
+        run_dir=run_dir,
+        best_dir=best_dir,
+        result=result,
+        suggested_config=suggested_config,
+        suggested_config_path=suggested_config_path,
+        train_catboost_features_path=train_catboost_features_path,
+    )
 
 
 def prepare_data(args: argparse.Namespace, run_dir: Path) -> Dict[str, Any]:
@@ -1116,8 +1360,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         raise ValueError("--top-k-probability must be in [0, 1].")
     if not 0.0 <= args.drop_group_probability <= 1.0:
         raise ValueError("--drop-group-probability must be in [0, 1].")
+    if not 0.0 <= args.group_sample_probability <= 1.0:
+        raise ValueError("--group-sample-probability must be in [0, 1].")
+    if not 0.0 <= args.column_sample_probability <= 1.0:
+        raise ValueError("--column-sample-probability must be in [0, 1].")
     if args.max_drop_groups < 0:
         raise ValueError("--max-drop-groups must be >= 0.")
+    if args.min_features <= 0:
+        raise ValueError("--min-features must be positive.")
+    parse_fraction_choices(args.group_sample_fraction_choices, "group_sample_fraction_choices")
+    parse_fraction_choices(args.column_sample_fraction_choices, "column_sample_fraction_choices")
+    parse_top_k_choices(args.top_k_choices)
     tc.validate_probability("--prediction-threshold", args.prediction_threshold)
     tc.validate_probability("--threshold-min-precision", args.threshold_min_precision)
     tc.validate_probability("--threshold-min-recall", args.threshold_min_recall)
@@ -1138,15 +1391,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         logger.info("No importance CSV supplied; importance-based feature search is disabled.")
     else:
         logger.info("Loaded importance ordering for %d features.", len(importance_order))
-    logger.info(
-        "Optimizing objective: %s %s with gap penalties "
-        "(train-test=%.3f, validation-test=%.3f, train-validation=%.3f). "
-        "CatBoost eval_metric for early stopping is %s.",
-        args.objective_split,
-        args.objective_metric,
+    gap_weights = (
         args.train_test_gap_weight,
         args.validation_test_gap_weight,
         args.train_validation_gap_weight,
+    )
+    gap_description = (
+        "without gap penalties"
+        if all(weight == 0.0 for weight in gap_weights)
+        else (
+            "with gap penalties "
+            f"(train-test={args.train_test_gap_weight:.3f}, "
+            f"validation-test={args.validation_test_gap_weight:.3f}, "
+            f"train-validation={args.train_validation_gap_weight:.3f})"
+        )
+    )
+    logger.info(
+        "Optimizing objective: %s %s %s. CatBoost eval_metric for early stopping is %s.",
+        args.objective_split,
+        args.objective_metric,
+        gap_description,
         args.eval_metric,
     )
 
@@ -1198,6 +1462,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 best_model = model
                 copy_best_artifacts(run_dir, best_result, best_model, args)
                 logger.info("New best trial: %d objective=%.6f", result.trial, result.objective)
+                logger.info(
+                    "Best-so-far copy/paste summary: %s",
+                    run_dir / "best_so_far_copy_paste.txt",
+                )
                 tc.log_yearly_summary(
                     result.yearly_metrics,
                     title=f"Yearly metrics for best trial {result.trial}",

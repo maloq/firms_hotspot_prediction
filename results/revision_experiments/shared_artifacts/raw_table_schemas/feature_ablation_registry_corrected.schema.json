@@ -1,0 +1,62 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "experiment_id"
+    },
+    {
+      "dtype": "str",
+      "name": "experiment_type"
+    },
+    {
+      "dtype": "str",
+      "name": "evaluation_type"
+    },
+    {
+      "dtype": "bool",
+      "name": "is_primary"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_set"
+    },
+    {
+      "dtype": "str",
+      "name": "status"
+    },
+    {
+      "dtype": "int64",
+      "name": "feature_count"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "threshold_source"
+    },
+    {
+      "dtype": "float64",
+      "name": "validation_f1_at_threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "model_path"
+    },
+    {
+      "dtype": "str",
+      "name": "prediction_paths"
+    },
+    {
+      "dtype": "str",
+      "name": "notes"
+    }
+  ],
+  "rows": 19,
+  "source_csv": "feature_ablation_registry_corrected.csv"
+}

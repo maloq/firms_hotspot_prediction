@@ -1,0 +1,15 @@
+night_light_data_params:
+  use_night_light_features: true
+  feature_map_path: "data/land_features/night_lights_features_1km"
+  annual_source_dir: "data/night_lights/eog_v22"
+  recent_feature_name: "night_light_radiance_recent"
+  recent_source_glob: "*median_masked*.tif"
+  recent_cache_path: "data/night_lights/eog_v22_median_masked_point_cache.parquet"
+  cf_cvg_source_glob: "*cf_cvg*.tif"
+  cf_cvg_feature_name: "night_light_cf_cvg_recent"
+  cf_cvg_cache_path: "data/night_lights/eog_v22_cf_cvg_point_cache.parquet"
+  cf_filtered_feature_name: "night_light_radiance_recent_cf_filtered"
+  min_cf_cvg: 5
+  cf_filter_north_lat_min: 58
+  kernels_km: [5, 10, 25]
+  light_threshold: 0

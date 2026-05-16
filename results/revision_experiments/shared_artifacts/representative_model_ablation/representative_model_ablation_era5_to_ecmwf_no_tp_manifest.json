@@ -1,0 +1,100 @@
+{
+  "experiment": "representative_model_ablation_era5_to_ecmwf_no_tp",
+  "selected_models": [
+    {
+      "model_key": "catboost_full",
+      "model": "CatBoost",
+      "model_group": "Gradient boosted trees",
+      "notes": "Best tabular model family; trained on ERA5 features and tested on SEAS5/ECMWF."
+    },
+    {
+      "model_key": "random_forest",
+      "model": "Random Forest",
+      "model_group": "Bagged tree ensemble",
+      "notes": "Tree ensemble baseline with different bias/variance behavior from CatBoost."
+    },
+    {
+      "model_key": "logistic_regression",
+      "model": "Logistic Regression",
+      "model_group": "Linear discriminative",
+      "notes": "Linear SGD baseline with train-only ordinal categorical encoding."
+    },
+    {
+      "model_key": "poisson_point_process",
+      "model": "Poisson Point-Process GLM",
+      "model_group": "Statistical intensity model",
+      "notes": "Counts-as-intensity baseline converted to event probability with 1-exp(-lambda)."
+    },
+    {
+      "model_key": "best_neural",
+      "model": "Best neural spatial TSN",
+      "model_group": "Deep daily-spatial sequence",
+      "notes": "Best neural checkpoint retrained on ERA5 dynamic climate inputs with tp removed."
+    }
+  ],
+  "train_source": "ERA5",
+  "validation_source": "ERA5",
+  "test_source": "SEAS5/ECMWF",
+  "drop_climate_variables": [
+    "tp"
+  ],
+  "comparison_climate_variables": [
+    "t2m",
+    "d2m",
+    "stl1"
+  ],
+  "rows_before_coverage_filter": 1610664,
+  "rows_available": 1587151,
+  "train_rows": 1191419,
+  "validation_rows": 124452,
+  "test_rows": 271280,
+  "overall_rows": 25,
+  "yearly_rows": 100,
+  "coverage_rows": [
+    {
+      "variable": "t2m",
+      "fragment_count": 2,
+      "covered_rows": 1598540,
+      "missing_rows": 12124,
+      "missing_fraction": 0.007527330343262158,
+      "required_time_min": "2000-08-27",
+      "required_time_max": "2024-12-31",
+      "dataset_time_min": "2000-01-01",
+      "dataset_time_max": "2024-12-31",
+      "required_lat_min": 40.0,
+      "required_lat_max": 75.0,
+      "required_lon_min": 19.0,
+      "required_lon_max": 179.0
+    },
+    {
+      "variable": "d2m",
+      "fragment_count": 2,
+      "covered_rows": 1599275,
+      "missing_rows": 11389,
+      "missing_fraction": 0.007070996806286103,
+      "required_time_min": "2000-08-27",
+      "required_time_max": "2024-12-31",
+      "dataset_time_min": "2000-01-01",
+      "dataset_time_max": "2024-12-31",
+      "required_lat_min": 40.0,
+      "required_lat_max": 75.0,
+      "required_lon_min": 19.0,
+      "required_lon_max": 179.0
+    },
+    {
+      "variable": "stl1",
+      "fragment_count": 2,
+      "covered_rows": 1599275,
+      "missing_rows": 11389,
+      "missing_fraction": 0.007070996806286103,
+      "required_time_min": "2000-08-27",
+      "required_time_max": "2024-12-31",
+      "dataset_time_min": "2000-01-01",
+      "dataset_time_max": "2024-12-31",
+      "required_lat_min": 40.0,
+      "required_lat_max": 75.0,
+      "required_lon_min": 19.0,
+      "required_lon_max": 179.0
+    }
+  ]
+}

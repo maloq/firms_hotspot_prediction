@@ -1,0 +1,78 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "q_label"
+    },
+    {
+      "dtype": "float64",
+      "name": "top_fraction_requested"
+    },
+    {
+      "dtype": "float64",
+      "name": "top_fraction_observed"
+    },
+    {
+      "dtype": "float64",
+      "name": "top_weighted_support"
+    },
+    {
+      "dtype": "float64",
+      "name": "captured_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall_at_top_q"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision_at_top_q"
+    },
+    {
+      "dtype": "float64",
+      "name": "lift_at_q"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_prevalence"
+    },
+    {
+      "dtype": "float64",
+      "name": "ap_lift"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall_at_top_q_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision_at_top_q_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "lift_at_q_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "ap_lift_error"
+    }
+  ],
+  "rows": 24,
+  "source_csv": "primary_full_grid_calibrated/risk_concentration.csv"
+}

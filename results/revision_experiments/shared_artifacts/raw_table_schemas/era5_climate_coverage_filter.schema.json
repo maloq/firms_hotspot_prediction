@@ -1,0 +1,58 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "variable"
+    },
+    {
+      "dtype": "int64",
+      "name": "fragment_count"
+    },
+    {
+      "dtype": "int64",
+      "name": "covered_rows"
+    },
+    {
+      "dtype": "int64",
+      "name": "missing_rows"
+    },
+    {
+      "dtype": "float64",
+      "name": "missing_fraction"
+    },
+    {
+      "dtype": "str",
+      "name": "required_time_min"
+    },
+    {
+      "dtype": "str",
+      "name": "required_time_max"
+    },
+    {
+      "dtype": "str",
+      "name": "dataset_time_min"
+    },
+    {
+      "dtype": "str",
+      "name": "dataset_time_max"
+    },
+    {
+      "dtype": "float64",
+      "name": "required_lat_min"
+    },
+    {
+      "dtype": "float64",
+      "name": "required_lat_max"
+    },
+    {
+      "dtype": "float64",
+      "name": "required_lon_min"
+    },
+    {
+      "dtype": "float64",
+      "name": "required_lon_max"
+    }
+  ],
+  "rows": 3,
+  "source_csv": "era5_climate_coverage_filter.csv"
+}

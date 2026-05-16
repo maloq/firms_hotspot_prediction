@@ -1,0 +1,82 @@
+{
+  "columns": [
+    {
+      "dtype": "int64",
+      "name": "rank"
+    },
+    {
+      "dtype": "str",
+      "name": "model_id"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "feature"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_slug"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_type"
+    },
+    {
+      "dtype": "float64",
+      "name": "baseline_average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "permuted_average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "delta_average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "baseline_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "permuted_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "delta_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "int64",
+      "name": "sample_size"
+    },
+    {
+      "dtype": "int64",
+      "name": "positives"
+    },
+    {
+      "dtype": "str",
+      "name": "metrics_path"
+    },
+    {
+      "dtype": "str",
+      "name": "model_path"
+    },
+    {
+      "dtype": "str",
+      "name": "prediction_path"
+    },
+    {
+      "dtype": "str",
+      "name": "data_path"
+    }
+  ],
+  "rows": 100,
+  "source_csv": "neural_feature_importance.csv"
+}

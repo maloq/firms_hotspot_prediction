@@ -1,0 +1,58 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "Experiment"
+    },
+    {
+      "dtype": "str",
+      "name": "Experiment ID"
+    },
+    {
+      "dtype": "str",
+      "name": "Model"
+    },
+    {
+      "dtype": "str",
+      "name": "Feature set"
+    },
+    {
+      "dtype": "str",
+      "name": "Region"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "F1 error"
+    },
+    {
+      "dtype": "float64",
+      "name": "PR-AUC"
+    },
+    {
+      "dtype": "float64",
+      "name": "PR-AUC error"
+    },
+    {
+      "dtype": "float64",
+      "name": "Delta F1 vs full"
+    },
+    {
+      "dtype": "float64",
+      "name": "Delta PR-AUC vs full"
+    }
+  ],
+  "rows": 80,
+  "source_csv": "feature_ablation.csv"
+}

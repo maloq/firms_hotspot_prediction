@@ -1,0 +1,190 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "Model"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "Feature set"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_set"
+    },
+    {
+      "dtype": "str",
+      "name": "Region"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "str",
+      "name": "split"
+    },
+    {
+      "dtype": "str",
+      "name": "evaluation_type"
+    },
+    {
+      "dtype": "bool",
+      "name": "is_primary"
+    },
+    {
+      "dtype": "str",
+      "name": "calibration_method"
+    },
+    {
+      "dtype": "str",
+      "name": "test_universe"
+    },
+    {
+      "dtype": "str",
+      "name": "test_period"
+    },
+    {
+      "dtype": "int64",
+      "name": "support"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_support"
+    },
+    {
+      "dtype": "float64",
+      "name": "positives"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_prevalence"
+    },
+    {
+      "dtype": "float64",
+      "name": "mean_calibrated_predicted_probability"
+    },
+    {
+      "dtype": "float64",
+      "name": "PR-AUC"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "ROC-AUC"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_brier_score"
+    },
+    {
+      "dtype": "float64",
+      "name": "Brier"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_logloss"
+    },
+    {
+      "dtype": "float64",
+      "name": "daily_expected_observed_count_mae"
+    },
+    {
+      "dtype": "float64",
+      "name": "max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "predicted_positive_grid_cells_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "calibration_intercept"
+    },
+    {
+      "dtype": "float64",
+      "name": "calibration_slope"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_observed_count_ratio"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_prevalence_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "max_f1_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_brier_score_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_logloss_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_observed_count_ratio_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "mean_calibrated_predicted_probability_error"
+    }
+  ],
+  "rows": 30,
+  "source_csv": "primary_full_grid_calibrated/model_comparison.csv"
+}

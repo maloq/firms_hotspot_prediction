@@ -16,7 +16,13 @@ except ImportError:
     DASK_AVAILABLE = False
 from tqdm import tqdm
 sys.path.append(os.getcwd())
-from src.feature_generation.load_climate_data import load_climate_variable_mf
+from src.feature_generation.load_climate_data import (
+    ClimateFragment,
+    climate_fragments_source_token,
+    discover_climate_fragments,
+    load_climate_variable_mf,
+    open_climate_fragment,
+)
 
 
 client = None
@@ -57,11 +63,14 @@ def _climate_matrix_cache_path(
     variable: str,
     coords_pl: pl.DataFrame,
     n_days: int,
+    source_token: str | None = None,
 ) -> Path:
     """Build a cache path keyed by target rows and raw climate input params."""
 
     hasher = hashlib.blake2b(digest_size=16)
     hasher.update(str(Path(climate_data_dir).resolve()).encode("utf-8"))
+    if source_token:
+        hasher.update(source_token.encode("utf-8"))
     hasher.update(variable.encode("utf-8"))
     hasher.update(str(n_days).encode("utf-8"))
 
@@ -507,6 +516,246 @@ def check_dataset_bounds(ds, target_df, n_days=129, time_coord_name="valid_time"
         }
     }
     return result
+
+
+def _target_arrays_for_fragment_routing(target_df: pl.DataFrame, n_days: int):
+    target_pd = target_df.select(["acq_date", "lat_rounded", "lon_rounded"]).to_pandas()
+    acq_dates = pd.to_datetime(target_pd["acq_date"]).to_numpy(dtype="datetime64[D]")
+    start_dates = acq_dates - np.timedelta64(max(n_days - 1, 0), "D")
+    lats = target_pd["lat_rounded"].to_numpy(dtype=np.float64)
+    lons = target_pd["lon_rounded"].to_numpy(dtype=np.float64)
+    return acq_dates, start_dates, lats, lons
+
+
+def _normalize_longitudes_for_fragment(lons: np.ndarray, fragment: ClimateFragment) -> np.ndarray:
+    """Convert target longitudes to the fragment's coordinate convention."""
+
+    normalized = np.asarray(lons, dtype=np.float64).copy()
+    finite = np.isfinite(normalized)
+    if not finite.any():
+        return normalized
+
+    if fragment.lon_min >= 0 and np.nanmin(normalized[finite]) < 0:
+        normalized[finite] = np.mod(normalized[finite], 360.0)
+    elif fragment.lon_max <= 180 and fragment.lon_min < 0 and np.nanmax(normalized[finite]) > 180:
+        normalized[finite] = ((normalized[finite] + 180.0) % 360.0) - 180.0
+    return normalized
+
+
+def _fragment_coverage_mask(
+    fragment: ClimateFragment,
+    acq_dates: np.ndarray,
+    start_dates: np.ndarray,
+    lats: np.ndarray,
+    lons: np.ndarray,
+) -> np.ndarray:
+    lat_tol = max(float(fragment.lat_step) / 2.0, 1e-9)
+    lon_tol = max(float(fragment.lon_step) / 2.0, 1e-9)
+    time_tol = np.timedelta64(12, "h")
+
+    fragment_start = np.datetime64(fragment.time_start, "ns")
+    fragment_end = np.datetime64(fragment.time_end, "ns")
+    starts_ns = start_dates.astype("datetime64[ns]")
+    acq_ns = acq_dates.astype("datetime64[ns]")
+
+    time_ok = (fragment_start <= starts_ns + time_tol) & (fragment_end >= acq_ns - time_tol)
+    lat_ok = (lats >= fragment.lat_min - lat_tol) & (lats <= fragment.lat_max + lat_tol)
+
+    routed_lons = _normalize_longitudes_for_fragment(lons, fragment)
+    if fragment.lon_min <= fragment.lon_max:
+        lon_ok = (routed_lons >= fragment.lon_min - lon_tol) & (routed_lons <= fragment.lon_max + lon_tol)
+    else:
+        lon_ok = (routed_lons >= fragment.lon_min - lon_tol) | (routed_lons <= fragment.lon_max + lon_tol)
+
+    return time_ok & lat_ok & lon_ok
+
+
+def _fragment_priority_order(fragments: list[ClimateFragment]) -> list[int]:
+    return sorted(
+        range(len(fragments)),
+        key=lambda idx: (
+            fragments[idx].priority,
+            fragments[idx].resolution,
+            fragments[idx].spatial_area,
+            fragments[idx].files[0],
+        ),
+    )
+
+
+def _assign_rows_to_climate_fragments_from_arrays(
+    fragments: list[ClimateFragment],
+    acq_dates: np.ndarray,
+    start_dates: np.ndarray,
+    lats: np.ndarray,
+    lons: np.ndarray,
+) -> np.ndarray:
+    n_rows = acq_dates.size
+    if n_rows == 0:
+        return np.empty(0, dtype=np.int64)
+    if not fragments:
+        return np.full(n_rows, -1, dtype=np.int64)
+
+    assignments = np.full(n_rows, -1, dtype=np.int64)
+    for fragment_idx in _fragment_priority_order(fragments):
+        unassigned = assignments < 0
+        if not unassigned.any():
+            break
+        coverage = _fragment_coverage_mask(
+            fragments[fragment_idx],
+            acq_dates,
+            start_dates,
+            lats,
+            lons,
+        )
+        assignments[unassigned & coverage] = fragment_idx
+
+    return assignments
+
+
+def assign_rows_to_climate_fragments(
+    fragments: list[ClimateFragment],
+    target_df: pl.DataFrame,
+    n_days: int,
+) -> np.ndarray:
+    """Assign every target row to the first fragment covering its full window."""
+
+    acq_dates, start_dates, lats, lons = _target_arrays_for_fragment_routing(target_df, n_days)
+    return _assign_rows_to_climate_fragments_from_arrays(fragments, acq_dates, start_dates, lats, lons)
+
+
+def check_fragmented_dataset_bounds(
+    fragments: list[ClimateFragment],
+    target_df: pl.DataFrame,
+    n_days: int,
+    assignments: np.ndarray | None = None,
+) -> dict:
+    """Row-level coverage check for a union of rectangular fragments."""
+
+    if not isinstance(target_df, pl.DataFrame):
+        target_df = pl.from_pandas(target_df) if isinstance(target_df, pd.DataFrame) else pl.DataFrame(target_df)
+
+    if target_df.height == 0:
+        return {"sufficient": True, "assignments": np.empty(0, dtype=np.int64), "details": {}}
+
+    acq_dates, start_dates, lats, lons = _target_arrays_for_fragment_routing(target_df, n_days)
+
+    if assignments is None:
+        assignments = _assign_rows_to_climate_fragments_from_arrays(
+            fragments,
+            acq_dates,
+            start_dates,
+            lats,
+            lons,
+        )
+
+    covered = assignments >= 0
+    missing_count = int((~covered).sum())
+    fragment_counts = {
+        idx: int((assignments == idx).sum())
+        for idx in range(len(fragments))
+        if int((assignments == idx).sum()) > 0
+    }
+
+    required_time_min = start_dates.min().astype("datetime64[ns]")
+    required_time_max = acq_dates.max().astype("datetime64[ns]")
+
+    if fragments:
+        dataset_time_min = min(np.datetime64(fragment.time_start, "ns") for fragment in fragments)
+        dataset_time_max = max(np.datetime64(fragment.time_end, "ns") for fragment in fragments)
+        dataset_lat_min = min(fragment.lat_min for fragment in fragments)
+        dataset_lat_max = max(fragment.lat_max for fragment in fragments)
+        dataset_lon_min = min(fragment.lon_min for fragment in fragments)
+        dataset_lon_max = max(fragment.lon_max for fragment in fragments)
+    else:
+        dataset_time_min = dataset_time_max = None
+        dataset_lat_min = dataset_lat_max = None
+        dataset_lon_min = dataset_lon_max = None
+
+    missing_examples = []
+    if missing_count:
+        indexed_target = (
+            target_df.with_row_index("__row_nr")
+            if hasattr(target_df, "with_row_index")
+            else target_df.with_row_count("__row_nr")
+        )
+        missing_examples = (
+            indexed_target
+            .filter(pl.Series("__missing", ~covered))
+            .select(["__row_nr", "acq_date", "lat_rounded", "lon_rounded"])
+            .head(10)
+            .to_dicts()
+        )
+
+    return {
+        "sufficient": missing_count == 0,
+        "assignments": assignments,
+        "details": {
+            "fragment_count": len(fragments),
+            "covered_rows": int(covered.sum()),
+            "missing_rows": missing_count,
+            "missing_fraction": float(missing_count / max(1, target_df.height)),
+            "fragment_row_counts": fragment_counts,
+            "missing_examples": missing_examples,
+            "dataset_union": {
+                "time": (dataset_time_min, dataset_time_max),
+                "latitude": (dataset_lat_min, dataset_lat_max),
+                "longitude": (dataset_lon_min, dataset_lon_max),
+            },
+            "required": {
+                "time": (required_time_min, required_time_max),
+                "latitude": (float(np.nanmin(lats)), float(np.nanmax(lats))),
+                "longitude": (float(np.nanmin(lons)), float(np.nanmax(lons))),
+            },
+        },
+    }
+
+
+def print_fragmented_bounds_check(variable_name: str, result: dict, fragments: list[ClimateFragment]) -> None:
+    status = "✅ SUFFICIENT" if result["sufficient"] else "❌ INSUFFICIENT"
+    details = result.get("details", {})
+    print("\n" + "=" * 60)
+    print(f" FRAGMENTED DATASET COVERAGE: {variable_name} - {status}")
+    print("=" * 60)
+    print(f"  Fragments: {details.get('fragment_count', 0)}")
+    print(f"  Covered rows: {details.get('covered_rows', 0)}")
+    print(f"  Missing rows: {details.get('missing_rows', 0)}")
+    if details.get("missing_rows", 0):
+        print(f"  Missing fraction: {details.get('missing_fraction', 0.0):.4%}")
+
+    union = details.get("dataset_union", {})
+    required = details.get("required", {})
+    if union and required:
+        time_union = union.get("time", (None, None))
+        time_required = required.get("time", (None, None))
+        print(
+            "  Union time: "
+            f"{pd.to_datetime(time_union[0]).date() if time_union[0] is not None else 'N/A'} "
+            f"to {pd.to_datetime(time_union[1]).date() if time_union[1] is not None else 'N/A'}"
+        )
+        print(
+            "  Required time: "
+            f"{pd.to_datetime(time_required[0]).date()} to {pd.to_datetime(time_required[1]).date()}"
+        )
+        print(f"  Union latitude bounds: {union.get('latitude')}")
+        print(f"  Required latitude bounds: {required.get('latitude')}")
+        print(f"  Union longitude bounds: {union.get('longitude')}")
+        print(f"  Required longitude bounds: {required.get('longitude')}")
+
+    row_counts = details.get("fragment_row_counts", {})
+    for idx, count in sorted(row_counts.items()):
+        fragment = fragments[idx]
+        print(
+            f"  Fragment {idx}: {count:,} rows, {fragment.file_count} file(s), "
+            f"lat {fragment.lat_min:.2f}..{fragment.lat_max:.2f}, "
+            f"lon {fragment.lon_min:.2f}..{fragment.lon_max:.2f}, "
+            f"time {pd.to_datetime(fragment.time_start).date()}..{pd.to_datetime(fragment.time_end).date()}"
+        )
+
+    if details.get("missing_examples"):
+        print("  Missing examples:")
+        for example in details["missing_examples"]:
+            print(f"    {example}")
+    print("=" * 60)
 
 import logging  
 from textwrap import indent
@@ -988,6 +1237,105 @@ def extract_climate_timeseries(
     return out
 
 
+def _subset_for_fragment(target_df_pl: pl.DataFrame, row_indices: np.ndarray, fragment: ClimateFragment) -> pl.DataFrame:
+    subset = target_df_pl[row_indices.tolist()]
+    lons = subset["lon_rounded"].to_numpy().astype(np.float64)
+    normalized_lons = _normalize_longitudes_for_fragment(lons, fragment)
+    if not np.allclose(lons, normalized_lons, equal_nan=True):
+        subset = subset.with_columns(pl.Series("lon_rounded", normalized_lons))
+    return subset
+
+
+def _time_range_for_subset(target_subset: pl.DataFrame, n_days: int) -> tuple[pd.Timestamp, pd.Timestamp]:
+    acq_dates = pd.to_datetime(target_subset["acq_date"].to_numpy())
+    start_dates = acq_dates - pd.DateOffset(days=max(n_days - 1, 0))
+    return start_dates.min(), acq_dates.max()
+
+
+def extract_climate_timeseries_fragmented(
+    fragments: list[ClimateFragment],
+    variable: str,
+    target_df_pl: pl.DataFrame,
+    n_days: int = 120,
+    assignments: np.ndarray | None = None,
+    location_batch_size: int | None = None,
+    max_time_span_days: int | None = None,
+    fill_row_batch_size: int | None = None,
+    block_cache_dir: str | None = None,
+    block_cache_source_token: str | None = None,
+    persist_dataset: bool = False,
+) -> np.ndarray:
+    """Extract climate windows from a union of rectangular fragments."""
+
+    n_rows = target_df_pl.height
+    out = np.full((n_rows, n_days), np.nan, dtype=np.float32)
+    if n_rows == 0:
+        return out
+
+    if assignments is None:
+        assignments = assign_rows_to_climate_fragments(fragments, target_df_pl, n_days)
+
+    for fragment_idx in _fragment_priority_order(fragments):
+        row_indices = np.flatnonzero(assignments == fragment_idx)
+        if row_indices.size == 0:
+            continue
+
+        fragment = fragments[fragment_idx]
+        target_subset = _subset_for_fragment(target_df_pl, row_indices, fragment)
+        subset_coords = target_subset.select(["acq_date", "lat_rounded", "lon_rounded"])
+        time_range = _time_range_for_subset(target_subset, n_days)
+        lat_range = (target_subset["lat_rounded"].min(), target_subset["lat_rounded"].max())
+        lon_range = (target_subset["lon_rounded"].min(), target_subset["lon_rounded"].max())
+
+        print(
+            f"Extracting {variable} from fragment {fragment_idx} "
+            f"({row_indices.size:,} rows, {fragment.file_count} file(s))"
+        )
+        ds = open_climate_fragment(
+            fragment,
+            time_range=time_range,
+            lat_range=lat_range,
+            lon_range=lon_range,
+        )
+        try:
+            if persist_dataset:
+                dask_client = _get_dask_client()
+                persist_start = time_lib.time()
+                ds = ds.persist()
+                client_desc = "distributed" if dask_client else "local"
+                print(
+                    f"Fragment dataset persisted in memory "
+                    f"({time_lib.time() - persist_start:.2f}s) using {client_desc} client."
+                )
+            else:
+                print("Fragment dataset-wide persist disabled; streaming location batches from disk.")
+
+            fragment_block_token = None
+            if block_cache_dir and block_cache_source_token:
+                fragment_block_token = _climate_block_source_token(
+                    f"{block_cache_source_token}|fragment:{fragment_idx}|{fragment.source_token_payload()}",
+                    variable,
+                    ds,
+                )
+
+            subset_matrix = extract_climate_timeseries(
+                ds,
+                variable,
+                subset_coords,
+                n_days=n_days,
+                location_batch_size=location_batch_size,
+                max_time_span_days=max_time_span_days,
+                fill_row_batch_size=fill_row_batch_size,
+                block_cache_dir=block_cache_dir,
+                block_cache_source_token=fragment_block_token,
+            )
+            out[row_indices] = subset_matrix.astype(out.dtype, copy=False)
+        finally:
+            ds.close()
+
+    return out
+
+
 def prepare_data(
     climate_data_dir: str, 
     climate_variables: list[str], 
@@ -1093,6 +1441,19 @@ def prepare_data(
     for idx, variable in enumerate(climate_variables, start=1):
         print(f"\n[{idx}/{total_variables}] Processing variable: {variable}")
         load_start = time_lib.time()
+
+        try:
+            fragments = discover_climate_fragments(climate_data_dir, variable)
+        except (FileNotFoundError, ValueError, IOError) as e:
+            raise ValueError(f"Error discovering climate fragments for {variable}: {e}") from e
+
+        fragment_source_token = climate_fragments_source_token(fragments)
+        use_fragmented_loader = len(fragments) > 1
+        if use_fragmented_loader:
+            print(f"Discovered {len(fragments)} spatial fragments for {variable}; using fragmented loading.")
+        else:
+            print(f"Discovered {len(fragments)} spatial fragment for {variable}; using standard loading.")
+
         matrix_cache_path = (
             _climate_matrix_cache_path(
                 cache_dir,
@@ -1100,6 +1461,7 @@ def prepare_data(
                 variable,
                 coords_pl,
                 n_days,
+                source_token=fragment_source_token,
             )
             if use_matrix_cache
             else None
@@ -1130,6 +1492,56 @@ def prepare_data(
                 f"{(target_df_pl.height, n_days)}, got {ts_matrix_var.shape}"
             )
 
+        if use_fragmented_loader:
+            bounds_check_result = check_fragmented_dataset_bounds(
+                fragments,
+                target_df_pl,
+                n_days=n_days,
+            )
+            print_fragmented_bounds_check(variable, bounds_check_result, fragments)
+            if not bounds_check_result["sufficient"]:
+                message = (
+                    f"Fragmented dataset for {variable} does not fully cover every "
+                    "target row and lookback window. Climate features would contain "
+                    "missing or partial windows."
+                )
+                if strict_climate_bounds:
+                    raise ValueError(message)
+                print(f"Warning: {message}")
+
+            raw_start = time_lib.time()
+            ts_matrix_var = extract_climate_timeseries_fragmented(
+                fragments,
+                variable,
+                target_df_pl,
+                n_days=n_days,
+                assignments=bounds_check_result["assignments"],
+                location_batch_size=location_batch_size,
+                max_time_span_days=max_time_span_days,
+                block_cache_dir=cache_dir if use_block_cache else None,
+                block_cache_source_token=fragment_source_token if use_block_cache else None,
+                persist_dataset=persist_dataset,
+            )
+
+            print(f"Fragmented raw-series extraction time for {variable}: {time_lib.time() - raw_start:.2f}s")
+            print(f"variable {variable} time series matrix shape: {ts_matrix_var.shape}")
+            ts_matrix_var_list.append(ts_matrix_var)
+            if matrix_cache_path is not None:
+                cache_write_start = time_lib.time()
+                _save_matrix_cache(matrix_cache_path, ts_matrix_var)
+                print(f"Saved raw climate matrix cache for {variable} in {time_lib.time() - cache_write_start:.2f}s")
+
+            elapsed = time_lib.time() - load_start
+            elapsed_per_variable.append(elapsed)
+            remaining = total_variables - idx
+            if remaining > 0:
+                avg_time = sum(elapsed_per_variable) / len(elapsed_per_variable)
+                eta_minutes = (avg_time * remaining) / 60
+                print(f"Completed {variable} in {elapsed:.2f}s. Estimated remaining: {eta_minutes:.2f} minutes for {remaining} variables.")
+            else:
+                print(f"Completed {variable} in {elapsed:.2f}s.")
+            continue
+
         try:
             ds = load_climate_variable_mf(
                 climate_data_dir, variable, 
@@ -1143,7 +1555,7 @@ def prepare_data(
             
         print(f"Initial dataset load/reference for {variable}: {time_lib.time() - load_start:.2f}s")
         block_cache_source_token = (
-            _climate_block_source_token(climate_data_dir, variable, ds)
+            _climate_block_source_token(f"{climate_data_dir}|{fragment_source_token}", variable, ds)
             if use_block_cache
             else None
         )

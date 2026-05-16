@@ -5,6 +5,10 @@ The revision failure note records that processed ERA5 zarr files only cover
 2009-2024 and a narrower domain. This script fills the raw ERA5 daily-stat files
 needed to rebuild those zarrs over the full model window/domain.
 
+ERA5 daily-stat downloads are NetCDF files and are stored with a ``.nc`` suffix.
+The model pipeline reads processed zarr stores; these raw files are staging data
+for rebuilding those stores.
+
 By default it only prints the missing/insufficient files. Add ``--execute`` to
 submit CDS requests. Planned downloads are ordered by repair priority: truly
 missing files first, spatially narrow files second, and other insufficient files
@@ -37,6 +41,7 @@ from pathlib import Path
 from typing import Iterable
 
 import xarray as xr
+import yaml
 
 
 DATASET = "derived-era5-single-levels-daily-statistics"
@@ -139,6 +144,16 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help=(
+            "Optional YAML config with raw_root, output_root, start_year, end_year, "
+            "area, variables, include_msl, extension, overwrite, use_cds_cache, "
+            "manifest, and log_level. CLI flags override config values."
+        ),
+    )
+    parser.add_argument(
         "--raw-root",
         type=Path,
         default=DEFAULT_RAW_ROOT,
@@ -188,8 +203,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--extension",
         default=".nc",
-        choices=(".nc", ".grib"),
-        help="Extension for newly written files. The daily-stat product is NetCDF; .grib is legacy naming only.",
+        choices=(".nc",),
+        help="Extension for newly written ERA5 daily-stat files. Only NetCDF .nc is supported.",
     )
     parser.add_argument(
         "--execute",
@@ -221,7 +236,54 @@ def parse_args() -> argparse.Namespace:
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
         help="Logging verbosity.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    apply_config_overrides(args)
+    if args.extension != ".nc":
+        raise SystemExit("ERA5 daily-stat files are NetCDF; use extension: .nc")
+    return args
+
+
+def _cli_option_names(argv: list[str]) -> set[str]:
+    names: set[str] = set()
+    for token in argv:
+        if token.startswith("--"):
+            names.add(token.split("=", 1)[0])
+    return names
+
+
+def _coerce_path(value: object | None) -> Path | None:
+    if value in (None, ""):
+        return None
+    return Path(str(value))
+
+
+def apply_config_overrides(args: argparse.Namespace) -> None:
+    if args.config is None:
+        return
+    with args.config.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+    if not isinstance(payload, dict):
+        raise SystemExit(f"ERA5 config must be a mapping: {args.config}")
+
+    cli_options = _cli_option_names(sys.argv[1:])
+    config_map = {
+        "raw_root": ("raw_root", "--raw-root", _coerce_path),
+        "output_root": ("output_root", "--output-root", _coerce_path),
+        "start_year": ("start_year", "--start-year", int),
+        "end_year": ("end_year", "--end-year", int),
+        "area": ("area", "--area", lambda value: [float(item) for item in value]),
+        "variables": ("variables", "--variables", lambda value: [str(item) for item in value]),
+        "include_msl": ("include_msl", "--include-msl", bool),
+        "extension": ("extension", "--extension", str),
+        "overwrite": ("overwrite", "--overwrite", bool),
+        "use_cds_cache": ("use_cds_cache", "--use-cds-cache", bool),
+        "manifest": ("manifest", "--manifest", _coerce_path),
+        "log_level": ("log_level", "--log-level", str),
+    }
+    for key, (attr, cli_name, coerce) in config_map.items():
+        if key not in payload or cli_name in cli_options:
+            continue
+        setattr(args, attr, coerce(payload[key]))
 
 
 def validate_area(area: tuple[float, float, float, float]) -> None:
@@ -253,10 +315,8 @@ def candidate_paths(raw_root: Path, output_root: Path, variable: Era5Variable, y
     names = [
         f"{variable.cds_name}_{year}{extension}",
         f"{variable.cds_name}_{year}.nc",
-        f"{variable.cds_name}_{year}.grib",
         f"{variable.key}_{year}{extension}",
         f"{variable.key}_{year}.nc",
-        f"{variable.key}_{year}.grib",
     ]
     paths: list[Path] = []
     seen: set[Path] = set()
@@ -267,7 +327,7 @@ def candidate_paths(raw_root: Path, output_root: Path, variable: Era5Variable, y
                 paths.append(path)
                 seen.add(path)
         if directory.exists():
-            for path in sorted(directory.glob(f"*{year}*.nc")) + sorted(directory.glob(f"*{year}*.grib")):
+            for path in sorted(directory.glob(f"*{year}*.nc")):
                 if path not in seen:
                     paths.append(path)
                     seen.add(path)

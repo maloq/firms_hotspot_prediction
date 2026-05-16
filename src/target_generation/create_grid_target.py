@@ -7,6 +7,11 @@ import matplotlib.patches as mpatches
 import datetime
 import yaml
 
+try:
+    from .prepare_target_new import normalize_confidence_threshold_for_series
+except ImportError:  # pragma: no cover - supports direct script execution
+    from src.target_generation.prepare_target_new import normalize_confidence_threshold_for_series
+
 config_path = 'configs/target_config.yaml'
 with open(config_path, 'r') as config_file:
     config = yaml.safe_load(config_file)
@@ -84,17 +89,30 @@ def load_modis_data_for_period(data_dir, start_date, end_date, countries=None):
                 
                 # Apply latitude-dependent thresholds
                 high_lat_mask = df['latitude'].abs() > 60
+                confidence_threshold, confidence_scale = normalize_confidence_threshold_for_series(
+                    df['confidence'],
+                    CONFIDENCE_THRESHOLD,
+                )
+                confidence_threshold_high_lat, _ = normalize_confidence_threshold_for_series(
+                    df['confidence'],
+                    CONFIDENCE_THRESHOLD_HIGH_LAT,
+                )
+                print(
+                    "Detected FIRMS confidence scale:"
+                    f" {confidence_scale}; using thresholds {confidence_threshold}"
+                    f" / {confidence_threshold_high_lat}."
+                )
 
                 low_lat_filter = (
                     (~high_lat_mask)
                     & (df['brightness'] > BRIGHTNESS_THRESHOLD)
-                    & (df['confidence'] > CONFIDENCE_THRESHOLD)
+                    & (df['confidence'] > confidence_threshold)
                 )
 
                 high_lat_filter = (
                     high_lat_mask
                     & (df['brightness'] > BRIGHTNESS_THRESHOLD_HIGH_LAT)
-                    & (df['confidence'] > CONFIDENCE_THRESHOLD_HIGH_LAT)
+                    & (df['confidence'] > confidence_threshold_high_lat)
                 )
 
                 df = df[low_lat_filter | high_lat_filter]

@@ -1,0 +1,74 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "group"
+    },
+    {
+      "dtype": "str",
+      "name": "raw_group"
+    },
+    {
+      "dtype": "int64",
+      "name": "feature_count"
+    },
+    {
+      "dtype": "int64",
+      "name": "sample_rows"
+    },
+    {
+      "dtype": "int64",
+      "name": "trials"
+    },
+    {
+      "dtype": "float64",
+      "name": "baseline_pr_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "permuted_pr_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "pr_auc_drop"
+    },
+    {
+      "dtype": "float64",
+      "name": "pr_auc_drop_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "baseline_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "permuted_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1_drop"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1_drop_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "baseline_roc_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "permuted_roc_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc_drop"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc_drop_error"
+    }
+  ],
+  "rows": 8,
+  "source_csv": "grouped_permutation_importance.csv"
+}

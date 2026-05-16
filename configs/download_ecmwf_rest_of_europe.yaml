@@ -1,0 +1,59 @@
+# ECMWF/SEAS5 seasonal forecast download for the part of Europe west of
+# the current Eurasia domain. CDS area order is: north, west, south, east.
+
+dataset: "seasonal-original-single-levels"
+originating_centre: "ecmwf"
+system: "51"
+
+year: ["2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025"]
+month: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+day: ["01"]
+
+variable:
+  - "soil_temperature_level_1"
+  - "2m_dewpoint_temperature"
+  - "2m_temperature"
+  - "total_precipitation"
+
+# Western/rest-of-Europe: includes UK/Ireland/Iceland, Iberia, France west of 1E,
+# and overlaps the existing 1E boundary.
+area: [75, -25, 35, 1]
+
+data_format: "grib"
+data_path: "/home/ids/vmorozov/data/raw_climate/ECMWF_rest_of_europe"
+max_workers: 1
+retries: 3
+
+leadtime_hours:
+  - "0"
+  - "24"
+  - "48"
+  - "72"
+  - "96"
+  - "120"
+  - "144"
+  - "168"
+  - "192"
+  - "216"
+  - "240"
+  - "264"
+  - "288"
+  - "312"
+  - "336"
+  - "360"
+  - "384"
+  - "408"
+  - "432"
+  - "456"
+  - "480"
+  - "504"
+  - "528"
+  - "552"
+  - "576"
+  - "600"
+  - "624"
+  - "648"
+  - "672"
+  - "696"
+  - "720"
+  - "744"

@@ -1,0 +1,58 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "calibration_method"
+    },
+    {
+      "dtype": "float64",
+      "name": "raw_mean_predicted_probability"
+    },
+    {
+      "dtype": "float64",
+      "name": "calibrated_mean_predicted_probability"
+    },
+    {
+      "dtype": "float64",
+      "name": "raw_expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "calibrated_expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "raw_expected_observed_count_ratio"
+    },
+    {
+      "dtype": "float64",
+      "name": "calibrated_expected_observed_count_ratio"
+    },
+    {
+      "dtype": "float64",
+      "name": "eo_ratio_reduction_factor"
+    },
+    {
+      "dtype": "float64",
+      "name": "raw_expected_observed_count_ratio_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "calibrated_expected_observed_count_ratio_error"
+    }
+  ],
+  "rows": 6,
+  "source_csv": "primary_full_grid_calibrated/count_correction.csv"
+}

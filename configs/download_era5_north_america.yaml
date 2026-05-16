@@ -1,0 +1,19 @@
+# ERA5 daily-statistics download for North America.
+# Used by scripts/download_missing_era5_daily.py.
+# CDS area order is: north, west, south, east.
+
+raw_root: "/home/ids/vmorozov/era5"
+output_root: "/home/ids/vmorozov/era5_north_america"
+start_year: 2000
+end_year: 2025
+
+# North America: Alaska/Canada/CONUS/Mexico. This does not cross the antimeridian.
+area: [75, -170, 15, -50]
+
+variables: ["t2m", "d2m", "tp", "stl1"]
+include_msl: false
+extension: ".nc"
+overwrite: false
+use_cds_cache: false
+manifest: "results/download_manifests/era5_north_america_manifest.json"
+log_level: "INFO"

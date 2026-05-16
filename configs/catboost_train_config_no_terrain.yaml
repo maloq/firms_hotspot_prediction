@@ -1,0 +1,167 @@
+catboost_train:
+  feature_config_path: "configs/features_config_30d.yaml"
+
+  run:
+    output_root: "outputs"
+    run_prefix: "catboost_train_no_terrain"
+
+  analysis:
+    analysis_only: false
+    model_path: null
+
+  data:
+    features_path: "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet"
+    rebuild_features: false
+    per_country_features_dir: "data/saved_features"
+    per_country_pattern: "train_test_features_30d_{country}.parquet"
+    limit_rows: null
+    save_eval_data: false
+    save_full_eval_data: false
+    save_prediction_csv: false
+    save_precision_recall_csv: false
+    precision_recall_csv_max_points: null
+    countries:
+      - "Dem_Rep_Korea"
+      - "Russian_Federation"
+      - "Finland"
+      - "Norway"
+      - "Sweden"
+      - "Denmark"
+      - "Lithuania"
+      - "Latvia"
+      - "Estonia"
+      - "Poland"
+      - "Czech_Republic"
+      - "Germany"
+      - "Hungary"
+      - "Slovakia"
+      - "Belarus"
+      - "Ukraine"
+      - "Moldova"
+      - "Romania"
+      - "Bulgaria"
+      - "Albania"
+      - "Montenegro"
+      - "Macedonia_Former_Yugoslav_Republic_of"
+      - "Kosovo"
+      - "Serbia"
+      - "Croatia"
+      - "Bosnia_and_Herzegovina"
+      - "Slovenia"
+      - "Greece"
+      - "Turkey"
+      - "Georgia"
+      - "Azerbaijan"
+      - "Armenia"
+      - "Kazakhstan"
+      - "Kyrgyzstan"
+      - "Tajikistan"
+      - "Mongolia"
+      - "China"
+      - "Japan"
+      - "Republic_of_Korea"
+
+  target:
+    column: "count"
+    positive_threshold: 0.0
+    soft_label_column: "soft_label"
+    use_soft_labels_for_training: true
+
+  split:
+    date_column: "datetime"
+    validation_start_date: "2022-01-01"
+    test_start_date: "2023-01-01"
+    validation_size: 0.15
+    test_size: 0.15
+    shuffle: false
+    random_state: 42
+
+  features:
+    selected_features_path: null
+    selected_feature_filter: true
+    ignored: ["datetime", "day", "latitude", "longitude", "year", "lon_rounded", "soft_label", "negative_stratum", "sampling_probability", "sample_weight", "nearest_positive_distance_cells", "nearest_positive_delta_days"]
+    drop_features:
+      - "anor"
+      - "elevation_gradient_max_0.1deg"
+      - "elevation_gradient_max_0.2deg"
+      - "elevation_gradient_mean_0.1deg"
+      - "elevation_gradient_mean_0.2deg"
+      - "elevation_gradient_min_0.1deg"
+      - "elevation_gradient_min_0.2deg"
+      - "elevation_gradient_std_0.1deg"
+      - "elevation_gradient_std_0.2deg"
+      - "elevation_max_0.1deg"
+      - "elevation_max_0.2deg"
+      - "elevation_mean_0.1deg"
+      - "elevation_mean_0.2deg"
+      - "elevation_min_0.1deg"
+      - "elevation_min_0.2deg"
+      - "elevation_point_max"
+      - "elevation_point_min"
+      - "elevation_point_stddev"
+      - "elevation_std_0.1deg"
+      - "elevation_std_0.2deg"
+      - "isor"
+      - "sdfor"
+      - "sdor"
+      - "slor"
+      - "z"
+    drop_feature_prefixes: []
+    drop_feature_groups: []
+    feature_weights:
+      ecoregion_name: 0.4
+
+  model:
+    iterations: 3000
+    depth: 6
+    learning_rate: 0.02
+    l2_leaf_reg: 3.0
+    min_data_in_leaf: 100
+    loss_function: "Logloss"
+    eval_metric: "Logloss"
+    early_stopping_rounds: 200
+    random_strength: 1.0
+    rsm: 1.0
+    class_weight_negative: 1.0
+    class_weight_positive: 1.0
+    verbose: 50
+    bootstrap_type: null
+    subsample: null
+
+  hardware:
+    task_type: GPU
+
+  thresholding:
+    prediction_threshold: null
+    tuning_split: "validation"
+    exclude_years: [2021]
+    min_precision: null
+    min_recall: null
+
+  calibration:
+    enabled: true
+    method: "platt_month"
+    split: "validation"
+    exclude_years: [2021]
+    apply_to_metrics: true
+    artifact_name: "probability_calibrator.joblib"
+
+  plots:
+    train_map_year: 2011
+    test_map_year: 2025
+    region_map_year: null
+    country_shapes_path: "data/countries"
+    map_plots: false
+    region_map_plots: false
+
+  feature_importance_analysis:
+    enabled: false
+    split: "test"
+    top_n: 40
+    sample_size: 20000
+    random_state: 42
+    permutation_repeats: 3
+    permutation_top_n: 40
+    include_shap: false
+    include_permutation: false
+    include_interactions: false

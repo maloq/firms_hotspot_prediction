@@ -1,1 +1,0 @@
-conda run -n pointnet python scripts/run_era5_ecmwf_source_comparison.py --iterations 450 --task-type CPU --training-mode robust --selection-metric validation_f1 --min-tree-count 20

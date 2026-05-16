@@ -1,0 +1,18 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/models/catboost_full.cbm",
+    "shared_artifacts/models/catboost_full_features.json"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/grouped_permutation_importance.png",
+    "shared_artifacts/source_plots_mixed/grouped_permutation_importance.pdf",
+    "shared_artifacts/source_plots_mixed/climate_window_permutation_importance.png",
+    "shared_artifacts/source_plots_mixed/climate_window_permutation_importance.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/grouped_permutation_importance.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/climate_window_permutation_importance.jsonl.gz"
+  ]
+}

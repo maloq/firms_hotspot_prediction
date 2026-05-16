@@ -1,0 +1,43 @@
+# Organized Revision Experiments
+
+Each experiment folder contains:
+
+- `description.md`: what the experiment studies.
+- `analysis.md`: compact automatic interpretation.
+- `tables/`: readable compact CSV tables when the experiment has presentation tables.
+- `plots/png/` and `plots/pdf/`: copied only when plots exist.
+- `artifacts/`: raw JSONL sources, schemas, manifests, and symlinks to reusable outputs when available.
+
+## Experiments
+- [Run Metadata And Repository Audit](00_run_metadata_and_audit/description.md): Collects the repository audit, command log, environment/config references, feature schemas, and run manifest used by the complete revision workflow.
+- [Dataset Statistics By Split](01_dataset_statistics_splits/description.md): Summarizes sample counts, class balance, spatial support, labeling rule, and grid resolution for the train/validation/test splits.
+- [Dataset Statistics By Region](02_dataset_statistics_by_region/description.md): Separates regional dataset statistics from model metrics so spatial coverage can be read independently.
+- [Dataset Statistics By Year](03_dataset_statistics_by_year/description.md): Keeps annual class-balance and sample-count reporting separate from regional and split summaries.
+- [Calibrated Full-Grid Prediction Study](04_primary_full_grid_calibrated/description.md): Keeps deployment-grid calibrated prediction in one place: prevalence audit, sampled-vs-full-grid contrast, risk concentration, count calibration, and spatial-scale evaluation.
+- [Legacy Sampled Case-Control Evaluation](05_legacy_sampled_case_control/description.md): Retains the old undersampled-negative evaluation for backwards comparison. These metrics describe discrimination/classification on the sampled case-control table and should not be interpreted as calibrated deployment probabilities.
+- [Main Model Comparison Global](06_main_model_comparison_global/description.md): Compares the main models on the global combined test set while keeping regional and yearly views in their own folders.
+- [Main Model Comparison By Region](07_main_model_comparison_by_region/description.md): Separates the regional model comparison from the global table to make spatial robustness easier to inspect.
+- [Main Model Comparison By Year](08_main_model_comparison_by_year/description.md): Reports annual model metrics for 2021-2025 and keeps temporal stability separate from the regional comparison.
+- [Feature Ablation Global](09_feature_ablation_global/description.md): Measures how CatBoost performance changes when feature sources are removed or restricted on the global combined test set.
+- [Feature Ablation By Region](10_feature_ablation_by_region/description.md): Keeps spatial ablation effects separate from the global ablation table.
+- [Feature Ablation By Year](11_feature_ablation_by_year/description.md): Reports annual ablation effects for 2021-2025 apart from the combined and regional-only summaries.
+- [Neural Embedding Fusion Global](12_neural_embedding_fusion_global/description.md): Compares temporal-only, static-only, concatenation, one-hot, learned embedding, full fusion, and gated neural variants globally.
+- [Neural Embedding Fusion By Region](13_neural_embedding_fusion_by_region/description.md): Separates spatial neural fusion behavior from the global neural comparison.
+- [Neural Embedding Fusion By Year](14_neural_embedding_fusion_by_year/description.md): Reports annual neural ablation metrics for 2021-2025 separately from regional and global summaries.
+- [Neural Feature Ablation Global](15_neural_feature_ablation_global/description.md): Ablates dynamic, static, and categorical input branches for the configured best neural architecture on the global combined test set.
+- [Neural Feature Ablation By Region](16_neural_feature_ablation_by_region/description.md): Separates regional effects of neural input-branch ablations from the global summary.
+- [Neural Feature Ablation By Year](17_neural_feature_ablation_by_year/description.md): Reports annual neural input-branch ablation metrics for 2021-2025 separately from regional and global summaries.
+- [Label Sensitivity Global](18_label_sensitivity_global/description.md): Compares the main labels, no dilation, stricter MODIS thresholds, alternative negative ratio, and no historical-fire feature variants globally.
+- [Label Sensitivity By Region](19_label_sensitivity_by_region/description.md): Separates regional robustness of target-construction variants from the global label-sensitivity result.
+- [Label Sensitivity By Year](20_label_sensitivity_by_year/description.md): Reports annual target-construction sensitivity metrics for 2021-2025 separately from regional and global summaries.
+- [Lead-Time Sensitivity Global](21_lead_time_sensitivity_global/description.md): Compares CatBoost performance at 7-day, 14-day, and 30-day horizons on the global combined test set.
+- [Lead-Time Sensitivity By Region](22_lead_time_sensitivity_by_region/description.md): Separates regional horizon sensitivity from the global lead-time comparison.
+- [Lead-Time Sensitivity By Year](23_lead_time_sensitivity_by_year/description.md): Reports annual horizon sensitivity for 2021-2025 separately from regional and global lead-time summaries.
+- [Input Source Comparison Global](24_input_source_comparison_global/description.md): Compares ERA5 and SEAS5/ECMWF source settings, including retrospective upper bound, operational setting, domain shift, and mixed training.
+- [Representative Model Ablation ERA5 To ECMWF No Tp](31_representative_model_ablation_era5_to_ecmwf_no_tp/description.md): Compares a compact set of distinct model families on the ERA5-trained, SEAS5/ECMWF-tested no-tp source-shift setting.
+- [Native CatBoost Feature Importance](25_feature_importance_native/description.md): Ranks individual features by CatBoost native importance for the best full model.
+- [Grouped Permutation Importance](26_grouped_permutation_importance/description.md): Measures group-level performance drops after permuting feature sources.
+- [SHAP Importance](27_shap_importance/description.md): Summarizes TreeSHAP mean absolute contributions for the best CatBoost model where feasible.
+- [Neural Feature Importance](28_neural_feature_importance/description.md): Measures PR-AUC drops after permuting each input of the best global neural architecture.
+- [Failures And Limitations](30_failures_and_limitations/description.md): Contains only true remaining blockers and limitations after attempted rebuilds and reruns.
+- [Full-Grid Prediction Overlays](29_full_grid_prediction_overlays/description.md): Plots full-grid probability surfaces for the configured best neural prediction periods and overlays observed fire-positive grid-cell days.

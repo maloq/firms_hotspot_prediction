@@ -1,0 +1,42 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "denominator"
+    },
+    {
+      "dtype": "int64",
+      "name": "support"
+    },
+    {
+      "dtype": "float64",
+      "name": "denominator_count"
+    },
+    {
+      "dtype": "float64",
+      "name": "event_count"
+    },
+    {
+      "dtype": "float64",
+      "name": "event_rate"
+    },
+    {
+      "dtype": "str",
+      "name": "notes"
+    },
+    {
+      "dtype": "float64",
+      "name": "event_rate_error"
+    }
+  ],
+  "rows": 12,
+  "source_csv": "primary_full_grid_calibrated/prevalence_audit.csv"
+}

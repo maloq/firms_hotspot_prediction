@@ -57,7 +57,7 @@ DEFAULT_COUNTRIES_TRAIN = [
     "Republic_of_Korea",
 ]
 
-TARGET_CACHE_VERSION = "target_v2_initial_positive_counts"
+TARGET_CACHE_VERSION = "target_v5_lagged_fire_history"
 
 
 def _target_config_cache_token() -> str:
@@ -159,6 +159,7 @@ def _load_country_target(
         end_date=end_date,
         use_cached=use_cache,
         cache_path=config["target_cache_path"],
+        feature_config=config,
     )
     df_target["_source_country"] = country
     return df_target

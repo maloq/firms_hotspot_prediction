@@ -1,0 +1,29 @@
+{
+  "output_dir": "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5",
+  "period_metrics": "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/tables/period_probability_metrics.csv",
+  "selected_periods": "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/tables/selected_probability_periods.csv",
+  "plots": [
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/png/probability_overlay_Spatial_climate_TSN-MLP_global_full_global_rank01_20220418_3d.png",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/pdf/probability_overlay_Spatial_climate_TSN-MLP_global_full_global_rank01_20220418_3d.pdf",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/png/probability_overlay_Spatial_climate_TSN-MLP_global_full_eastern_siberia_rank01_20220310_3d.png",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/pdf/probability_overlay_Spatial_climate_TSN-MLP_global_full_eastern_siberia_rank01_20220310_3d.pdf",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/png/probability_overlay_Spatial_climate_TSN-MLP_global_full_far_east_rank01_20240313_3d.png",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/pdf/probability_overlay_Spatial_climate_TSN-MLP_global_full_far_east_rank01_20240313_3d.pdf",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/png/probability_overlay_Spatial_climate_TSN-MLP_global_full_central_asia_rank01_20230111_3d.png",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/pdf/probability_overlay_Spatial_climate_TSN-MLP_global_full_central_asia_rank01_20230111_3d.pdf",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/png/probability_overlay_Spatial_climate_TSN-MLP_global_full_europe_rank01_20230111_3d.png",
+    "results/revision_experiments_complete_with_nns_no_latlon/shared_artifacts/probability_overlays/ERA5/plots/pdf/probability_overlay_Spatial_climate_TSN-MLP_global_full_europe_rank01_20230111_3d.pdf"
+  ],
+  "plot_count": 10,
+  "model": "nn_global_full_spatial_tsn",
+  "source": "legacy",
+  "source_label": "ERA5",
+  "surface_source": "dense-neural",
+  "regions": [
+    "global",
+    "eastern_siberia",
+    "far_east",
+    "central_asia",
+    "europe"
+  ]
+}

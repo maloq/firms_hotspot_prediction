@@ -20,7 +20,6 @@ import math
 import os
 import platform
 import shutil
-import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -53,7 +52,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.feature_generation.prepare_climate_data import prepare_data
-from src.revision_evaluation.filesystem import prune_empty_dirs
+from src.revision_evaluation.artifacts import prune_empty_dirs
 from src.revision_evaluation.tabular import (
     DATE_COLUMN,
     LAT_COLUMN,
@@ -244,34 +243,48 @@ def raw_era5_audit(raw_root: Path, output_dir: Path) -> dict[str, Any]:
     for var_dir in sorted(raw_root.glob("*")):
         if not var_dir.is_dir():
             continue
+        nc_files = sorted(var_dir.glob("*.nc"))
+        grib_files = sorted(var_dir.glob("*.grib"))
         rows.append(
             {
                 "variable_dir": var_dir.name,
-                "nc_files": len(list(var_dir.glob("*.nc"))),
-                "grib_files": len(list(var_dir.glob("*.grib"))),
-                "sample_nc": next((p.name for p in sorted(var_dir.glob("*.nc"))), None),
-                "sample_grib": next((p.name for p in sorted(var_dir.glob("*.grib"))), None),
+                "nc_files": len(nc_files),
+                "unexpected_grib_files": len(grib_files),
+                "sample_nc": next((p.name for p in nc_files), None),
             }
         )
-    audit = {"raw_root": raw_root, "variables": rows, "sample_grib_checks": []}
+    audit = {"raw_root": raw_root, "variables": rows, "sample_nc_checks": []}
     samples = [
-        raw_root / "total_precipitation" / "total_precipitation_2025.grib",
-        raw_root / "2m_dewpoint_temperature" / "2m_dewpoint_temperature_2025.grib",
-        raw_root / "soil_temperature_level_1" / "soil_temperature_level_1_2025.grib",
+        raw_root / "total_precipitation" / "total_precipitation_2025.nc",
+        raw_root / "2m_dewpoint_temperature" / "2m_dewpoint_temperature_2025.nc",
+        raw_root / "soil_temperature_level_1" / "soil_temperature_level_1_2025.nc",
     ]
     for sample in samples:
         if not sample.exists():
             continue
-        cmd = ["timeout", "10s", "grib_ls", "-p", "shortName,date,time", str(sample)]
-        completed = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
-        audit["sample_grib_checks"].append(
-            {
-                "path": str(sample),
-                "returncode": int(completed.returncode),
-                "output_excerpt": completed.stdout[:2000],
-                "unreadable_messages": "ERROR: unreadable message" in completed.stdout,
-            }
-        )
+        check: dict[str, Any] = {"path": str(sample), "readable": False}
+        try:
+            ds = xr.open_dataset(sample, decode_times=False)
+            try:
+                lat_name = "latitude" if "latitude" in ds.coords else "lat" if "lat" in ds.coords else None
+                lon_name = "longitude" if "longitude" in ds.coords else "lon" if "lon" in ds.coords else None
+                time_name = "valid_time" if "valid_time" in ds.coords else "time" if "time" in ds.coords else None
+                check.update(
+                    {
+                        "readable": True,
+                        "data_vars": list(ds.data_vars),
+                        "time_count": int(ds[time_name].size) if time_name else None,
+                        "lat_min": float(ds[lat_name].min()) if lat_name else None,
+                        "lat_max": float(ds[lat_name].max()) if lat_name else None,
+                        "lon_min": float(ds[lon_name].min()) if lon_name else None,
+                        "lon_max": float(ds[lon_name].max()) if lon_name else None,
+                    }
+                )
+            finally:
+                ds.close()
+        except Exception as exc:
+            check["error"] = repr(exc)
+        audit["sample_nc_checks"].append(check)
     write_json(output_dir / "artifacts" / "raw_era5_audit.json", audit)
     return audit
 
@@ -965,11 +978,9 @@ def make_plots(output_dir: Path, metrics: pd.DataFrame) -> None:
 
 
 def write_description(output_dir: Path, fp: Footprint, raw_audit: dict[str, Any]) -> None:
-    grib_note = "Some raw GRIB samples were unreadable by ecCodes; processed ERA5 zarrs were used."
-    if any(item.get("returncode") == 127 for item in raw_audit.get("sample_grib_checks", [])):
-        grib_note = "The conda-run raw GRIB audit could not find `grib_ls`; processed ERA5 zarrs were used for the reproducible training matrix."
-    elif not any(item.get("unreadable_messages") for item in raw_audit.get("sample_grib_checks", [])):
-        grib_note = "Raw GRIB sample checks did not report unreadable messages."
+    nc_note = "Raw ERA5 staging files are stored as NetCDF `.nc`; processed zarrs are used for the reproducible training matrix."
+    if any(not item.get("readable") for item in raw_audit.get("sample_nc_checks", [])):
+        nc_note = "Some raw ERA5 NetCDF samples were not readable in the audit; processed zarrs were used for the reproducible training matrix."
     write_text(
         output_dir / "description.md",
         f"""# ERA5 vs ECMWF Training Source Comparison
@@ -990,7 +1001,7 @@ Thresholds are selected only on ECMWF validation years 2019-2020 and then applie
 - Training interval with 128-day lookback support: `{fp.train_start.date()}` to `{fp.train_end.date()}`.
 
 ## ERA5 Source
-ERA5 climate features were generated from processed zarr files under `/home/ids/vmorozov/data/climate_data/climate_features/ERA5`. The raw ERA5 directory `/home/ids/vmorozov/era5` was audited and is saved in `artifacts/raw_era5_audit.json`. {grib_note}
+ERA5 climate features were generated from processed zarr files under `/home/ids/vmorozov/data/climate_data/climate_features/ERA5`. The raw ERA5 directory `/home/ids/vmorozov/era5` was audited and is saved in `artifacts/raw_era5_audit.json`. {nc_note}
 
 ## Folder Layout
 - `tables/`: readable CSV tables, at most six columns each.

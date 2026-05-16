@@ -1,0 +1,86 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_group"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "status"
+    },
+    {
+      "dtype": "str",
+      "name": "training_source"
+    },
+    {
+      "dtype": "str",
+      "name": "validation_source"
+    },
+    {
+      "dtype": "str",
+      "name": "test_source"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "int64",
+      "name": "year"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "brier_score"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "float64",
+      "name": "validation_f1_at_threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "notes"
+    }
+  ],
+  "rows": 100,
+  "source_csv": "representative_model_ablation_era5_to_ecmwf_no_tp_by_year.csv"
+}

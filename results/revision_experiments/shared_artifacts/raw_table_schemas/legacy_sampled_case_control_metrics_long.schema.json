@@ -1,0 +1,54 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "experiment_id"
+    },
+    {
+      "dtype": "str",
+      "name": "experiment_type"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_set"
+    },
+    {
+      "dtype": "str",
+      "name": "split"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "int64",
+      "name": "support"
+    },
+    {
+      "dtype": "int64",
+      "name": "positives"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "metric"
+    },
+    {
+      "dtype": "float64",
+      "name": "value"
+    }
+  ],
+  "rows": 10824,
+  "source_csv": "legacy_sampled_case_control/metrics_long.csv"
+}

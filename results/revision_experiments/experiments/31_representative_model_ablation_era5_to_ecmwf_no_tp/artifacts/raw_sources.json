@@ -1,0 +1,35 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/representative_model_ablation/models/representative_logistic_regression.joblib",
+    "shared_artifacts/representative_model_ablation/models/representative_model_ablation_era5_to_ecmwf_no_tp_catboost_full.cbm",
+    "shared_artifacts/representative_model_ablation/models/representative_model_ablation_era5_to_ecmwf_no_tp_catboost_full_features.json",
+    "shared_artifacts/representative_model_ablation/models/representative_poisson_point_process.joblib",
+    "shared_artifacts/representative_model_ablation/models/representative_random_forest.joblib",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_best_neural_test_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_best_neural_validation_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_catboost_full_test_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_catboost_full_validation_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_logistic_regression_test_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_logistic_regression_validation_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_poisson_point_process_test_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_poisson_point_process_validation_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_random_forest_test_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/predictions/representative_model_ablation_era5_to_ecmwf_no_tp_random_forest_validation_predictions.parquet",
+    "shared_artifacts/representative_model_ablation/representative_model_ablation_era5_to_ecmwf_no_tp_manifest.json",
+    "shared_artifacts/representative_model_ablation/representative_model_ablation_era5_to_ecmwf_no_tp_metrics_wide.jsonl.gz",
+    "shared_artifacts/representative_model_ablation/representative_model_ablation_era5_to_ecmwf_no_tp_registry.csv",
+    "shared_artifacts/logs/representative_model_ablation.log"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/representative_model_ablation_era5_to_ecmwf_no_tp_pr_auc.png",
+    "shared_artifacts/source_plots_mixed/representative_model_ablation_era5_to_ecmwf_no_tp_pr_auc.pdf",
+    "shared_artifacts/source_plots_mixed/representative_model_ablation_era5_to_ecmwf_no_tp_f1.png",
+    "shared_artifacts/source_plots_mixed/representative_model_ablation_era5_to_ecmwf_no_tp_f1.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/representative_model_ablation_era5_to_ecmwf_no_tp.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/representative_model_ablation_era5_to_ecmwf_no_tp_by_year.jsonl.gz"
+  ]
+}

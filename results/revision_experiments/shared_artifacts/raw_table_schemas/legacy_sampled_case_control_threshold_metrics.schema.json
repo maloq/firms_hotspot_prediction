@@ -1,0 +1,46 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "experiment_id"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_set"
+    },
+    {
+      "dtype": "str",
+      "name": "split"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1"
+    }
+  ],
+  "rows": 902,
+  "source_csv": "legacy_sampled_case_control/threshold_metrics.csv"
+}

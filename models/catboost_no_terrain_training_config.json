@@ -1,0 +1,1079 @@
+{
+  "created_at": "2026-05-15T14:01:44.728026",
+  "script": "train_catboost.py",
+  "mode": "train",
+  "argv": [
+    "configs/catboost_train_config_no_terrain.yaml"
+  ],
+  "run_dir": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4",
+  "paths": {
+    "run_config": "configs/catboost_train_config_no_terrain.yaml",
+    "config": "configs/features_config_30d.yaml",
+    "features_path": "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet",
+    "output_root": "outputs",
+    "selected_feature_columns_path": "configs/selected_columns_30d.txt",
+    "requested_model_path": null,
+    "loaded_model_path": null,
+    "effective_model_path": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/model/catboost_model.cbm"
+  },
+  "data": {
+    "input_rows": 1699649,
+    "input_columns": 277,
+    "target_column": "count",
+    "positive_threshold": 0.0,
+    "soft_label_column": "soft_label",
+    "use_soft_labels_for_training": true,
+    "save_eval_data": false,
+    "save_full_eval_data": false,
+    "save_prediction_csv": false,
+    "save_precision_recall_csv": false,
+    "precision_recall_csv_max_points": null,
+    "test_size": 0.15,
+    "validation_size": 0.15,
+    "date_column": "datetime",
+    "validation_start_date": "2022-01-01",
+    "test_start_date": "2023-01-01",
+    "shuffle": false,
+    "split_info": {
+      "date_column": "datetime",
+      "sorted_by_date": false,
+      "test_size": 0.15,
+      "validation_size": 0.15,
+      "shuffle": false,
+      "random_state": null,
+      "test_start_date": "2023-01-01T00:00:00",
+      "validation_start_date": "2022-01-01T00:00:00",
+      "test_split_method": "date",
+      "validation_split_method": "date",
+      "rows": {
+        "train": 1459967,
+        "validation": 59796,
+        "test": 179886
+      }
+    },
+    "countries": [
+      "Dem_Rep_Korea",
+      "Russian_Federation",
+      "Finland",
+      "Norway",
+      "Sweden",
+      "Denmark",
+      "Lithuania",
+      "Latvia",
+      "Estonia",
+      "Poland",
+      "Czech_Republic",
+      "Germany",
+      "Hungary",
+      "Slovakia",
+      "Belarus",
+      "Ukraine",
+      "Moldova",
+      "Romania",
+      "Bulgaria",
+      "Albania",
+      "Montenegro",
+      "Macedonia_Former_Yugoslav_Republic_of",
+      "Kosovo",
+      "Serbia",
+      "Croatia",
+      "Bosnia_and_Herzegovina",
+      "Slovenia",
+      "Greece",
+      "Turkey",
+      "Georgia",
+      "Azerbaijan",
+      "Armenia",
+      "Kazakhstan",
+      "Kyrgyzstan",
+      "Tajikistan",
+      "Mongolia",
+      "China",
+      "Japan",
+      "Republic_of_Korea"
+    ],
+    "selected_features_count": 268,
+    "selected_feature_filter_enabled": true,
+    "applied_selected_features_count": 267,
+    "missing_selected_features": [
+      "night_light_radiance_recent"
+    ],
+    "dropped_by_selected_feature_filter": [
+      "country",
+      "negative_stratum",
+      "sampling_probability",
+      "sample_weight",
+      "nearest_positive_distance_cells",
+      "nearest_positive_delta_days",
+      "soft_label",
+      "ecoregion_name",
+      "ecoregion_realm"
+    ],
+    "feature_exclusions": {
+      "drop_feature": [
+        "anor",
+        "elevation_gradient_max_0.1deg",
+        "elevation_gradient_max_0.2deg",
+        "elevation_gradient_mean_0.1deg",
+        "elevation_gradient_mean_0.2deg",
+        "elevation_gradient_min_0.1deg",
+        "elevation_gradient_min_0.2deg",
+        "elevation_gradient_std_0.1deg",
+        "elevation_gradient_std_0.2deg",
+        "elevation_max_0.1deg",
+        "elevation_max_0.2deg",
+        "elevation_mean_0.1deg",
+        "elevation_mean_0.2deg",
+        "elevation_min_0.1deg",
+        "elevation_min_0.2deg",
+        "elevation_point_max",
+        "elevation_point_min",
+        "elevation_point_stddev",
+        "elevation_std_0.1deg",
+        "elevation_std_0.2deg",
+        "isor",
+        "sdfor",
+        "sdor",
+        "slor",
+        "z"
+      ],
+      "drop_feature_prefix": [],
+      "drop_feature_group": [],
+      "dropped": [
+        "anor",
+        "elevation_gradient_max_0.1deg",
+        "elevation_gradient_max_0.2deg",
+        "elevation_gradient_mean_0.1deg",
+        "elevation_gradient_mean_0.2deg",
+        "elevation_gradient_min_0.1deg",
+        "elevation_gradient_min_0.2deg",
+        "elevation_gradient_std_0.1deg",
+        "elevation_gradient_std_0.2deg",
+        "elevation_max_0.1deg",
+        "elevation_max_0.2deg",
+        "elevation_mean_0.1deg",
+        "elevation_mean_0.2deg",
+        "elevation_min_0.1deg",
+        "elevation_min_0.2deg",
+        "elevation_point_max",
+        "elevation_point_min",
+        "elevation_point_stddev",
+        "elevation_std_0.1deg",
+        "elevation_std_0.2deg",
+        "isor",
+        "sdfor",
+        "sdor",
+        "slor",
+        "z"
+      ],
+      "dropped_exact_matches": [
+        "anor",
+        "elevation_gradient_max_0.1deg",
+        "elevation_gradient_max_0.2deg",
+        "elevation_gradient_mean_0.1deg",
+        "elevation_gradient_mean_0.2deg",
+        "elevation_gradient_min_0.1deg",
+        "elevation_gradient_min_0.2deg",
+        "elevation_gradient_std_0.1deg",
+        "elevation_gradient_std_0.2deg",
+        "elevation_max_0.1deg",
+        "elevation_max_0.2deg",
+        "elevation_mean_0.1deg",
+        "elevation_mean_0.2deg",
+        "elevation_min_0.1deg",
+        "elevation_min_0.2deg",
+        "elevation_point_max",
+        "elevation_point_min",
+        "elevation_point_stddev",
+        "elevation_std_0.1deg",
+        "elevation_std_0.2deg",
+        "isor",
+        "sdfor",
+        "sdor",
+        "slor",
+        "z"
+      ],
+      "dropped_prefix_matches": [],
+      "dropped_group_matches": []
+    },
+    "train": {
+      "rows": 1459967,
+      "date_summary": {
+        "min": "2000-11-01T00:00:00",
+        "max": "2021-12-31T00:00:00",
+        "start_year": 2000
+      },
+      "class_balance": {
+        "0": 1229625,
+        "1": 230342
+      }
+    },
+    "validation": {
+      "rows": 59796,
+      "date_summary": {
+        "min": "2022-01-01T00:00:00",
+        "max": "2022-12-31T00:00:00",
+        "start_year": 2022
+      },
+      "class_balance": {
+        "0": 54739,
+        "1": 5057
+      }
+    },
+    "test": {
+      "rows": 179886,
+      "date_summary": {
+        "min": "2023-01-01T00:00:00",
+        "max": "2025-10-02T00:00:00",
+        "start_year": 2023
+      },
+      "class_balance": {
+        "0": 159597,
+        "1": 20289
+      }
+    }
+  },
+  "preprocessing": {
+    "configured_cat_features": [
+      "country",
+      "ecoregion_name",
+      "ecoregion_realm",
+      "slt",
+      "tvl",
+      "tvh",
+      "slt_soil_type_stream_oper_daily_mean"
+    ],
+    "effective_cat_features": [
+      "country",
+      "ecoregion_name",
+      "ecoregion_realm",
+      "slt",
+      "tvl",
+      "tvh",
+      "slt_soil_type_stream_oper_daily_mean"
+    ],
+    "missing_cat_features": [],
+    "requested_ignored_features": [
+      "datetime",
+      "day",
+      "latitude",
+      "longitude",
+      "year",
+      "lon_rounded",
+      "soft_label",
+      "negative_stratum",
+      "sampling_probability",
+      "sample_weight",
+      "nearest_positive_distance_cells",
+      "nearest_positive_delta_days"
+    ],
+    "effective_ignored_features": [
+      "datetime",
+      "day",
+      "latitude",
+      "longitude",
+      "year",
+      "lon_rounded"
+    ],
+    "missing_ignored_features": [
+      "nearest_positive_delta_days",
+      "nearest_positive_distance_cells",
+      "negative_stratum",
+      "sample_weight",
+      "sampling_probability",
+      "soft_label"
+    ],
+    "catboost_feature_count": 236,
+    "catboost_dropped_features": [
+      "datetime",
+      "day",
+      "latitude",
+      "longitude",
+      "year",
+      "lon_rounded"
+    ],
+    "catboost_cat_features": [
+      "slt",
+      "tvl",
+      "tvh",
+      "slt_soil_type_stream_oper_daily_mean"
+    ],
+    "catboost_dropped_cat_features": [
+      "country",
+      "ecoregion_name",
+      "ecoregion_realm"
+    ],
+    "catboost_feature_weights": {},
+    "catboost_dropped_feature_weights": [
+      "ecoregion_name"
+    ],
+    "soft_label_training": {
+      "enabled": true,
+      "input_rows": 1459967,
+      "expanded_rows": 1589770,
+      "soft_negative_rows": 129803,
+      "soft_label_min": 0.0,
+      "soft_label_max": 1.0,
+      "soft_label_mean": 0.16270294548733397,
+      "total_weight": 1459967.0,
+      "positive_weight": 237540.9375,
+      "negative_weight": 1222426.0
+    },
+    "model_feature_names": [
+      "lat_rounded",
+      "month",
+      "past_fire_count_r0_last_month",
+      "past_fire_count_r0_last_year",
+      "past_fire_count_r1_last_month",
+      "past_fire_count_r1_last_year",
+      "past_fire_count_r2_last_month",
+      "past_fire_count_r2_last_year",
+      "t2m_lag_7",
+      "t2m_lag_14",
+      "t2m_lag_30",
+      "t2m_lag_90",
+      "t2m_lag_120",
+      "t2m_mean_7",
+      "t2m_std_7",
+      "t2m_min_7",
+      "t2m_max_7",
+      "t2m_median_7",
+      "t2m_mean_14",
+      "t2m_std_14",
+      "t2m_min_14",
+      "t2m_max_14",
+      "t2m_median_14",
+      "t2m_mean_30",
+      "t2m_std_30",
+      "t2m_min_30",
+      "t2m_max_30",
+      "t2m_median_30",
+      "t2m_mean_90",
+      "t2m_std_90",
+      "t2m_min_90",
+      "t2m_max_90",
+      "t2m_median_90",
+      "t2m_mean_120",
+      "t2m_std_120",
+      "t2m_min_120",
+      "t2m_max_120",
+      "t2m_median_120",
+      "t2m_ewm_7",
+      "t2m_ewm_14",
+      "t2m_ewm_30",
+      "t2m_ewm_90",
+      "t2m_ewm_120",
+      "t2m_diff_7",
+      "t2m_pct_change_7",
+      "t2m_diff_14",
+      "t2m_pct_change_14",
+      "t2m_diff_30",
+      "t2m_pct_change_30",
+      "t2m_diff_90",
+      "t2m_pct_change_90",
+      "t2m_diff_120",
+      "t2m_pct_change_120",
+      "t2m_trend_slope_21",
+      "t2m_trend_intercept_21",
+      "t2m_trend_slope_90",
+      "t2m_trend_intercept_90",
+      "d2m_lag_7",
+      "d2m_lag_14",
+      "d2m_lag_30",
+      "d2m_lag_90",
+      "d2m_lag_120",
+      "d2m_mean_7",
+      "d2m_std_7",
+      "d2m_min_7",
+      "d2m_max_7",
+      "d2m_median_7",
+      "d2m_mean_14",
+      "d2m_std_14",
+      "d2m_min_14",
+      "d2m_max_14",
+      "d2m_median_14",
+      "d2m_mean_30",
+      "d2m_std_30",
+      "d2m_min_30",
+      "d2m_max_30",
+      "d2m_median_30",
+      "d2m_mean_90",
+      "d2m_std_90",
+      "d2m_min_90",
+      "d2m_max_90",
+      "d2m_median_90",
+      "d2m_mean_120",
+      "d2m_std_120",
+      "d2m_min_120",
+      "d2m_max_120",
+      "d2m_median_120",
+      "d2m_ewm_7",
+      "d2m_ewm_14",
+      "d2m_ewm_30",
+      "d2m_ewm_90",
+      "d2m_ewm_120",
+      "d2m_diff_7",
+      "d2m_pct_change_7",
+      "d2m_diff_14",
+      "d2m_pct_change_14",
+      "d2m_diff_30",
+      "d2m_pct_change_30",
+      "d2m_diff_90",
+      "d2m_pct_change_90",
+      "d2m_diff_120",
+      "d2m_pct_change_120",
+      "d2m_trend_slope_21",
+      "d2m_trend_intercept_21",
+      "d2m_trend_slope_90",
+      "d2m_trend_intercept_90",
+      "tp_mean_7",
+      "tp_std_7",
+      "tp_min_7",
+      "tp_max_7",
+      "tp_median_7",
+      "tp_mean_14",
+      "tp_std_14",
+      "tp_min_14",
+      "tp_max_14",
+      "tp_median_14",
+      "tp_mean_30",
+      "tp_std_30",
+      "tp_min_30",
+      "tp_max_30",
+      "tp_median_30",
+      "tp_mean_90",
+      "tp_std_90",
+      "tp_min_90",
+      "tp_max_90",
+      "tp_median_90",
+      "tp_mean_120",
+      "tp_std_120",
+      "tp_min_120",
+      "tp_max_120",
+      "tp_median_120",
+      "tp_ewm_7",
+      "tp_ewm_14",
+      "tp_ewm_30",
+      "tp_ewm_90",
+      "tp_ewm_120",
+      "stl1_mean_7",
+      "stl1_std_7",
+      "stl1_min_7",
+      "stl1_max_7",
+      "stl1_median_7",
+      "stl1_mean_14",
+      "stl1_std_14",
+      "stl1_min_14",
+      "stl1_max_14",
+      "stl1_median_14",
+      "stl1_mean_30",
+      "stl1_std_30",
+      "stl1_min_30",
+      "stl1_max_30",
+      "stl1_median_30",
+      "stl1_mean_90",
+      "stl1_std_90",
+      "stl1_min_90",
+      "stl1_max_90",
+      "stl1_median_90",
+      "stl1_mean_120",
+      "stl1_std_120",
+      "stl1_min_120",
+      "stl1_max_120",
+      "stl1_median_120",
+      "stl1_ewm_7",
+      "stl1_ewm_14",
+      "stl1_ewm_30",
+      "stl1_ewm_90",
+      "stl1_ewm_120",
+      "stl1_trend_slope_21",
+      "stl1_trend_intercept_21",
+      "stl1_trend_slope_90",
+      "stl1_trend_intercept_90",
+      "road_presence_1km",
+      "distance_to_road_meters",
+      "road_density_gaussian_5km",
+      "road_density_gaussian_10km",
+      "road_density_gaussian_25km",
+      "night_light_radiance_2024",
+      "night_light_black_marble_recent",
+      "night_light_black_marble_quality_recent",
+      "night_light_black_marble_observations_recent",
+      "night_light_black_marble_quality_filtered",
+      "night_light_presence_1km",
+      "light_density_gaussian_5km",
+      "light_density_gaussian_10km",
+      "light_density_gaussian_25km",
+      "distance_to_light_source_meters",
+      "fire_index_drtcode_max",
+      "fire_index_drtcode_max_trend",
+      "fire_index_drtcode_mean",
+      "fire_index_drtcode_mean_trend",
+      "fire_index_drtcode_median",
+      "fire_index_drtcode_median_trend",
+      "fire_index_drtcode_min",
+      "fire_index_drtcode_std",
+      "fire_index_fbupinx_max",
+      "fire_index_fbupinx_max_trend",
+      "fire_index_fbupinx_mean",
+      "fire_index_fbupinx_mean_trend",
+      "fire_index_fbupinx_median",
+      "fire_index_fbupinx_median_trend",
+      "fire_index_fbupinx_min",
+      "fire_index_fbupinx_std",
+      "fire_index_fdsrte_max",
+      "fire_index_fdsrte_max_trend",
+      "fire_index_fdsrte_mean",
+      "fire_index_fdsrte_mean_trend",
+      "fire_index_fdsrte_median",
+      "fire_index_fdsrte_median_trend",
+      "fire_index_fdsrte_min",
+      "fire_index_fdsrte_std",
+      "fire_index_ffmcode_max",
+      "fire_index_ffmcode_max_trend",
+      "fire_index_ffmcode_mean",
+      "fire_index_ffmcode_mean_trend",
+      "fire_index_ffmcode_median",
+      "fire_index_ffmcode_median_trend",
+      "fire_index_ffmcode_min",
+      "fire_index_ffmcode_std",
+      "fire_index_fwinx_max",
+      "fire_index_fwinx_max_trend",
+      "fire_index_fwinx_mean",
+      "fire_index_fwinx_mean_trend",
+      "fire_index_fwinx_median",
+      "fire_index_fwinx_median_trend",
+      "fire_index_fwinx_min",
+      "fire_index_fwinx_std",
+      "lai_hv",
+      "lai_lv",
+      "landseamask",
+      "population",
+      "slt",
+      "lsm",
+      "tvh",
+      "tvl",
+      "slt_soil_type_stream_oper_daily_mean",
+      "distance_to_coast_km",
+      "distance_to_coast_dilated_km"
+    ],
+    "prediction_cat_features": [
+      "slt",
+      "tvh",
+      "tvl",
+      "slt_soil_type_stream_oper_daily_mean"
+    ],
+    "train_model_alignment": {
+      "missing": [],
+      "extra": []
+    },
+    "validation_model_alignment": {
+      "missing": [],
+      "extra": []
+    },
+    "test_model_alignment": {
+      "missing": [],
+      "extra": []
+    }
+  },
+  "plots": {
+    "train_map_year": 2011,
+    "test_map_year": 2025,
+    "region_map_year": 2025,
+    "region_map_definitions": {
+      "Eastern Europe": {
+        "lon_range": [
+          20.0,
+          50.0
+        ],
+        "lat_range": [
+          40.0,
+          60.0
+        ]
+      },
+      "Scandinavia": {
+        "lon_range": [
+          5.0,
+          30.0
+        ],
+        "lat_range": [
+          55.0,
+          75.0
+        ]
+      },
+      "Siberia West": {
+        "lon_range": [
+          60.0,
+          100.0
+        ],
+        "lat_range": [
+          50.0,
+          70.0
+        ]
+      },
+      "Siberia East": {
+        "lon_range": [
+          100.0,
+          140.0
+        ],
+        "lat_range": [
+          50.0,
+          70.0
+        ]
+      },
+      "Far East Russia": {
+        "lon_range": [
+          140.0,
+          180.0
+        ],
+        "lat_range": [
+          50.0,
+          70.0
+        ]
+      },
+      "Central Asia": {
+        "lon_range": [
+          50.0,
+          80.0
+        ],
+        "lat_range": [
+          35.0,
+          50.0
+        ]
+      }
+    },
+    "map_plots_enabled": false,
+    "region_map_plots_enabled": false
+  },
+  "feature_importance_analysis": {
+    "enabled": false,
+    "split": "test",
+    "top_n": 40,
+    "sample_size": 20000,
+    "random_state": 42,
+    "permutation_repeats": 3,
+    "permutation_top_n": 40,
+    "include_shap": false,
+    "include_permutation": false,
+    "include_interactions": false
+  },
+  "model_params": {
+    "iterations": 3000,
+    "depth": 6,
+    "learning_rate": 0.02,
+    "l2_leaf_reg": 3.0,
+    "min_data_in_leaf": 100,
+    "loss_function": "Logloss",
+    "eval_metric": "Logloss",
+    "class_weights": [
+      1.0,
+      1.0
+    ],
+    "random_seed": 42,
+    "random_strength": 1.0,
+    "verbose": 50,
+    "cat_features": [
+      "slt",
+      "tvl",
+      "tvh",
+      "slt_soil_type_stream_oper_daily_mean"
+    ],
+    "feature_weights": {},
+    "train_dir": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/catboost_info",
+    "bagging_temperature": 0.96,
+    "rsm": 1.0,
+    "task_type": "GPU"
+  },
+  "thresholding": {
+    "prediction_threshold": null,
+    "threshold_tuning_split": "validation",
+    "threshold_min_precision": null,
+    "threshold_min_recall": null,
+    "threshold_exclude_years": [
+      2021
+    ],
+    "resolved": {
+      "threshold": 0.17157324180118377,
+      "metric": "f1",
+      "score": 0.39817486412131786,
+      "precision": 0.3013406459475929,
+      "recall": 0.5867114890251137,
+      "reason": "best_f1",
+      "constraints_satisfied": true,
+      "min_precision": null,
+      "min_recall": null,
+      "source": "tuned",
+      "tuning_split": "validation",
+      "filter": {
+        "input_rows": 59796,
+        "used_rows": 59796,
+        "excluded_rows": 0,
+        "exclude_years": [
+          2021
+        ]
+      }
+    }
+  },
+  "calibration": {
+    "enabled": true,
+    "method": "platt_month",
+    "split": "validation",
+    "exclude_years": [
+      2021
+    ],
+    "apply_to_metrics": true,
+    "artifact_name": "probability_calibrator.joblib",
+    "resolved": {
+      "enabled": true,
+      "method": "platt_month",
+      "split": "validation",
+      "exclude_years": [
+        2021
+      ],
+      "apply_to_metrics": true,
+      "applied": true,
+      "frame": {
+        "input_rows": 59796,
+        "used_rows": 59796,
+        "excluded_rows": 0,
+        "exclude_years": [
+          2021
+        ],
+        "used_positives": 5057,
+        "used_prevalence": 0.08457087430597364
+      },
+      "calibrator_path": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/model/probability_calibrator.joblib",
+      "calibrator_type": "PlattCalibrator",
+      "raw_probability_mean": {
+        "train": 0.16262938475530367,
+        "validation": 0.1029436181252755,
+        "test": 0.1185411028916723
+      },
+      "calibrated_probability_mean": {
+        "train": 0.14839227688708215,
+        "validation": 0.08456889281956174,
+        "test": 0.09996717194152532
+      }
+    }
+  },
+  "environment": {
+    "python": "3.12.13 | packaged by conda-forge | (main, Mar  5 2026, 16:50:00) [GCC 14.3.0]",
+    "platform": "Linux-6.8.0-110-generic-x86_64-with-glibc2.39",
+    "pandas": "3.0.2",
+    "numpy": "2.4.4",
+    "sklearn": "1.8.0",
+    "catboost": "1.2.10",
+    "geopandas": "1.1.3",
+    "matplotlib": "3.10.8"
+  },
+  "model_diagnostics": {
+    "best_iteration": 2959,
+    "best_score": {
+      "learn": {
+        "Logloss": 0.2528446702181736
+      },
+      "validation": {
+        "Logloss": 0.22131900479860692
+      }
+    },
+    "tree_count": 2960,
+    "validation_used": true,
+    "early_stopping_rounds": 200
+  },
+  "artifacts": {
+    "model": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/model/catboost_model.cbm",
+    "metrics_json": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/evaluation/metrics.json",
+    "metrics_csv": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/evaluation/metrics.csv",
+    "yearly_metrics_json": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/evaluation/yearly_metrics.json",
+    "yearly_metrics_csv": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/evaluation/yearly_metrics.csv",
+    "train_evaluation_data": null,
+    "validation_evaluation_data": null,
+    "test_evaluation_data": null,
+    "precision_recall_curve_csv": {
+      "train": null,
+      "validation": null,
+      "test": null
+    },
+    "feature_importance": null,
+    "feature_importance_analysis": {
+      "enabled": false
+    },
+    "plots_dir": "outputs/catboost_train_no_terrain_20260515_140140_186470_3064a3c4/plots",
+    "map_plots": {
+      "train": null,
+      "test": null
+    },
+    "plot_boosting_region_maps": {},
+    "plot_boosting_overview_map": null,
+    "plot_boosting_region_summary": null
+  },
+  "metrics": {
+    "train": {
+      "split": "train",
+      "rows": 1459967,
+      "positives": 230342,
+      "predicted_positives": 388920,
+      "threshold": 0.17157324180118377,
+      "accuracy": 0.8388525220090591,
+      "precision": 0.49366450683945284,
+      "recall": 0.8335258007658178,
+      "f1": 0.6200800307462754,
+      "roc_auc": 0.9189442555429645,
+      "average_precision": 0.7144723257864201,
+      "confusion_matrix": {
+        "labels": [
+          0,
+          1
+        ],
+        "matrix": [
+          [
+            1032701,
+            196924
+          ],
+          [
+            38346,
+            191996
+          ]
+        ],
+        "true_negatives": 1032701,
+        "false_positives": 196924,
+        "false_negatives": 38346,
+        "true_positives": 191996
+      },
+      "classification_report": {
+        "0": {
+          "precision": 0.9641976495896072,
+          "recall": 0.8398503608823829,
+          "f1-score": 0.897738573773228,
+          "support": 1229625.0
+        },
+        "1": {
+          "precision": 0.49366450683945284,
+          "recall": 0.8335258007658178,
+          "f1-score": 0.6200800307462754,
+          "support": 230342.0
+        },
+        "accuracy": 0.8388525220090591,
+        "macro avg": {
+          "precision": 0.72893107821453,
+          "recall": 0.8366880808241004,
+          "f1-score": 0.7589093022597517,
+          "support": 1459967.0
+        },
+        "weighted avg": {
+          "precision": 0.8899606667212574,
+          "recall": 0.8388525220090591,
+          "f1-score": 0.8539318136766543,
+          "support": 1459967.0
+        }
+      }
+    },
+    "validation": {
+      "split": "validation",
+      "rows": 59796,
+      "positives": 5057,
+      "predicted_positives": 9846,
+      "threshold": 0.17157324180118377,
+      "accuracy": 0.8500066894106629,
+      "precision": 0.3013406459475929,
+      "recall": 0.5867114890251137,
+      "f1": 0.39817486412131786,
+      "roc_auc": 0.8598965093391953,
+      "average_precision": 0.35888474440267054,
+      "confusion_matrix": {
+        "labels": [
+          0,
+          1
+        ],
+        "matrix": [
+          [
+            47860,
+            6879
+          ],
+          [
+            2090,
+            2967
+          ]
+        ],
+        "true_negatives": 47860,
+        "false_positives": 6879,
+        "false_negatives": 2090,
+        "true_positives": 2967
+      },
+      "classification_report": {
+        "0": {
+          "precision": 0.9581581581581582,
+          "recall": 0.8743309158004348,
+          "f1-score": 0.9143271976998538,
+          "support": 54739.0
+        },
+        "1": {
+          "precision": 0.3013406459475929,
+          "recall": 0.5867114890251137,
+          "f1-score": 0.39817486412131786,
+          "support": 5057.0
+        },
+        "accuracy": 0.8500066894106629,
+        "macro avg": {
+          "precision": 0.6297494020528756,
+          "recall": 0.7305212024127743,
+          "f1-score": 0.6562510309105858,
+          "support": 59796.0
+        },
+        "weighted avg": {
+          "precision": 0.902610526891036,
+          "recall": 0.8500066894106629,
+          "f1-score": 0.8706757435740485,
+          "support": 59796.0
+        }
+      }
+    },
+    "test": {
+      "split": "test",
+      "rows": 179886,
+      "positives": 20289,
+      "predicted_positives": 35378,
+      "threshold": 0.17157324180118377,
+      "accuracy": 0.8240607940584592,
+      "precision": 0.33944824467182994,
+      "recall": 0.5918970870915274,
+      "f1": 0.4314584942605134,
+      "roc_auc": 0.8321204820535558,
+      "average_precision": 0.4159843994662999,
+      "confusion_matrix": {
+        "labels": [
+          0,
+          1
+        ],
+        "matrix": [
+          [
+            136228,
+            23369
+          ],
+          [
+            8280,
+            12009
+          ]
+        ],
+        "true_negatives": 136228,
+        "false_positives": 23369,
+        "false_negatives": 8280,
+        "true_positives": 12009
+      },
+      "classification_report": {
+        "0": {
+          "precision": 0.9427021341379024,
+          "recall": 0.8535749418848725,
+          "f1-score": 0.895927393498956,
+          "support": 159597.0
+        },
+        "1": {
+          "precision": 0.33944824467182994,
+          "recall": 0.5918970870915274,
+          "f1-score": 0.4314584942605134,
+          "support": 20289.0
+        },
+        "accuracy": 0.8240607940584592,
+        "macro avg": {
+          "precision": 0.6410751894048662,
+          "recall": 0.7227360144882,
+          "f1-score": 0.6636929438797348,
+          "support": 179886.0
+        },
+        "weighted avg": {
+          "precision": 0.8746622746525775,
+          "recall": 0.8240607940584592,
+          "f1-score": 0.8435408292491047,
+          "support": 179886.0
+        }
+      }
+    }
+  },
+  "yearly_metrics": {
+    "validation": [
+      {
+        "split": "validation",
+        "year": 2022,
+        "rows": 59796,
+        "positives": 5057,
+        "prevalence": 0.08457087430597364,
+        "predicted_positives": 9846,
+        "predicted_positive_rate": 0.1646598434677905,
+        "probability_mean": 0.08456889281956174,
+        "probability_p95": 0.3366055435848513,
+        "threshold": 0.17157324180118377,
+        "accuracy": 0.8500066894106629,
+        "precision": 0.3013406459475929,
+        "recall": 0.5867114890251137,
+        "f1": 0.39817486412131786,
+        "roc_auc": 0.8598965093391953,
+        "average_precision": 0.35888474440267054,
+        "average_precision_lift": 4.243597424619753,
+        "normalized_average_precision": 0.29965604370379595
+      }
+    ],
+    "test": [
+      {
+        "split": "test",
+        "year": 2023,
+        "rows": 62298,
+        "positives": 7077,
+        "prevalence": 0.11359915246075315,
+        "predicted_positives": 13474,
+        "predicted_positive_rate": 0.21628302674243155,
+        "probability_mean": 0.108916601425419,
+        "probability_p95": 0.43330384970510666,
+        "threshold": 0.17157324180118377,
+        "accuracy": 0.8087739574304151,
+        "precision": 0.32054326851714415,
+        "recall": 0.6102868447082097,
+        "f1": 0.4203201790667121,
+        "roc_auc": 0.8342436183763482,
+        "average_precision": 0.4273559047654724,
+        "average_precision_lift": 3.7619638483933024,
+        "normalized_average_precision": 0.3539671167686098
+      },
+      {
+        "split": "test",
+        "year": 2024,
+        "rows": 66372,
+        "positives": 9280,
+        "prevalence": 0.13981799554028806,
+        "predicted_positives": 13867,
+        "predicted_positive_rate": 0.20892846381004038,
+        "probability_mean": 0.1033300678292553,
+        "probability_p95": 0.39159592762668843,
+        "threshold": 0.17157324180118377,
+        "accuracy": 0.8031248116675707,
+        "precision": 0.36345280161534577,
+        "recall": 0.5431034482758621,
+        "f1": 0.43547759968894456,
+        "roc_auc": 0.8029051869094528,
+        "average_precision": 0.41041908291007895,
+        "average_precision_lift": 2.9353809666926467,
+        "normalized_average_precision": 0.3145858503977398
+      },
+      {
+        "split": "test",
+        "year": 2025,
+        "rows": 51216,
+        "positives": 3932,
+        "prevalence": 0.07677288347391441,
+        "predicted_positives": 8037,
+        "predicted_positive_rate": 0.15692361761949392,
+        "probability_mean": 0.08472323091044089,
+        "probability_p95": 0.364757568310268,
+        "threshold": 0.17157324180118377,
+        "accuracy": 0.8697867853795689,
+        "precision": 0.3297250217742939,
+        "recall": 0.6739572736520855,
+        "f1": 0.44281059403458933,
+        "roc_auc": 0.879511165535274,
+        "average_precision": 0.4250881879854799,
+        "average_precision_lift": 5.536957435367329,
+        "normalized_average_precision": 0.3772801927896189
+      }
+    ]
+  },
+  "duration_seconds": 97.71923181600869
+}

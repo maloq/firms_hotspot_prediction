@@ -1,0 +1,122 @@
+{
+  "Logistic Regression (linear SGD)": {
+    "model_name": "Logistic Regression (linear SGD)",
+    "model_type": "linear_sgd",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-01-01",
+    "calibration_end_date": "2021-12-31",
+    "test_start_date": "2022-01-01",
+    "test_end_date": "2025-10-02",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 530988,
+    "n_rows_weighted": 102737413.55970764,
+    "unweighted_prevalence": 0.03274650274582477,
+    "weighted_prevalence": 0.0001692470094148775,
+    "raw_score_mean": -479.6649475097656,
+    "prob_raw_mean": 0.3617880642414093,
+    "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/Logistic_Regression_linear_SGD_prior_offset_month.joblib"
+  },
+  "Poisson Point-Process GLM": {
+    "model_name": "Poisson Point-Process GLM",
+    "model_type": "poisson_glm",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-01-01",
+    "calibration_end_date": "2021-12-31",
+    "test_start_date": "2022-01-01",
+    "test_end_date": "2025-10-02",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 530988,
+    "n_rows_weighted": 102737413.55970764,
+    "unweighted_prevalence": 0.03274650274582477,
+    "weighted_prevalence": 0.0001692470094148775,
+    "raw_score_mean": -2.830225944519043,
+    "prob_raw_mean": 0.14399109780788422,
+    "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/Poisson_Point-Process_GLM_prior_offset_month.joblib"
+  },
+  "CatBoost": {
+    "model_name": "CatBoost",
+    "model_type": "CatBoost",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-01-01",
+    "calibration_end_date": "2021-12-31",
+    "test_start_date": "2022-01-01",
+    "test_end_date": "2025-10-02",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 530988,
+    "n_rows_weighted": 102737413.55970764,
+    "unweighted_prevalence": 0.03274650274582477,
+    "weighted_prevalence": 0.0001692470094148775,
+    "raw_score_mean": -1.1771386861801147,
+    "prob_raw_mean": 0.2610412836074829,
+    "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/CatBoost_prior_offset_month.joblib"
+  },
+  "Weather-only CatBoost": {
+    "model_name": "Weather-only CatBoost",
+    "model_type": "CatBoost",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-01-01",
+    "calibration_end_date": "2021-12-31",
+    "test_start_date": "2022-01-01",
+    "test_end_date": "2025-10-02",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 530988,
+    "n_rows_weighted": 102737413.55970764,
+    "unweighted_prevalence": 0.03274650274582477,
+    "weighted_prevalence": 0.0001692470094148775,
+    "raw_score_mean": -0.28713497519493103,
+    "prob_raw_mean": 0.4296543002128601,
+    "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/Weather-only_CatBoost_prior_offset_month.joblib"
+  },
+  "FWI-only CatBoost": {
+    "model_name": "FWI-only CatBoost",
+    "model_type": "CatBoost",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-01-01",
+    "calibration_end_date": "2021-12-31",
+    "test_start_date": "2022-01-01",
+    "test_end_date": "2025-10-02",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 530988,
+    "n_rows_weighted": 102737413.55970764,
+    "unweighted_prevalence": 0.03274650274582477,
+    "weighted_prevalence": 0.0001692470094148775,
+    "raw_score_mean": -0.21610203385353088,
+    "prob_raw_mean": 0.446429967880249,
+    "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/FWI-only_CatBoost_prior_offset_month.joblib"
+  },
+  "Random Forest": {
+    "model_name": "Random Forest",
+    "model_type": "random_forest",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-01-01",
+    "calibration_end_date": "2021-12-31",
+    "test_start_date": "2022-01-01",
+    "test_end_date": "2025-10-02",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 530988,
+    "n_rows_weighted": 102737413.55970764,
+    "unweighted_prevalence": 0.03274650274582477,
+    "weighted_prevalence": 0.0001692470094148775,
+    "raw_score_mean": -4.374048233032227,
+    "prob_raw_mean": 0.10328646749258041,
+    "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/Random_Forest_prior_offset_month.joblib"
+  }
+}

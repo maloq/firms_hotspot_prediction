@@ -1,0 +1,70 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "Model"
+    },
+    {
+      "dtype": "str",
+      "name": "Feature set"
+    },
+    {
+      "dtype": "str",
+      "name": "Region"
+    },
+    {
+      "dtype": "int64",
+      "name": "support"
+    },
+    {
+      "dtype": "int64",
+      "name": "positives"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "F1 error"
+    },
+    {
+      "dtype": "float64",
+      "name": "PR-AUC"
+    },
+    {
+      "dtype": "float64",
+      "name": "PR-AUC error"
+    },
+    {
+      "dtype": "float64",
+      "name": "ROC-AUC"
+    },
+    {
+      "dtype": "float64",
+      "name": "Brier"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "evaluation_type"
+    },
+    {
+      "dtype": "object",
+      "name": "is_primary"
+    }
+  ],
+  "rows": 70,
+  "source_csv": "main_model_comparison.csv"
+}

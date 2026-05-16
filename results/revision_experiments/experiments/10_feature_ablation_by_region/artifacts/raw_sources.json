@@ -1,0 +1,37 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/predictions/ablation_dynamic_weather_fwi_only_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_dynamic_weather_fwi_only_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_anthropogenic_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_anthropogenic_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_fuel_ecoregion_vegetation_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_fuel_ecoregion_vegetation_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_gaussian_smoothing_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_gaussian_smoothing_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_geography_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_geography_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_history_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_history_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_seasonality_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_seasonality_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_temporal_history_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_temporal_history_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_terrain_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_no_terrain_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_shorter_sequence_30d_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_shorter_sequence_30d_validation_predictions.parquet",
+    "shared_artifacts/predictions/ablation_static_only_test_predictions.parquet",
+    "shared_artifacts/predictions/ablation_static_only_validation_predictions.parquet"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/feature_ablation_pr_auc_drop.png",
+    "shared_artifacts/source_plots_mixed/feature_ablation_pr_auc_drop.pdf",
+    "shared_artifacts/source_plots_mixed/feature_ablation_f1_drop.png",
+    "shared_artifacts/source_plots_mixed/feature_ablation_f1_drop.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/feature_ablation.jsonl.gz"
+  ]
+}

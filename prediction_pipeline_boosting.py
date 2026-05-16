@@ -230,10 +230,32 @@ def _generate_features_for_forecast_day(df_target_day: pd.DataFrame, config: dic
         # Night lights
         night_light_feature_map_path=night_light_params.get("feature_map_path"),
         use_night_light_features=night_light_params.get("use_night_light_features", False),
+        night_light_annual_source_dir=night_light_params.get("annual_source_dir"),
+        night_light_recent_feature_name=night_light_params.get(
+            "recent_feature_name", "night_light_radiance_recent"
+        ),
+        night_light_recent_source_glob=night_light_params.get("recent_source_glob", "*.tif"),
+        night_light_recent_cache_path=night_light_params.get("recent_cache_path"),
+        night_light_cf_cvg_source_glob=night_light_params.get("cf_cvg_source_glob"),
+        night_light_cf_cvg_feature_name=night_light_params.get(
+            "cf_cvg_feature_name", "night_light_cf_cvg_recent"
+        ),
+        night_light_cf_cvg_cache_path=night_light_params.get("cf_cvg_cache_path"),
+        night_light_cf_filtered_feature_name=night_light_params.get(
+            "cf_filtered_feature_name", "night_light_radiance_recent_cf_filtered"
+        ),
+        night_light_min_cf_cvg=night_light_params.get("min_cf_cvg"),
+        night_light_cf_filter_north_lat_min=night_light_params.get(
+            "cf_filter_north_lat_min", 58.0
+        ),
+        night_light_black_marble_source_dir=night_light_params.get("black_marble_source_dir"),
+        night_light_black_marble_cache_path=night_light_params.get("black_marble_cache_path"),
         # Fire Index
         fire_index_npz_path=land_data_params.get("fire_index_npz_path", "data/land_features/fire_index_features.npz"),
         # Land
         land_data_files=land_data_params["land_data_files"],
+        landsea_mask_path=land_data_params.get("landsea_mask_path"),
+        landsea_distance_path=land_data_params.get("landsea_distance_path"),
         # Ecoregion
         wwf_shp_path=land_data_params["wwf_shp_path"],
         # Other controls
@@ -419,33 +441,8 @@ def make_n_day_forecast(n_days: int,
         
         if features_df.shape[0] != df_forecast_target.shape[0]:
              print(f"Warning: Feature generation output shape ({features_df.shape[0]}) "
-                   f"mismatches skeleton ({df_forecast_target.shape[0]}). Using closest point matching.")
-             
-             # Use closest point matching instead of merge
-             
-             # Extract coordinates from both dataframes
-             forecast_coords = df_forecast_target[['lat_rounded', 'lon_rounded']].values
-             features_coords = features_df[['lat_rounded', 'lon_rounded']].values
-             
-             # Build KDTree for fast nearest neighbor search
-             tree = cKDTree(features_coords)
-             
-             # Find closest points for each forecast location
-             distances, indices = tree.query(forecast_coords)
-             
-             # Create new features_df with same structure as df_forecast_target
-             aligned_features_df = features_df.iloc[indices].copy()
-             aligned_features_df = aligned_features_df.reset_index(drop=True)
-             
-             # Update coordinates to match the forecast target exactly
-             aligned_features_df['lat_rounded'] = df_forecast_target['lat_rounded'].values
-             aligned_features_df['lon_rounded'] = df_forecast_target['lon_rounded'].values
-             aligned_features_df['datetime'] = df_forecast_target['datetime'].values
-             
-             features_df = aligned_features_df
-             
-             print(f"Matched {len(features_df)} forecast points to closest feature points. "
-                   f"Max distance: {distances.max():.6f} degrees")
+                   f"mismatches skeleton ({df_forecast_target.shape[0]}). "
+                   "Leaving missing grid cells as NaN instead of nearest-filling them.")
 
         # 5c. Prepare Data and Predict
         # Ensure all model features are present, fill NaNs
@@ -528,9 +525,10 @@ def make_n_day_forecast(n_days: int,
         # 5d. Reshape Predictions to Grid
         pred_grid = np.full((len(lat_coords), len(lon_coords)), np.nan)  # Initialize with NaN
 
-        # Create a mapping from lat/lon to grid indices for efficient assignment
-        lat_map = {lat: i for i, lat in enumerate(lat_coords)}
-        lon_map = {lon: j for j, lon in enumerate(lon_coords)}
+        lat_step = float(np.nanmedian(np.diff(lat_coords))) if len(lat_coords) > 1 else 0.0
+        lon_step = float(np.nanmedian(np.diff(lon_coords))) if len(lon_coords) > 1 else 0.0
+        lat_tolerance = abs(lat_step) / 2.0 + 1e-8
+        lon_tolerance = abs(lon_step) / 2.0 + 1e-8
 
         # Use 'lat_rounded', 'lon_rounded' and 'prediction' from features_df
         for _, row in features_df.iterrows():
@@ -539,10 +537,21 @@ def make_n_day_forecast(n_days: int,
 
             lat = float(to_scalar(row['lat_rounded']))
             lon = float(to_scalar(row['lon_rounded']))
+            if not np.isfinite(lat) or not np.isfinite(lon) or lat_step == 0.0 or lon_step == 0.0:
+                continue
 
-            if lat in lat_map and lon in lon_map:
-                i, j = lat_map[lat], lon_map[lon]
-                # Assign prediction to grid:
+            # Snap only existing feature rows back to the native output grid.
+            # This tolerates tiny coordinate drift without inventing predictions
+            # for cells that feature generation dropped.
+            i = int(round((lat - float(lat_coords[0])) / lat_step))
+            j = int(round((lon - float(lon_coords[0])) / lon_step))
+
+            if (
+                0 <= i < len(lat_coords)
+                and 0 <= j < len(lon_coords)
+                and abs(lat - float(lat_coords[i])) <= lat_tolerance
+                and abs(lon - float(lon_coords[j])) <= lon_tolerance
+            ):
                 pred_grid[i, j] = to_scalar(row['prediction'])
 
         # Keep NaNs for unassigned grid cells so plotting/interpolation and color scaling

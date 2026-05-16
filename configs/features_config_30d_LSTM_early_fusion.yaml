@@ -119,8 +119,10 @@ road_data_params:
 # Night-light data parameters
 night_light_data_params:
   use_night_light_features: true
-  feature_map_path: "data/land_features/night_lights_features_1km"
+  feature_map_path: "/home/ids/vmorozov/data/climate_data/land_features/night_lights_black_marble_features_1km"
   source_year: 2024
+  black_marble_source_dir: "/home/ids/vmorozov/data/climate_data/night_lights/black_marble_vnp46a4"
+  black_marble_cache_path: "/home/ids/vmorozov/data/climate_data/night_lights/black_marble_vnp46a4_point_cache.parquet"
   kernels_km: [5, 10, 25]
   light_threshold: 0
 

@@ -8,6 +8,7 @@ xarray==2025.1.2
 folium==0.19.4
 scikit-learn==1.6.1
 netcdf4==1.7.2
+h5py==3.15.1
 scipy==1.15.1
 pyarrow==19.0.0
 fastparquet==2024.11.0

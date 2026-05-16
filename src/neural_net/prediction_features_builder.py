@@ -6,13 +6,9 @@ import os
 from dataclasses import dataclass
 from typing import Sequence
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-
-try:  # geopandas is optional; fall back gracefully if missing
-    import geopandas as gpd
-except ImportError:  # pragma: no cover - optional dependency
-    gpd = None
 
 from src.feature_generation.make_features_nn import generate_all_features
 from src.target_generation.prepare_target_new import SPATIAL_COARSENESS
@@ -75,34 +71,28 @@ def _filter_by_countries(
     grid_df: pd.DataFrame,
     prediction_countries: Sequence[str] | None,
     *,
-    borders_gdf: "gpd.GeoDataFrame | None",
-    country_shapes_path: str | None,
+    borders_gdf: gpd.GeoDataFrame | None,
+    country_shapes_path: str | os.PathLike[str] | None,
 ) -> pd.DataFrame:
     if not prediction_countries:
         return grid_df
 
-    if gpd is None and borders_gdf is None:
-        print(
-            "Warning: geopandas unavailable; skipping country filtering for prediction grid generation."
-        )
-        return grid_df
-
-    shapes = None
     if borders_gdf is not None:
         shapes = borders_gdf.copy()
-    elif country_shapes_path and os.path.exists(country_shapes_path) and gpd is not None:
-        try:
-            shapes = gpd.read_file(country_shapes_path)
-        except Exception as exc:  # pragma: no cover - defensive path
-            print(f"Warning: Could not load country shapes from '{country_shapes_path}': {exc}.")
-            shapes = None
+    else:
+        if not country_shapes_path:
+            raise KeyError(
+                "Config must define 'country_shapes_path' when 'prediction_countries' is set."
+            )
+        if not os.path.exists(country_shapes_path):
+            raise FileNotFoundError(f"Country shapes path not found: {country_shapes_path}")
+        shapes = gpd.read_file(country_shapes_path)
 
-    if shapes is None:
-        print("Warning: Country shapes absent; grid will not be filtered by prediction_countries.")
-        return grid_df
-
-    if shapes.crs is not None:
-        shapes = shapes.to_crs("EPSG:4326")
+    if shapes.empty:
+        raise ValueError("Country shapes are empty; cannot filter prediction grid.")
+    if shapes.crs is None:
+        raise ValueError("Country shapes must define a CRS before prediction grid filtering.")
+    shapes = shapes.to_crs("EPSG:4326")
 
     candidate_columns = [
         col
@@ -110,23 +100,24 @@ def _filter_by_countries(
         if col in shapes.columns
     ]
     if not candidate_columns:
-        print("Warning: No matching name column in country shapes; skipping country filter.")
-        return grid_df
+        raise ValueError(
+            "No usable country-name column found in country shapes. "
+            "Expected one of: SOVEREIGNT, ADMIN, NAME, COUNTRY, CNTRY_NAME."
+        )
 
-    mapped_names = [country_mapping.get(name, name) for name in prediction_countries]
+    requested_names = list(prediction_countries)
+    mapped_names = [country_mapping.get(name, name) for name in requested_names]
+    names_to_match = set(requested_names) | set(mapped_names)
     mask = pd.Series(False, index=shapes.index)
     for column in candidate_columns:
-        mask |= shapes[column].isin(mapped_names)
+        mask |= shapes[column].isin(names_to_match)
 
     selected_shapes = shapes[mask]
     if selected_shapes.empty:
-        print(
-            f"Warning: prediction_countries {prediction_countries} not found in shapes; skipping filter."
+        raise ValueError(
+            f"prediction_countries {requested_names} not found in country shapes "
+            f"using columns {candidate_columns}."
         )
-        return grid_df
-
-    if gpd is None:
-        return grid_df
 
     points = gpd.GeoDataFrame(
         grid_df,
@@ -135,10 +126,10 @@ def _filter_by_countries(
     )
     joined = gpd.sjoin(points, selected_shapes, how="inner", predicate="within")
     if joined.empty:
-        print(
-            "Warning: Country filtering removed all grid points; using unfiltered grid instead."
+        raise ValueError(
+            "Country filtering removed all grid points; check coordinate_bounds and "
+            "prediction_countries overlap."
         )
-        return grid_df
 
     filtered = (
         joined.drop(columns=["geometry", "index_right"]).drop_duplicates().reset_index(drop=True)
@@ -150,7 +141,7 @@ def _build_prediction_grid(
     config: dict,
     forecast_dates: Sequence[pd.Timestamp],
     *,
-    borders_gdf: "gpd.GeoDataFrame | None" = None,
+    borders_gdf: gpd.GeoDataFrame | None = None,
 ) -> pd.DataFrame:
     min_lat, min_lon, max_lat, max_lon = _resolve_coordinate_bounds(config)
 
@@ -207,7 +198,7 @@ def generate_prediction_features(
     forecast_dates: Sequence[pd.Timestamp | str | np.datetime64],
     *,
     output_dir: str,
-    borders_gdf: "gpd.GeoDataFrame | None" = None,
+    borders_gdf: gpd.GeoDataFrame | None = None,
     use_cached_climate: bool | None = None,
 ) -> GeneratedFeatures:
     """Generate NN prediction features for the provided dates and persist them."""
@@ -258,6 +249,26 @@ def generate_prediction_features(
         use_road_features=bool(road_params.get("use_road_features", False)),
         night_light_feature_map_path=night_light_params.get("feature_map_path"),
         use_night_light_features=bool(night_light_params.get("use_night_light_features", False)),
+        night_light_annual_source_dir=night_light_params.get("annual_source_dir"),
+        night_light_recent_feature_name=night_light_params.get(
+            "recent_feature_name", "night_light_radiance_recent"
+        ),
+        night_light_recent_source_glob=night_light_params.get("recent_source_glob", "*.tif"),
+        night_light_recent_cache_path=night_light_params.get("recent_cache_path"),
+        night_light_cf_cvg_source_glob=night_light_params.get("cf_cvg_source_glob"),
+        night_light_cf_cvg_feature_name=night_light_params.get(
+            "cf_cvg_feature_name", "night_light_cf_cvg_recent"
+        ),
+        night_light_cf_cvg_cache_path=night_light_params.get("cf_cvg_cache_path"),
+        night_light_cf_filtered_feature_name=night_light_params.get(
+            "cf_filtered_feature_name", "night_light_radiance_recent_cf_filtered"
+        ),
+        night_light_min_cf_cvg=night_light_params.get("min_cf_cvg"),
+        night_light_cf_filter_north_lat_min=night_light_params.get(
+            "cf_filter_north_lat_min", 58.0
+        ),
+        night_light_black_marble_source_dir=night_light_params.get("black_marble_source_dir"),
+        night_light_black_marble_cache_path=night_light_params.get("black_marble_cache_path"),
         fire_index_npz_path=land_params.get(
             "fire_index_npz_path", "data/land_features/fire_index_features.npz"
         ),

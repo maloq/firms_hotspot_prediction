@@ -1,0 +1,118 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "experiment"
+    },
+    {
+      "dtype": "str",
+      "name": "status"
+    },
+    {
+      "dtype": "str",
+      "name": "reason"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "f1_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision_error"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_set"
+    },
+    {
+      "dtype": "str",
+      "name": "region"
+    },
+    {
+      "dtype": "str",
+      "name": "region_display"
+    },
+    {
+      "dtype": "str",
+      "name": "period"
+    },
+    {
+      "dtype": "float64",
+      "name": "support"
+    },
+    {
+      "dtype": "float64",
+      "name": "positives"
+    },
+    {
+      "dtype": "float64",
+      "name": "negatives"
+    },
+    {
+      "dtype": "float64",
+      "name": "positive_rate"
+    },
+    {
+      "dtype": "float64",
+      "name": "predicted_positives"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "brier_score"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "float64",
+      "name": "validation_threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "evaluation_type"
+    },
+    {
+      "dtype": "object",
+      "name": "is_primary"
+    },
+    {
+      "dtype": "float64",
+      "name": "train_rows"
+    },
+    {
+      "dtype": "str",
+      "name": "architecture"
+    },
+    {
+      "dtype": "str",
+      "name": "source_metrics"
+    }
+  ],
+  "rows": 48,
+  "source_csv": "embedding_fusion_ablation.csv"
+}

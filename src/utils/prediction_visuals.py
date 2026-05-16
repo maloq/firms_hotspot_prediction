@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Optional, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.interpolate import griddata
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.cm import ScalarMappable
 from matplotlib.colorbar import Colorbar
+from matplotlib.patches import Patch
 
 try:  # optional dependency; import lazily if available
     import xarray as xr
@@ -80,30 +80,23 @@ def plot_prediction_map(
     borders_gdf: "gpd.GeoDataFrame | None" = None,
     dpi: int = DEFAULT_PLOT_DPI,
 ) -> None:
-    """Plot interpolated prediction heatmap and persist to disk."""
+    """Plot prediction heatmap on the native grid and persist to disk."""
 
     fig, ax = _figure_and_axes()
     valid_mask = ~np.isnan(predictions)
+    ax.set_facecolor("#d1d5db")
 
     if np.any(valid_mask):
-        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-        points = np.column_stack((lon_mesh[valid_mask], lat_mesh[valid_mask]))
         values = predictions[valid_mask]
         vmin, vmax = resolve_color_scale(values)
-
-        interp_lon = np.linspace(lon_coords.min(), lon_coords.max(), len(lon_coords) * 5)
-        interp_lat = np.linspace(lat_coords.min(), lat_coords.max(), len(lat_coords) * 5)
-        interp_lon_mesh, interp_lat_mesh = np.meshgrid(interp_lon, interp_lat)
-
-        interp_linear = griddata(points, values, (interp_lon_mesh, interp_lat_mesh), method="linear", fill_value=np.nan)
-        interp_nearest = griddata(points, values, (interp_lon_mesh, interp_lat_mesh), method="nearest")
-        interp_values = np.where(np.isnan(interp_linear), interp_nearest, interp_linear)
+        cmap = plt.get_cmap("YlOrRd").copy()
+        cmap.set_bad("#d1d5db", alpha=1.0)
 
         mesh = ax.pcolormesh(
-            interp_lon,
-            interp_lat,
-            interp_values,
-            cmap="YlOrRd",
+            lon_coords,
+            lat_coords,
+            np.ma.masked_invalid(predictions),
+            cmap=cmap,
             shading="auto",
             vmin=vmin,
             vmax=vmax,
@@ -124,6 +117,15 @@ def plot_prediction_map(
 
     if borders_gdf is not None:  # pragma: no branch - simple guard
         borders_gdf.plot(ax=ax, edgecolor="black", facecolor="none", linewidth=0.5)
+
+    if np.isnan(predictions).any():
+        ax.legend(
+            handles=[Patch(facecolor="#d1d5db", edgecolor="none", label="No prediction")],
+            loc="lower left",
+            frameon=True,
+            framealpha=0.85,
+            fontsize=9,
+        )
 
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")

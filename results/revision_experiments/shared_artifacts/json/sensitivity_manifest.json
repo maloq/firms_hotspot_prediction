@@ -1,0 +1,11 @@
+{
+  "completed_at": "2026-05-15T02:42:42.120177",
+  "elapsed_seconds": 148.57,
+  "experiments": {
+    "label_sensitivity": true,
+    "lead_time_sensitivity": true
+  },
+  "failures": [],
+  "features_path": "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet",
+  "use_lat_lon_features": false
+}

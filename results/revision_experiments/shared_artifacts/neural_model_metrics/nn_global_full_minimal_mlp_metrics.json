@@ -1,0 +1,121 @@
+{
+  "config_path": "configs/nn_global_full_minimal_mlp.yaml",
+  "data_path": "data/saved_features/nn_train_data/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_minimal_mlp-minimal_mlp-epoch=07-val_f1=0.4687.ckpt",
+  "architecture": "minimal_mlp",
+  "model_config": {
+    "hidden_units": 128,
+    "dropout": 0.1,
+    "dynamic_mode": "flatten",
+    "categorical_mode": "ignore",
+    "seq_len": 5,
+    "n_channels": 6,
+    "n_static": 84,
+    "n_categorical": 6
+  },
+  "input_ablation": {},
+  "loss_training": {
+    "enabled": false,
+    "soft_labels": {
+      "enabled": false
+    }
+  },
+  "spatial_training": {
+    "coordinate_features": {
+      "enabled": false
+    },
+    "static_branch": {
+      "enabled": false
+    }
+  },
+  "feature_set": null,
+  "selection_metric": "val_f1",
+  "validation_threshold": 0.3051885664463043,
+  "validation_best_f1": 0.46871977602396714,
+  "train": {
+    "precision": NaN,
+    "recall": NaN,
+    "f1": NaN,
+    "ap": NaN,
+    "precision_error": null,
+    "recall_error": null,
+    "f1_error": null,
+    "ap_error": null,
+    "threshold": 0.3051885664463043
+  },
+  "validation": {
+    "precision": 0.37236387164607637,
+    "recall": 0.6323524362187961,
+    "f1": 0.4687197760244337,
+    "ap": 0.3800372259610567,
+    "threshold": 0.3051885664463043,
+    "precision_error": 0.0010800266930103837,
+    "recall_error": 0.003913695291613697,
+    "f1_error": 0.0011841222327066924,
+    "ap_error": 0.004150214352023722
+  },
+  "test": {
+    "precision": 0.36163166097669586,
+    "recall": 0.7741698442961551,
+    "f1": 0.4929810805341967,
+    "ap": 0.45816742746569294,
+    "threshold": 0.3051885664463043,
+    "precision_error": 0.0022540869707817646,
+    "recall_error": 0.0054519434050906675,
+    "f1_error": 0.0029807540676796956,
+    "ap_error": 0.0035412175742048036
+  },
+  "legacy_sampled_metrics": {
+    "train": {
+      "precision": NaN,
+      "recall": NaN,
+      "f1": NaN,
+      "ap": NaN,
+      "precision_error": null,
+      "recall_error": null,
+      "f1_error": null,
+      "ap_error": null,
+      "threshold": 0.3051885664463043
+    },
+    "validation": {
+      "precision": 0.37236387164607637,
+      "recall": 0.6323524362187961,
+      "f1": 0.4687197760244337,
+      "ap": 0.3800372259610567,
+      "threshold": 0.3051885664463043,
+      "precision_error": 0.0010800266930103837,
+      "recall_error": 0.003913695291613697,
+      "f1_error": 0.0011841222327066924,
+      "ap_error": 0.004150214352023722
+    },
+    "test": {
+      "precision": 0.36163166097669586,
+      "recall": 0.7741698442961551,
+      "f1": 0.4929810805341967,
+      "ap": 0.45816742746569294,
+      "threshold": 0.3051885664463043,
+      "precision_error": 0.0022540869707817646,
+      "recall_error": 0.0054519434050906675,
+      "f1_error": 0.0029807540676796956,
+      "ap_error": 0.0035412175742048036
+    },
+    "evaluation_type": "legacy_sampled_case_control",
+    "note": "Metrics are computed on the undersampled/case-control neural dataset."
+  },
+  "primary_full_grid_calibrated_metrics": {
+    "status": "adapter_required",
+    "evaluation_type": "primary_full_grid_calibrated",
+    "is_primary": false,
+    "calibration_method": "prior_offset_month",
+    "note": "Full-grid calibrated NN evaluation is part of revision_evaluation, but this architecture requires a deployment-grid tensor adapter before it can generate calibrated deployment predictions. Legacy sampled logits are saved separately and are not reported as deployment probabilities."
+  },
+  "prediction_artifacts": {
+    "validation": "outputs/nn_global_full_minimal_mlp/legacy_sampled_predictions/validation_predictions.parquet",
+    "test": "outputs/nn_global_full_minimal_mlp/legacy_sampled_predictions/test_predictions.parquet"
+  },
+  "split_sizes": {
+    "train": 1217788,
+    "validation": 150671,
+    "test": 328317
+  }
+}

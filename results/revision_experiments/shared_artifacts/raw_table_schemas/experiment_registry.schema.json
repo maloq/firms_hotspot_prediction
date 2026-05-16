@@ -1,0 +1,70 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "experiment_id"
+    },
+    {
+      "dtype": "str",
+      "name": "experiment_type"
+    },
+    {
+      "dtype": "str",
+      "name": "evaluation_type"
+    },
+    {
+      "dtype": "bool",
+      "name": "is_primary"
+    },
+    {
+      "dtype": "str",
+      "name": "model"
+    },
+    {
+      "dtype": "str",
+      "name": "feature_set"
+    },
+    {
+      "dtype": "str",
+      "name": "status"
+    },
+    {
+      "dtype": "float64",
+      "name": "feature_count"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "threshold_source"
+    },
+    {
+      "dtype": "float64",
+      "name": "validation_f1_at_threshold"
+    },
+    {
+      "dtype": "str",
+      "name": "model_path"
+    },
+    {
+      "dtype": "str",
+      "name": "prediction_paths"
+    },
+    {
+      "dtype": "str",
+      "name": "notes"
+    },
+    {
+      "dtype": "str",
+      "name": "primary_full_grid_metrics"
+    },
+    {
+      "dtype": "object",
+      "name": "is_main_nn_model"
+    }
+  ],
+  "rows": 35,
+  "source_csv": "experiment_registry.csv"
+}

@@ -1,0 +1,41 @@
+{
+  "rows_available": 1587151,
+  "rows_before_coverage_filter": 1610664,
+  "coverage_n_days": 128,
+  "train_rows": 1191419,
+  "validation_rows": 124452,
+  "test_rows": 271280,
+  "test_years": "2021-2024",
+  "era5_bounds": {
+    "lat_min": 40.0,
+    "lat_max": 75.0,
+    "lon_min": 19.0,
+    "lon_max": 180.0
+  },
+  "experiments": [
+    "SEAS5/ECMWF -> SEAS5/ECMWF (no tp)",
+    "ERA5 -> ERA5 (no tp)",
+    "ERA5 -> SEAS5/ECMWF (no tp)",
+    "ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp)"
+  ],
+  "neural_experiments": [
+    "Best neural ERA5 -> ERA5 (no tp)",
+    "Best neural ERA5 -> SEAS5/ECMWF (no tp)"
+  ],
+  "comparison_climate_variables": [
+    "t2m",
+    "d2m",
+    "stl1"
+  ],
+  "neural_climate_variables": [
+    "t2m",
+    "d2m",
+    "stl1"
+  ],
+  "neural_masked_climate_variables": [],
+  "drop_climate_variables": [
+    "tp"
+  ],
+  "overall_rows": 30,
+  "yearly_rows": 120
+}

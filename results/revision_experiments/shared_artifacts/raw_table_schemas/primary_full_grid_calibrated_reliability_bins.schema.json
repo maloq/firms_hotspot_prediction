@@ -1,0 +1,54 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "int64",
+      "name": "bin"
+    },
+    {
+      "dtype": "int64",
+      "name": "n_unweighted"
+    },
+    {
+      "dtype": "float64",
+      "name": "n_weighted"
+    },
+    {
+      "dtype": "float64",
+      "name": "prob_min"
+    },
+    {
+      "dtype": "float64",
+      "name": "prob_max"
+    },
+    {
+      "dtype": "float64",
+      "name": "mean_predicted_probability"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_prevalence"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_observed_count_ratio"
+    }
+  ],
+  "rows": 120,
+  "source_csv": "primary_full_grid_calibrated/reliability_bins.csv"
+}

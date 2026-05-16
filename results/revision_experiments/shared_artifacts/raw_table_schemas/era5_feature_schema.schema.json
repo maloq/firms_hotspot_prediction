@@ -1,0 +1,46 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "variable"
+    },
+    {
+      "dtype": "int64",
+      "name": "era5_zarr_files"
+    },
+    {
+      "dtype": "str",
+      "name": "era5_years"
+    },
+    {
+      "dtype": "float64",
+      "name": "era5_lat_min"
+    },
+    {
+      "dtype": "float64",
+      "name": "era5_lat_max"
+    },
+    {
+      "dtype": "float64",
+      "name": "era5_lon_min"
+    },
+    {
+      "dtype": "float64",
+      "name": "era5_lon_max"
+    },
+    {
+      "dtype": "str",
+      "name": "status"
+    },
+    {
+      "dtype": "int64",
+      "name": "ecmwf_zarr_files"
+    },
+    {
+      "dtype": "str",
+      "name": "available_domain"
+    }
+  ],
+  "rows": 3,
+  "source_csv": "era5_feature_schema.csv"
+}

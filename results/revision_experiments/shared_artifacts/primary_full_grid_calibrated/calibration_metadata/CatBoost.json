@@ -1,0 +1,20 @@
+{
+  "model_name": "CatBoost",
+  "model_type": "CatBoost",
+  "calibrator_type": "prior_offset_month",
+  "calibration_start_date": "2021-01-01",
+  "calibration_end_date": "2021-12-31",
+  "test_start_date": "2022-01-01",
+  "test_end_date": "2025-10-02",
+  "feature_columns_used_by_calibrator": [
+    "raw_score",
+    "offset:month"
+  ],
+  "n_rows_unweighted": 530988,
+  "n_rows_weighted": 102737413.55970764,
+  "unweighted_prevalence": 0.03274650274582477,
+  "weighted_prevalence": 0.0001692470094148775,
+  "raw_score_mean": -1.1771386861801147,
+  "prob_raw_mean": 0.2610412836074829,
+  "calibrator_path": "results/revision_experiments_complete_with_nns_no_latlon/primary_full_grid_calibrated/calibrators/CatBoost_prior_offset_month.joblib"
+}

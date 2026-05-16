@@ -1,0 +1,182 @@
+{
+  "config_path": "configs/nn_global_full_spatial_tsn_no_tp.yaml",
+  "data_path": "data/saved_features/nn_train_data_daily_spatial_3x3_no_tp/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_spatial_tsn_no_tp-spatial_climate_tsn_mlp-epoch=02-val_ap=0.6082.ckpt",
+  "architecture": "spatial_climate_tsn_mlp",
+  "model_config": {
+    "spatial_height": 3,
+    "spatial_width": 3,
+    "spatial_conv_units": 48,
+    "spatial_patch_units": 96,
+    "tcn_units": 256,
+    "num_blocks": 3,
+    "kernel_sizes": [
+      3,
+      5,
+      9
+    ],
+    "dilations": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "dropout_tcn": 0.12,
+    "pooling": "attention",
+    "static_units": 512,
+    "dropout_static": 0.05,
+    "dropout_spatial": 0.05,
+    "merge_units": 448,
+    "dropout_merged": 0.15,
+    "categorical_mode": "embedding",
+    "seq_len": 128,
+    "n_channels": 3,
+    "n_static": 90,
+    "n_categorical": 6,
+    "categorical_embeddings": [
+      {
+        "name": "cat_0",
+        "cardinality": 131,
+        "embedding_dim": 14
+      },
+      {
+        "name": "cat_1",
+        "cardinality": 3,
+        "embedding_dim": 5
+      },
+      {
+        "name": "cat_2",
+        "cardinality": 8,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_3",
+        "cardinality": 11,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_4",
+        "cardinality": 7,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_5",
+        "cardinality": 8,
+        "embedding_dim": 7
+      }
+    ]
+  },
+  "input_ablation": {},
+  "loss_training": {
+    "enabled": true,
+    "soft_labels": {
+      "enabled": false
+    }
+  },
+  "spatial_training": {
+    "coordinate_features": {
+      "enabled": true,
+      "columns": [
+        "coord_lat_scaled",
+        "coord_lon_scaled",
+        "coord_lat_sin",
+        "coord_lat_cos",
+        "coord_lon_sin",
+        "coord_lon_cos"
+      ],
+      "description": "Latitude/longitude coordinate encodings appended to x_static at train time."
+    },
+    "static_branch": {
+      "enabled": false
+    }
+  },
+  "feature_set": null,
+  "selection_metric": "val_ap",
+  "validation_threshold": 0.40885910391807556,
+  "validation_best_f1": 0.6152722403135947,
+  "train": {
+    "precision": 0.5703028537339937,
+    "recall": 0.9332175551507103,
+    "f1": 0.7079606391933231,
+    "ap": 0.8097982267179495,
+    "threshold": 0.40885910391807556,
+    "precision_error": 0.004129908338090314,
+    "recall_error": 0.0023770983896822537,
+    "f1_error": 0.0036287991676863824,
+    "ap_error": 0.003814143888995173
+  },
+  "validation": {
+    "precision": 0.5524855838867481,
+    "recall": 0.6941592555711981,
+    "f1": 0.6152722403140883,
+    "ap": 0.6081571407962537,
+    "threshold": 0.40885910391807556,
+    "precision_error": 0.0035757208657143987,
+    "recall_error": 0.006605355974120136,
+    "f1_error": 0.004358657850960978,
+    "ap_error": 0.0076581844677035445
+  },
+  "test": {
+    "precision": 0.5199166813195731,
+    "recall": 0.7634056244041945,
+    "f1": 0.6185621756446876,
+    "ap": 0.6461105292790384,
+    "threshold": 0.40885910391807556,
+    "precision_error": 0.0028915098658011903,
+    "recall_error": 0.00606381217400243,
+    "f1_error": 0.0038389264509923623,
+    "ap_error": 0.006161864927656189
+  },
+  "legacy_sampled_metrics": {
+    "train": {
+      "precision": 0.5703028537339937,
+      "recall": 0.9332175551507103,
+      "f1": 0.7079606391933231,
+      "ap": 0.8097982267179495,
+      "threshold": 0.40885910391807556,
+      "precision_error": 0.004129908338090314,
+      "recall_error": 0.0023770983896822537,
+      "f1_error": 0.0036287991676863824,
+      "ap_error": 0.003814143888995173
+    },
+    "validation": {
+      "precision": 0.5524855838867481,
+      "recall": 0.6941592555711981,
+      "f1": 0.6152722403140883,
+      "ap": 0.6081571407962537,
+      "threshold": 0.40885910391807556,
+      "precision_error": 0.0035757208657143987,
+      "recall_error": 0.006605355974120136,
+      "f1_error": 0.004358657850960978,
+      "ap_error": 0.0076581844677035445
+    },
+    "test": {
+      "precision": 0.5199166813195731,
+      "recall": 0.7634056244041945,
+      "f1": 0.6185621756446876,
+      "ap": 0.6461105292790384,
+      "threshold": 0.40885910391807556,
+      "precision_error": 0.0028915098658011903,
+      "recall_error": 0.00606381217400243,
+      "f1_error": 0.0038389264509923623,
+      "ap_error": 0.006161864927656189
+    },
+    "evaluation_type": "legacy_sampled_case_control",
+    "note": "Metrics are computed on the undersampled/case-control neural dataset."
+  },
+  "primary_full_grid_calibrated_metrics": {
+    "status": "not_run",
+    "evaluation_type": "primary_full_grid_calibrated",
+    "note": "The revision_evaluation wrapper records the dedicated calibrated deployment-grid status after training. Raw neural logits are saved in legacy_sampled_predictions."
+  },
+  "prediction_artifacts": {
+    "validation": "outputs/nn_global_full_spatial_tsn_no_tp/legacy_sampled_predictions/validation_predictions.parquet",
+    "test": "outputs/nn_global_full_spatial_tsn_no_tp/legacy_sampled_predictions/test_predictions.parquet",
+    "train": "outputs/nn_global_full_spatial_tsn_no_tp/legacy_sampled_predictions/train_predictions.parquet"
+  },
+  "split_sizes": {
+    "train": 1217788,
+    "validation": 150671,
+    "test": 328317
+  }
+}

@@ -9,7 +9,6 @@ blocked experiments with concrete reasons.
 
 from __future__ import annotations
 
-import argparse
 import importlib
 import importlib.util
 import json
@@ -20,11 +19,13 @@ import platform
 import shutil
 import subprocess
 import sys
+import textwrap
 import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Iterable, Sequence
 
 import numpy as np
@@ -48,7 +49,6 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import SplineTransformer
 
 try:
     from catboost import CatBoostClassifier, Pool
@@ -60,9 +60,19 @@ else:
     CATBOOST_IMPORT_ERROR = None
 
 try:
-    from .filesystem import prune_empty_dirs
+    from .artifacts import prune_empty_dirs
+    from .full_grid_evaluation import (
+        evaluate_model_full_grid_calibrated,
+        write_full_grid_failure,
+    )
+    from .calibration import logit
 except ImportError:  # pragma: no cover - supports direct script execution
-    from src.revision_evaluation.filesystem import prune_empty_dirs
+    from src.revision_evaluation.artifacts import prune_empty_dirs
+    from src.revision_evaluation.full_grid_evaluation import (
+        evaluate_model_full_grid_calibrated,
+        write_full_grid_failure,
+    )
+    from src.revision_evaluation.calibration import logit
 
 
 SEED = 42
@@ -76,6 +86,7 @@ DEFAULT_FEATURES_PATH = Path(
 DEFAULT_RESULTS_DIR = Path("results/revision_experiments_complete")
 DEFAULT_ERA5_DIR = Path("/home/ids/vmorozov/era5")
 DEFAULT_IGNORED_FEATURES = ["datetime", "day", "latitude", "longitude", "year"]
+FORBIDDEN_MODEL_FEATURES = {"brightness", "confidence", "count", "is_fire", "target", "label"}
 METRIC_COLUMNS = [
     "precision",
     "recall",
@@ -179,145 +190,72 @@ class OrdinalTabularEncoder:
             yield slice(start, end), self.transform(frame.iloc[start:end])
 
 
-class SplineTabularEncoder:
-    """Train-only spline expansion for numerical columns plus ordinal cats."""
-
-    def __init__(
-        self,
-        feature_columns: Sequence[str],
-        categorical_columns: Sequence[str],
-        n_knots: int,
-        degree: int,
-    ) -> None:
-        self.feature_columns = list(feature_columns)
-        self.categorical_columns = [c for c in categorical_columns if c in self.feature_columns]
-        self.numeric_candidates = [c for c in self.feature_columns if c not in self.categorical_columns]
-        self.n_knots = int(n_knots)
-        self.degree = int(degree)
-        self.numeric_columns: list[str] = []
-        self.numeric_medians: dict[str, float] = {}
-        self.numeric_means: dict[str, float] = {}
-        self.numeric_stds: dict[str, float] = {}
-        self.category_maps: dict[str, dict[Any, int]] = {}
-        self.spline: SplineTransformer | None = None
-
-    def fit(
-        self,
-        frame: pd.DataFrame,
-        spline_fit_frame: pd.DataFrame | None = None,
-    ) -> "SplineTabularEncoder":
-        active_numeric: list[str] = []
-        for col in self.numeric_candidates:
-            values = pd.to_numeric(frame[col], errors="coerce")
-            median = values.median()
-            if pd.isna(median):
-                median = 0.0
-            filled = values.fillna(float(median)).astype("float64")
-            mean = float(filled.mean())
-            std = float(filled.std())
-            if not math.isfinite(std) or std <= 1e-12:
-                continue
-            self.numeric_medians[col] = float(median)
-            self.numeric_means[col] = mean
-            self.numeric_stds[col] = std
-            active_numeric.append(col)
-        self.numeric_columns = active_numeric
-
-        for col in self.categorical_columns:
-            series = frame[col].fillna("missing").astype(str)
-            categories = pd.Index(series.unique())
-            self.category_maps[col] = {value: idx for idx, value in enumerate(categories)}
-
-        if self.numeric_columns:
-            fit_source = spline_fit_frame if spline_fit_frame is not None else frame
-            X_num = self._numeric_matrix(fit_source)
-            self.spline = SplineTransformer(
-                n_knots=max(self.n_knots, 2),
-                degree=max(self.degree, 1),
-                include_bias=False,
-                knots="uniform",
-                extrapolation="linear",
-            )
-            self.spline.fit(X_num)
-        return self
-
-    def _numeric_matrix(self, frame: pd.DataFrame) -> np.ndarray:
-        out = np.empty((len(frame), len(self.numeric_columns)), dtype=np.float32)
-        for idx, col in enumerate(self.numeric_columns):
-            values = pd.to_numeric(frame[col], errors="coerce")
-            values = values.fillna(self.numeric_medians.get(col, 0.0)).to_numpy(dtype=np.float32)
-            values = (values - self.numeric_means.get(col, 0.0)) / self.numeric_stds.get(col, 1.0)
-            out[:, idx] = values
-        np.nan_to_num(out, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
-        return out
-
-    def _categorical_matrix(self, frame: pd.DataFrame) -> np.ndarray:
-        if not self.categorical_columns:
-            return np.zeros((len(frame), 0), dtype=np.float32)
-        out = np.empty((len(frame), len(self.categorical_columns)), dtype=np.float32)
-        for idx, col in enumerate(self.categorical_columns):
-            mapping = self.category_maps.get(col, {})
-            encoded = frame[col].fillna("missing").astype(str).map(mapping).fillna(-1)
-            out[:, idx] = encoded.to_numpy(dtype=np.float32)
-        return out
-
-    def transform(self, frame: pd.DataFrame) -> np.ndarray:
-        parts: list[np.ndarray] = []
-        if self.numeric_columns:
-            if self.spline is None:
-                raise RuntimeError("SplineTabularEncoder has not been fitted.")
-            parts.append(self.spline.transform(self._numeric_matrix(frame)).astype(np.float32))
-        if self.categorical_columns:
-            parts.append(self._categorical_matrix(frame))
-        if not parts:
-            return np.zeros((len(frame), 0), dtype=np.float32)
-        out = np.hstack(parts).astype(np.float32)
-        np.nan_to_num(out, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
-        return out
-
-    def transform_batches(
-        self,
-        frame: pd.DataFrame,
-        batch_size: int,
-    ) -> Iterable[tuple[slice, np.ndarray]]:
-        for start in range(0, len(frame), batch_size):
-            end = min(start + batch_size, len(frame))
-            yield slice(start, end), self.transform(frame.iloc[start:end])
+def default_args(**overrides: Any) -> SimpleNamespace:
+    data = {
+        "features_path": DEFAULT_FEATURES_PATH,
+        "feature_config": Path("configs/features_config_30d.yaml"),
+        "target_config": Path("configs/target_config.yaml"),
+        "catboost_config": Path("configs/catboost_train_config.yaml"),
+        "regions_file": Path("configs/regions_example.yaml"),
+        "output_dir": DEFAULT_RESULTS_DIR,
+        "era5_dir": DEFAULT_ERA5_DIR,
+        "seed": SEED,
+        "catboost_iterations": 450,
+        "catboost_depth": 5,
+        "catboost_learning_rate": 0.03,
+        "catboost_task_type": "GPU",
+        "catboost_verbose": 100,
+        "rf_max_train_rows": 300_000,
+        "linear_epochs": 4,
+        "point_process_max_train_rows": 500_000,
+        "point_process_alpha": 1e-4,
+        "point_process_max_iter": 200,
+        "prediction_batch_size": 100_000,
+        "permutation_sample_size": 50_000,
+        "permutation_trials": 5,
+        "random_error_trials": 5,
+        "random_error_sample_size": 50_000,
+        "shap_sample_size": 8_000,
+        "skip_shap": False,
+        "run_legacy_sampled_evaluation": True,
+        "run_full_grid_evaluation": True,
+        "full_grid_is_primary": False,
+        "fail_on_full_grid_error": False,
+        "calibration_start_date": None,
+        "calibration_end_date": None,
+        "test_start_date": None,
+        "test_end_date": None,
+        "deployment_grid_resolution": 0.1,
+        "deployment_grid_universe": "land_or_burnable",
+        "deployment_grid_chunk_by": ["country", "month"],
+        "deployment_grid_countries": None,
+        "deployment_grid_coordinate_bounds": None,
+        "deployment_grid_clip_to_feature_bounds": True,
+        "full_grid_mode": "full_grid",
+        "weighted_grid_sample": False,
+        "weighted_grid_sample_fraction": None,
+        "weighted_grid_sample_strata": ["country", "month"],
+        "calibration_method": "platt_month",
+        "n_reliability_bins": 20,
+        "reliability_binning": "equal_count",
+        "save_full_grid_predictions": True,
+        "save_calibrated_predictions": True,
+        "max_grid_rows_per_chunk": None,
+        "cache_full_grid_features": False,
+        "use_lat_lon_features": True,
+        "use_ecoregion_features": True,
+        "use_historical_fire_features": True,
+    }
+    data.update(overrides)
+    return SimpleNamespace(**data)
 
 
-def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--features-path", type=Path, default=DEFAULT_FEATURES_PATH)
-    parser.add_argument("--feature-config", type=Path, default=Path("configs/features_config_30d.yaml"))
-    parser.add_argument("--target-config", type=Path, default=Path("configs/target_config.yaml"))
-    parser.add_argument("--catboost-config", type=Path, default=Path("configs/catboost_train_config.yaml"))
-    parser.add_argument("--regions-file", type=Path, default=Path("configs/regions_example.yaml"))
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_RESULTS_DIR)
-    parser.add_argument("--era5-dir", type=Path, default=DEFAULT_ERA5_DIR)
-    parser.add_argument("--seed", type=int, default=SEED)
-    parser.add_argument("--catboost-iterations", type=int, default=450)
-    parser.add_argument("--catboost-depth", type=int, default=5)
-    parser.add_argument("--catboost-learning-rate", type=float, default=0.03)
-    parser.add_argument("--catboost-task-type", type=str, default="GPU")
-    parser.add_argument("--catboost-verbose", type=int, default=100)
-    parser.add_argument("--rf-max-train-rows", type=int, default=300_000)
-    parser.add_argument("--linear-epochs", type=int, default=4)
-    parser.add_argument("--point-process-max-train-rows", type=int, default=500_000)
-    parser.add_argument("--point-process-alpha", type=float, default=1e-4)
-    parser.add_argument("--point-process-max-iter", type=int, default=200)
-    parser.add_argument("--spline-epochs", type=int, default=4)
-    parser.add_argument("--spline-alpha", type=float, default=1e-5)
-    parser.add_argument("--spline-n-knots", type=int, default=5)
-    parser.add_argument("--spline-degree", type=int, default=3)
-    parser.add_argument("--spline-fit-sample-rows", type=int, default=200_000)
-    parser.add_argument("--prediction-batch-size", type=int, default=100_000)
-    parser.add_argument("--permutation-sample-size", type=int, default=50_000)
-    parser.add_argument("--permutation-trials", type=int, default=5)
-    parser.add_argument("--random-error-trials", type=int, default=5)
-    parser.add_argument("--random-error-sample-size", type=int, default=50_000)
-    parser.add_argument("--shap-sample-size", type=int, default=8_000)
-    parser.add_argument("--skip-shap", action="store_true")
-    return parser.parse_args(argv)
+def split_csv_arg(value: str | Sequence[str] | None) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return [str(item).strip() for item in value if str(item).strip()]
 
 
 def setup_logging(output_dir: Path) -> None:
@@ -359,12 +297,102 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(sanitize(data), indent=2), encoding="utf-8")
 
 
+def cleanup_removed_model_artifacts(output_dir: Path) -> None:
+    """Drop artifacts from baselines that are no longer part of the suite."""
+    stale_patterns = [
+        "models/spline_logistic_regression_full*",
+        "predictions/spline_logistic_regression_full*",
+        "primary_full_grid_calibrated/calibrators/Spline_Logistic_Regression*",
+        "primary_full_grid_calibrated/predictions/Spline_Logistic_Regression*",
+        "primary_full_grid_calibrated/calibration_metadata/Spline_Logistic_Regression*",
+    ]
+    for pattern in stale_patterns:
+        for path in output_dir.glob(pattern):
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.exists() or path.is_symlink():
+                path.unlink()
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
     return data if isinstance(data, dict) else {}
+
+
+def read_feature_list(path: Path) -> list[str]:
+    with path.open("r", encoding="utf-8") as handle:
+        return [line.strip() for line in handle if line.strip()]
+
+
+def _catboost_feature_config(catboost_config: dict[str, Any]) -> dict[str, Any]:
+    section = catboost_config.get("catboost_train", {})
+    if isinstance(section, dict):
+        features = section.get("features", {})
+        return features if isinstance(features, dict) else {}
+    return {}
+
+
+def selected_feature_filter_spec(
+    feature_config: dict[str, Any],
+    catboost_config: dict[str, Any],
+) -> tuple[bool, Path | None, list[str]]:
+    """Return the selected-column filter used by the CatBoost training config."""
+
+    features_cfg = _catboost_feature_config(catboost_config)
+    enabled = bool(features_cfg.get("selected_feature_filter", True))
+    raw_path = features_cfg.get("selected_features_path") or feature_config.get(
+        "selected_feature_columns_path"
+    )
+    if not raw_path:
+        return enabled, None, []
+    path = Path(raw_path)
+    if not path.exists():
+        logging.warning("Selected feature columns file does not exist: %s", path)
+        return enabled, path, []
+    return enabled, path, read_feature_list(path)
+
+
+def apply_selected_feature_columns(
+    feature_columns: Sequence[str],
+    selected_features: Sequence[str],
+    *,
+    enabled: bool,
+    table_columns: Sequence[str] | None = None,
+) -> tuple[list[str], dict[str, Any]]:
+    """Filter model columns to the training config's selected-feature file."""
+
+    columns = list(feature_columns)
+    if not enabled or not selected_features:
+        return columns, {
+            "enabled": enabled,
+            "selected_features_count": len(selected_features),
+            "applied_selected_features_count": 0,
+            "missing_selected_features": [],
+            "dropped_by_selected_feature_filter": [],
+        }
+
+    column_set = set(columns)
+    selected_existing = [feature for feature in selected_features if feature in column_set]
+    available = set(table_columns) if table_columns is not None else column_set
+    missing_selected = sorted(set(selected_features) - available)
+    if not selected_existing:
+        raise ExperimentFailure(
+            "Selected feature filtering was enabled, but none of the selected "
+            "features are present after applying ignored-feature and geography filters."
+        )
+
+    selected_set = set(selected_existing)
+    dropped_by_filter = [feature for feature in columns if feature not in selected_set]
+    return selected_existing, {
+        "enabled": True,
+        "selected_features_count": len(selected_features),
+        "applied_selected_features_count": len(selected_existing),
+        "missing_selected_features": missing_selected,
+        "dropped_by_selected_feature_filter": dropped_by_filter,
+    }
 
 
 def run_command(command: Sequence[str]) -> tuple[int, str]:
@@ -411,7 +439,7 @@ def package_availability() -> dict[str, dict[str, Any]]:
     return result
 
 
-def repo_audit(args: argparse.Namespace, output_dir: Path, packages: dict[str, Any]) -> dict[str, Any]:
+def repo_audit(args: Any, output_dir: Path, packages: dict[str, Any]) -> dict[str, Any]:
     rc, commit = run_command(["git", "rev-parse", "HEAD"])
     commit_hash = commit.strip() if rc == 0 else None
     _, git_status = run_command(["git", "status", "--short"])
@@ -478,7 +506,6 @@ def repo_audit(args: argparse.Namespace, output_dir: Path, packages: dict[str, A
             "CatBoost full, weather-only, FWI-only, and drop-group ablations",
             "Linear logistic baseline using train-only ordinal encoding",
             "Poisson point-process GLM baseline using train-only ordinal encoding",
-            "Spline logistic baseline using train-only spline-expanded numeric features",
             "Random Forest baseline using train-only ordinal encoding and capped bootstrap rows",
             "Minimal MLP and FT-Transformer NN baselines via the shared neural training registry when NN inputs are present",
             "Native CatBoost feature importance",
@@ -496,7 +523,7 @@ def repo_audit(args: argparse.Namespace, output_dir: Path, packages: dict[str, A
     return audit
 
 
-def copy_configs_used(args: argparse.Namespace, output_dir: Path) -> list[str]:
+def copy_configs_used(args: Any, output_dir: Path) -> list[str]:
     """Copy run-time configs into the results tree for reproducibility."""
 
     config_dir = output_dir / "configs_used"
@@ -733,7 +760,6 @@ def dataset_statistics(
     stats_df.to_csv(output_dir / "dataset_statistics.csv", index=False)
     by_year_df.to_csv(output_dir / "dataset_statistics_by_year.csv", index=False)
     write_markdown_table(output_dir / "dataset_statistics.md", "Dataset Statistics", stats_df)
-    write_latex_table(output_dir / "dataset_statistics.tex", stats_df, "Dataset statistics for reviewer-requested splits and regions.")
     return stats_df
 
 
@@ -754,6 +780,30 @@ def normalize_cat_columns(
     return frame
 
 
+def catboost_categorical_features(
+    frame: pd.DataFrame,
+    feature_columns: Sequence[str],
+    config: dict[str, Any],
+) -> list[str]:
+    """Return configured plus schema-inferred categorical columns for CatBoost."""
+
+    feature_set = set(feature_columns)
+    numerical_set = set(config.get("numerical_cat_features", []) or [])
+    configured = [c for c in config.get("cat_features", []) or [] if c in feature_set]
+    inferred: list[str] = []
+    for col in feature_columns:
+        if col in numerical_set or col not in frame.columns:
+            continue
+        dtype = frame[col].dtype
+        if (
+            pd.api.types.is_object_dtype(dtype)
+            or pd.api.types.is_string_dtype(dtype)
+            or isinstance(dtype, pd.CategoricalDtype)
+        ):
+            inferred.append(col)
+    return list(dict.fromkeys([*configured, *inferred]))
+
+
 def feature_group(feature: str) -> str:
     name = feature.lower()
     if name in {"month"} or "dayofyear" in name or name.startswith("doy") or name.endswith("_sin") or name.endswith("_cos"):
@@ -770,7 +820,18 @@ def feature_group(feature: str) -> str:
         return "vegetation_fuel_ecoregion"
     if any(token in name for token in ["elevation", "topography", "slope", "aspect", "anor", "isor", "slor", "sdor", "sdfor"]) or name == "z":
         return "terrain_topography"
-    if any(token in name for token in ["historical", "prior_fire", "fire_density", "burned", "proximity_fire"]):
+    if any(
+        token in name
+        for token in [
+            "historical",
+            "prior_fire",
+            "past_fire",
+            "fire_density",
+            "fire_count",
+            "burned",
+            "proximity_fire",
+        ]
+    ):
         return "historical_fire_context"
     if name in {"lat_rounded", "lon_rounded"}:
         return "location"
@@ -795,9 +856,32 @@ def group_display(group: str) -> str:
     return mapping.get(group, group.replace("_", " ").title())
 
 
-def model_feature_columns(df: pd.DataFrame, ignored_features: Sequence[str]) -> list[str]:
-    ignored = set(ignored_features) | {TARGET_COLUMN}
-    return [col for col in df.columns if col not in ignored]
+def model_feature_columns(
+    df: pd.DataFrame,
+    ignored_features: Sequence[str],
+    *,
+    use_lat_lon_features: bool = True,
+    use_ecoregion_features: bool = True,
+    use_historical_fire_features: bool = True,
+) -> list[str]:
+    ignored = set(ignored_features) | FORBIDDEN_MODEL_FEATURES
+    features = [col for col in df.columns if col not in ignored]
+    if not use_lat_lon_features:
+        features = [col for col in features if col not in {LAT_COLUMN, LON_COLUMN, "latitude", "longitude"}]
+    if not use_ecoregion_features:
+        features = [col for col in features if "ecoregion" not in col.lower()]
+    if not use_historical_fire_features:
+        features = [col for col in features if feature_group(col) != "historical_fire_context"]
+    return features
+
+
+def validate_no_leakage_features(feature_columns: Sequence[str]) -> None:
+    bad = sorted(set(feature_columns) & FORBIDDEN_MODEL_FEATURES)
+    if bad:
+        raise ExperimentFailure(
+            "Forbidden leakage columns are present in model inputs: "
+            f"{bad}. These target/FIRMS columns must not be used as predictors."
+        )
 
 
 def feature_window_days(feature: str) -> int | None:
@@ -818,6 +902,33 @@ def is_gaussian_smoothed_anthropogenic_feature(feature: str) -> bool:
     return "gaussian" in name and any(token in name for token in ["road", "light", "population", "pop"])
 
 
+def is_ecoregion_feature(feature: str) -> bool:
+    return "ecoregion" in feature.lower()
+
+
+def is_direct_geography_feature(feature: str) -> bool:
+    name = feature.lower()
+    exact = {
+        LAT_COLUMN.lower(),
+        LON_COLUMN.lower(),
+        "latitude",
+        "longitude",
+        "lat",
+        "lon",
+        "country",
+        "country_code",
+        "admin",
+        "region",
+    }
+    if name in exact:
+        return True
+    if name in {"lat_rounded", "lon_rounded"}:
+        return True
+    if name.startswith(("lat_", "lon_", "latitude_", "longitude_", "country_", "admin_")):
+        return True
+    return feature_group(feature) in {"location", "coast_landmask"}
+
+
 def build_feature_sets(
     all_features: list[str],
 ) -> dict[str, dict[str, Any]]:
@@ -832,6 +943,8 @@ def build_feature_sets(
     terrain = by_group.get("terrain_topography", [])
     seasonality = by_group.get("seasonality", [])
     history = by_group.get("historical_fire_context", [])
+    ecoregion = [col for col in all_features if is_ecoregion_feature(col)]
+    direct_geography = [col for col in all_features if is_direct_geography_feature(col)]
     long_weather_context = []
     for col in weather:
         window = feature_window_days(col)
@@ -852,6 +965,8 @@ def build_feature_sets(
         "weather_only": {"label": "Weather only", "feature_set": "meteorology/history features only", "columns": weather},
         "fwi_only": {"label": "FWI only", "feature_set": "fire-weather variables only", "columns": fwi},
         "no_anthropogenic": {"label": "No anthropogenic", "feature_set": "full minus roads/population/night lights", "columns": minus(anthropogenic), "dropped": anthropogenic},
+        "no_ecoregion": {"label": "CatBoost-no-ecoregion", "feature_set": "full minus ecoregion categorical variables", "columns": minus(ecoregion), "dropped": ecoregion},
+        "no_geography": {"label": "CatBoost-no-geography", "feature_set": "full minus direct geography/location variables", "columns": minus(direct_geography), "dropped": direct_geography},
         "no_fuel_ecoregion_vegetation": {"label": "No fuel/ecoregion/vegetation", "feature_set": "full minus ecological/fuel variables", "columns": minus(ecology), "dropped": ecology},
         "no_terrain": {"label": "No terrain", "feature_set": "full minus topography", "columns": minus(terrain), "dropped": terrain},
         "no_seasonality": {"label": "No seasonality", "feature_set": "full minus month/day-of-year features", "columns": minus(seasonality), "dropped": seasonality},
@@ -1011,6 +1126,8 @@ def evaluate_predictions(
             {
                 "experiment_id": experiment_id,
                 "experiment_type": experiment_type,
+                "evaluation_type": "legacy_sampled_case_control",
+                "is_primary": False,
                 "model": model_name,
                 "feature_set": feature_set,
                 "split": split_name,
@@ -1086,21 +1203,132 @@ def predict_catboost(model: Any, X: pd.DataFrame, cat_features: Sequence[str]) -
     return probs[:, 1] if probs.ndim == 2 else probs.reshape(-1)
 
 
+def maybe_run_full_grid_tabular_evaluation(
+    *,
+    experiment_id: str,
+    experiment_type: str,
+    model_label: str,
+    model_type: str,
+    feature_set_label: str,
+    feature_columns: list[str],
+    predict_raw_fn,
+    args: Any,
+    output_dir: Path,
+    regions: list[Region],
+    feature_config: dict[str, Any],
+    model_path: Path | str | None,
+) -> dict[str, Any] | None:
+    if not args.run_full_grid_evaluation or experiment_type != "main_model_comparison":
+        return None
+    try:
+        metrics = evaluate_model_full_grid_calibrated(
+            model_name=model_label,
+            model_type=model_type,
+            feature_columns=feature_columns,
+            categorical_columns=feature_config.get("cat_features", []),
+            config=args,
+            output_dir=output_dir,
+            predict_raw_fn=predict_raw_fn,
+            feature_config=args.feature_config,
+            target_config=load_yaml(args.target_config),
+            regions=regions,
+            model_path=model_path,
+            feature_set=feature_set_label,
+        )
+        logging.info("Primary full-grid calibrated evaluation complete for %s", experiment_id)
+        return metrics
+    except Exception as exc:
+        failure_path = write_full_grid_failure(
+            output_dir,
+            model_name=model_label,
+            model_type=model_type,
+            exc=exc,
+        )
+        logging.exception(
+            "Primary full-grid calibrated evaluation failed for %s; saved failure to %s",
+            experiment_id,
+            failure_path,
+        )
+        if args.fail_on_full_grid_error:
+            raise
+        return None
+
+
+def make_catboost_raw_predict_fn(model: Any, cat_features: Sequence[str], config: dict[str, Any]):
+    def _predict(X: pd.DataFrame) -> dict[str, Any]:
+        X_work = normalize_cat_columns(X, cat_features, config.get("numerical_cat_features", []))
+        pool = catboost_pool(X_work, None, cat_features)
+        raw = np.asarray(model.predict(pool, prediction_type="RawFormulaVal"), dtype=float).reshape(-1)
+        prob = np.asarray(model.predict_proba(pool), dtype=float)
+        prob = prob[:, 1] if prob.ndim == 2 else prob.reshape(-1)
+        return {"raw_score": raw, "prob_raw": prob, "raw_score_source": "catboost_raw_formula_val"}
+
+    return _predict
+
+
+def make_linear_raw_predict_fn(model: Any, encoder: Any, batch_size: int):
+    def _predict(X: pd.DataFrame) -> dict[str, Any]:
+        raw = np.empty(len(X), dtype=np.float32)
+        prob = np.empty(len(X), dtype=np.float32)
+        for slc, X_batch in encoder.transform_batches(X, batch_size):
+            if hasattr(model, "decision_function"):
+                scores = np.asarray(model.decision_function(X_batch), dtype=float).reshape(-1)
+                raw[slc] = scores.astype(np.float32)
+                prob[slc] = (1.0 / (1.0 + np.exp(-scores))).astype(np.float32)
+            else:
+                batch_prob = np.asarray(model.predict_proba(X_batch)[:, 1], dtype=float)
+                prob[slc] = batch_prob.astype(np.float32)
+                raw[slc] = logit(batch_prob).astype(np.float32)
+        return {"raw_score": raw, "prob_raw": prob, "raw_score_source": "decision_function"}
+
+    return _predict
+
+
+def make_poisson_raw_predict_fn(model: PoissonRegressor, encoder: Any, batch_size: int):
+    def _predict(X: pd.DataFrame) -> dict[str, Any]:
+        raw = np.empty(len(X), dtype=np.float32)
+        prob = np.empty(len(X), dtype=np.float32)
+        for slc, X_batch in encoder.transform_batches(X, batch_size):
+            intensity = np.asarray(model.predict(X_batch), dtype=np.float64)
+            intensity = np.nan_to_num(intensity, nan=0.0, posinf=50.0, neginf=0.0)
+            intensity = np.clip(intensity, 0.0, 50.0)
+            batch_prob = np.clip(-np.expm1(-intensity), 0.0, 1.0)
+            prob[slc] = batch_prob.astype(np.float32)
+            raw[slc] = logit(batch_prob).astype(np.float32)
+        return {"raw_score": raw, "prob_raw": prob, "raw_score_source": "logit_poisson_probability"}
+
+    return _predict
+
+
+def make_predict_proba_raw_fn(model: Any, encoder: Any, batch_size: int):
+    def _predict(X: pd.DataFrame) -> dict[str, Any]:
+        raw = np.empty(len(X), dtype=np.float32)
+        prob = np.empty(len(X), dtype=np.float32)
+        for slc, X_batch in encoder.transform_batches(X, batch_size):
+            batch_prob = np.asarray(model.predict_proba(X_batch)[:, 1], dtype=float)
+            prob[slc] = batch_prob.astype(np.float32)
+            raw[slc] = logit(batch_prob).astype(np.float32)
+        return {"raw_score": raw, "prob_raw": prob, "raw_score_source": "logit_predict_proba"}
+
+    return _predict
+
+
 def train_catboost_model(
     experiment_id: str,
     feature_columns: list[str],
     df: pd.DataFrame,
     masks: dict[str, np.ndarray],
     config: dict[str, Any],
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> tuple[Any, list[str], dict[str, Any]]:
+    validate_no_leakage_features(feature_columns)
     if CatBoostClassifier is None:
         raise ExperimentFailure(f"catboost import failed: {CATBOOST_IMPORT_ERROR}")
     if not feature_columns:
         raise ExperimentFailure("No feature columns available for CatBoost experiment.")
 
-    categorical = [c for c in config.get("cat_features", []) if c in feature_columns]
+    categorical = catboost_categorical_features(df, feature_columns, config)
     numerical_cat = [c for c in config.get("numerical_cat_features", []) if c in feature_columns]
     X_train = normalize_cat_columns(df.loc[masks["train"], feature_columns], categorical, numerical_cat)
     X_val = normalize_cat_columns(df.loc[masks["validation"], feature_columns], categorical, numerical_cat)
@@ -1173,7 +1401,7 @@ def run_catboost_experiment(
     masks: dict[str, np.ndarray],
     regions: list[Region],
     config: dict[str, Any],
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, np.ndarray], Any, list[str]]:
     model, cat_features, diagnostics = train_catboost_model(
@@ -1232,6 +1460,8 @@ def run_catboost_experiment(
     registry_row = {
         "experiment_id": experiment_id,
         "experiment_type": experiment_type,
+        "evaluation_type": "legacy_sampled_case_control",
+        "is_primary": False,
         "model": model_label,
         "feature_set": feature_set_label,
         "status": "completed",
@@ -1243,6 +1473,22 @@ def run_catboost_experiment(
         "prediction_paths": pred_paths,
         "notes": "",
     }
+    primary_metrics = maybe_run_full_grid_tabular_evaluation(
+        experiment_id=experiment_id,
+        experiment_type=experiment_type,
+        model_label=model_label,
+        model_type="CatBoost",
+        feature_set_label=feature_set_label,
+        feature_columns=feature_columns,
+        predict_raw_fn=make_catboost_raw_predict_fn(model, cat_features, config),
+        args=args,
+        output_dir=output_dir,
+        regions=regions,
+        feature_config=config,
+        model_path=diagnostics.get("model_path"),
+    )
+    if primary_metrics:
+        registry_row["primary_full_grid_metrics"] = primary_metrics
     return registry_row, metric_rows, predictions, model, cat_features
 
 
@@ -1283,9 +1529,10 @@ def run_linear_logistic_experiment(
     regions: list[Region],
     feature_columns: list[str],
     config: dict[str, Any],
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, np.ndarray]]:
+    validate_no_leakage_features(feature_columns)
     experiment_id = "logistic_regression_full"
     categorical = [c for c in config.get("cat_features", []) if c in feature_columns]
     train_frame = df.loc[masks["train"], feature_columns]
@@ -1378,6 +1625,8 @@ def run_linear_logistic_experiment(
     registry_row = {
         "experiment_id": experiment_id,
         "experiment_type": "main_model_comparison",
+        "evaluation_type": "legacy_sampled_case_control",
+        "is_primary": False,
         "model": "Logistic Regression (linear SGD)",
         "feature_set": "full features",
         "status": "completed",
@@ -1389,6 +1638,22 @@ def run_linear_logistic_experiment(
         "prediction_paths": pred_paths,
         "notes": "Linear logistic model trained with SGDClassifier and train-only ordinal categorical encoding to keep the full feature table tractable.",
     }
+    primary_metrics = maybe_run_full_grid_tabular_evaluation(
+        experiment_id=experiment_id,
+        experiment_type="main_model_comparison",
+        model_label="Logistic Regression (linear SGD)",
+        model_type="linear_sgd",
+        feature_set_label="full features",
+        feature_columns=feature_columns,
+        predict_raw_fn=make_linear_raw_predict_fn(model, encoder, args.prediction_batch_size),
+        args=args,
+        output_dir=output_dir,
+        regions=regions,
+        feature_config=config,
+        model_path=model_path,
+    )
+    if primary_metrics:
+        registry_row["primary_full_grid_metrics"] = primary_metrics
     return registry_row, metric_rows, predictions
 
 
@@ -1398,9 +1663,10 @@ def run_poisson_point_process_experiment(
     regions: list[Region],
     feature_columns: list[str],
     config: dict[str, Any],
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, np.ndarray]]:
+    validate_no_leakage_features(feature_columns)
     experiment_id = "poisson_point_process_full"
     categorical = [c for c in config.get("cat_features", []) if c in feature_columns]
     train_frame = df.loc[masks["train"], feature_columns]
@@ -1495,6 +1761,8 @@ def run_poisson_point_process_experiment(
     registry_row = {
         "experiment_id": experiment_id,
         "experiment_type": "main_model_comparison",
+        "evaluation_type": "legacy_sampled_case_control",
+        "is_primary": False,
         "model": "Poisson Point-Process GLM",
         "feature_set": "full features",
         "status": "completed",
@@ -1509,134 +1777,22 @@ def run_poisson_point_process_experiment(
             "as 1-exp(-lambda); equal exposure is assumed for sampled grid-cell days."
         ),
     }
-    return registry_row, metric_rows, predictions
-
-
-def run_spline_logistic_experiment(
-    df: pd.DataFrame,
-    masks: dict[str, np.ndarray],
-    regions: list[Region],
-    feature_columns: list[str],
-    config: dict[str, Any],
-    args: argparse.Namespace,
-    output_dir: Path,
-) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, np.ndarray]]:
-    experiment_id = "spline_logistic_regression_full"
-    categorical = [c for c in config.get("cat_features", []) if c in feature_columns]
-    train_frame = df.loc[masks["train"], feature_columns]
-    val_frame = df.loc[masks["validation"], feature_columns]
-    test_frame = df.loc[masks["test"], feature_columns]
-    y_train = positive_labels(df.loc[masks["train"], TARGET_COLUMN])
-    y_val = positive_labels(df.loc[masks["validation"], TARGET_COLUMN])
-    y_test = positive_labels(df.loc[masks["test"], TARGET_COLUMN])
-
-    fit_positions = stratified_sample_positions(y_train, args.spline_fit_sample_rows, args.seed)
-    encoder = SplineTabularEncoder(
-        feature_columns,
-        categorical,
-        n_knots=args.spline_n_knots,
-        degree=args.spline_degree,
-    ).fit(train_frame, spline_fit_frame=train_frame.iloc[fit_positions])
-    model = SGDClassifier(
-        loss="log_loss",
-        penalty="l2",
-        alpha=float(args.spline_alpha),
-        learning_rate="optimal",
-        class_weight={0: 1.0, 1: 4.0},
-        random_state=args.seed,
-        average=True,
+    primary_metrics = maybe_run_full_grid_tabular_evaluation(
+        experiment_id=experiment_id,
+        experiment_type="main_model_comparison",
+        model_label="Poisson Point-Process GLM",
+        model_type="poisson_glm",
+        feature_set_label="full features",
+        feature_columns=feature_columns,
+        predict_raw_fn=make_poisson_raw_predict_fn(model, encoder, args.prediction_batch_size),
+        args=args,
+        output_dir=output_dir,
+        regions=regions,
+        feature_config=config,
+        model_path=model_path,
     )
-
-    classes = np.array([0, 1], dtype=np.int8)
-    logging.info(
-        "Training spline logistic baseline with %d original features for %d epochs",
-        len(feature_columns),
-        args.spline_epochs,
-    )
-    for epoch in range(args.spline_epochs):
-        order = np.arange(len(train_frame))
-        rng = np.random.default_rng(args.seed + 10_000 + epoch)
-        rng.shuffle(order)
-        for start in range(0, len(order), args.prediction_batch_size):
-            positions = order[start : start + args.prediction_batch_size]
-            X_batch = encoder.transform(train_frame.iloc[positions])
-            y_batch = y_train[positions]
-            sample_weight = np.where(y_batch == 1, 4.0, 1.0)
-            model.partial_fit(X_batch, y_batch, classes=classes, sample_weight=sample_weight)
-        logging.info("Completed spline logistic epoch %d/%d", epoch + 1, args.spline_epochs)
-
-    model_dir = output_dir / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        import joblib
-
-        joblib.dump({"model": model, "encoder": encoder}, model_dir / f"{experiment_id}.joblib")
-        model_path = model_dir / f"{experiment_id}.joblib"
-    except Exception:
-        model_path = None
-
-    predictions = {
-        "validation": predict_linear_batches(model, encoder, val_frame, args.prediction_batch_size),
-        "test": predict_linear_batches(model, encoder, test_frame, args.prediction_batch_size),
-    }
-    threshold_info = choose_threshold_by_f1(y_val, predictions["validation"])
-    threshold = float(threshold_info["threshold"])
-    pred_paths = {
-        "validation": save_predictions(output_dir, experiment_id, "validation", df.loc[masks["validation"]], y_val, predictions["validation"], threshold),
-        "test": save_predictions(output_dir, experiment_id, "test", df.loc[masks["test"]], y_test, predictions["test"], threshold),
-    }
-    metric_rows = []
-    metric_rows.extend(
-        evaluate_predictions(
-            experiment_id,
-            "main_model_comparison",
-            "Spline Logistic Regression",
-            "full features",
-            "validation",
-            df.loc[masks["validation"]],
-            y_val,
-            predictions["validation"],
-            threshold,
-            regions,
-            error_trials=args.random_error_trials,
-            error_sample_size=args.random_error_sample_size,
-            seed=args.seed,
-        )
-    )
-    metric_rows.extend(
-        evaluate_predictions(
-            experiment_id,
-            "main_model_comparison",
-            "Spline Logistic Regression",
-            "full features",
-            "test",
-            df.loc[masks["test"]],
-            y_test,
-            predictions["test"],
-            threshold,
-            regions,
-            error_trials=args.random_error_trials,
-            error_sample_size=args.random_error_sample_size,
-            seed=args.seed,
-        )
-    )
-    registry_row = {
-        "experiment_id": experiment_id,
-        "experiment_type": "main_model_comparison",
-        "model": "Spline Logistic Regression",
-        "feature_set": "full features",
-        "status": "completed",
-        "feature_count": len(feature_columns),
-        "threshold": threshold,
-        "threshold_source": "validation_f1_max",
-        "validation_f1_at_threshold": threshold_info.get("validation_f1"),
-        "model_path": model_path,
-        "prediction_paths": pred_paths,
-        "notes": (
-            f"Numerical columns expanded with degree-{args.spline_degree} splines "
-            f"({args.spline_n_knots} knots); categorical columns use train-only ordinal maps."
-        ),
-    }
+    if primary_metrics:
+        registry_row["primary_full_grid_metrics"] = primary_metrics
     return registry_row, metric_rows, predictions
 
 
@@ -1646,9 +1802,10 @@ def run_random_forest_experiment(
     regions: list[Region],
     feature_columns: list[str],
     config: dict[str, Any],
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, np.ndarray]]:
+    validate_no_leakage_features(feature_columns)
     experiment_id = "random_forest_full"
     categorical = [c for c in config.get("cat_features", []) if c in feature_columns]
     train_frame = df.loc[masks["train"], feature_columns]
@@ -1751,6 +1908,8 @@ def run_random_forest_experiment(
     registry_row = {
         "experiment_id": experiment_id,
         "experiment_type": "main_model_comparison",
+        "evaluation_type": "legacy_sampled_case_control",
+        "is_primary": False,
         "model": "Random Forest",
         "feature_set": "full features",
         "status": "completed",
@@ -1762,6 +1921,22 @@ def run_random_forest_experiment(
         "prediction_paths": pred_paths,
         "notes": sample_note,
     }
+    primary_metrics = maybe_run_full_grid_tabular_evaluation(
+        experiment_id=experiment_id,
+        experiment_type="main_model_comparison",
+        model_label="Random Forest",
+        model_type="random_forest",
+        feature_set_label="full features",
+        feature_columns=feature_columns,
+        predict_raw_fn=make_predict_proba_raw_fn(model, encoder, args.prediction_batch_size),
+        args=args,
+        output_dir=output_dir,
+        regions=regions,
+        feature_config=config,
+        model_path=model_path,
+    )
+    if primary_metrics:
+        registry_row["primary_full_grid_metrics"] = primary_metrics
     return registry_row, metric_rows, predictions
 
 
@@ -1819,7 +1994,7 @@ def grouped_permutation_importance(
     masks: dict[str, np.ndarray],
     config: dict[str, Any],
     threshold: float,
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> pd.DataFrame:
     return permutation_importance_for_groups(
@@ -1847,7 +2022,7 @@ def permutation_importance_for_groups(
     masks: dict[str, np.ndarray],
     config: dict[str, Any],
     threshold: float,
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
     groups: dict[str, list[str]],
     output_name: str,
@@ -1930,7 +2105,7 @@ def climate_window_permutation_importance(
     masks: dict[str, np.ndarray],
     config: dict[str, Any],
     threshold: float,
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> pd.DataFrame:
     groups: dict[str, list[str]] = {}
@@ -1992,7 +2167,7 @@ def catboost_native_shap(
     df: pd.DataFrame,
     masks: dict[str, np.ndarray],
     config: dict[str, Any],
-    args: argparse.Namespace,
+    args: Any,
     output_dir: Path,
 ) -> pd.DataFrame | None:
     if args.skip_shap:
@@ -2059,6 +2234,12 @@ def plot_bar(
     plt.close(fig)
 
 
+def wrap_plot_label(label: Any, width: int = 24) -> str:
+    text = str(label)
+    wrapped = textwrap.wrap(text, width=width, break_long_words=False)
+    return "\n".join(wrapped) if wrapped else text
+
+
 def plot_pr_curves(
     prediction_store: dict[str, dict[str, Any]],
     df: pd.DataFrame,
@@ -2071,7 +2252,6 @@ def plot_pr_curves(
     desired = [
         "logistic_regression_full",
         "poisson_point_process_full",
-        "spline_logistic_regression_full",
         "catboost_fwi_only",
         "catboost_weather_only",
         "catboost_full",
@@ -2081,62 +2261,203 @@ def plot_pr_curves(
     if not available:
         return
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, (ax, metric_ax) = plt.subplots(
+        1,
+        2,
+        figsize=(14, 6),
+        gridspec_kw={"width_ratios": [1.15, 1.0]},
+    )
+    summary_rows: list[dict[str, Any]] = []
     for exp in available:
         prob = prediction_store[exp]["test"]
         if len(np.unique(y_test)) < 2:
             continue
         precision, recall, _ = precision_recall_curve(y_test, prob)
         ap = average_precision_score(y_test, prob)
-        ax.plot(recall, precision, linewidth=2, label=f"{prediction_store[exp]['label']} (AP={ap:.3f})")
+        label = prediction_store[exp]["label"]
+        threshold = float(prediction_store[exp].get("threshold", 0.5))
+        y_pred = (np.asarray(prob) >= threshold).astype(int)
+        f1 = safe_score(lambda yt, yp: f1_score(yt, yp, zero_division=0), y_test, y_pred)
+        ax.plot(recall, precision, linewidth=2, label=label)
+        summary_rows.append({"method": label, "average_precision": ap, "f1": f1})
+    if not summary_rows:
+        plt.close(fig)
+        return
     ax.set_xlabel("Recall")
     ax.set_ylabel("Precision")
-    ax.set_title("Global Test Precision-Recall Curves")
+    ax.set_title("Global sampled precision-recall curves")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1.02)
     ax.grid(alpha=0.25)
-    ax.legend(fontsize=8)
+    ax.legend(fontsize=7)
+
+    summary_df = pd.DataFrame(summary_rows).sort_values("average_precision", ascending=True)
+    y_pos = np.arange(len(summary_df))
+    metric_ax.barh(y_pos - 0.18, summary_df["average_precision"].astype(float), height=0.35, color="#2563eb", label="PR-AUC")
+    metric_ax.barh(y_pos + 0.18, summary_df["f1"].astype(float), height=0.35, color="#f97316", label="F1")
+    metric_ax.set_yticks(y_pos)
+    metric_ax.set_yticklabels([wrap_plot_label(v, 24) for v in summary_df["method"]], fontsize=8)
+    metric_ax.set_xlabel("Absolute test metric")
+    metric_ax.set_xlim(0, 1)
+    metric_ax.set_title("Global sampled metrics")
+    metric_ax.grid(axis="x", alpha=0.25)
+    metric_ax.legend(fontsize=8)
     fig.tight_layout()
     base = output_dir / "plots/pr_curves_global"
     fig.savefig(base.with_suffix(".png"), dpi=240, bbox_inches="tight")
     fig.savefig(base.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
 
-    n = len(regions)
-    if n == 0:
+    region_specs: list[tuple[str, np.ndarray]] = [("Global", np.ones(len(test_frame), dtype=bool))]
+    region_specs.extend((region.display_name, region.mask(test_frame)) for region in regions)
+    if not region_specs:
         return
-    fig, axes = plt.subplots(2, math.ceil(n / 2), figsize=(13, 8), squeeze=False)
-    for idx, region in enumerate(regions):
-        ax = axes[idx // math.ceil(n / 2)][idx % math.ceil(n / 2)]
-        mask = region.mask(test_frame)
+    regional_rows: list[dict[str, Any]] = []
+    method_order = [prediction_store[exp]["label"] for exp in available]
+    for region_label, mask in region_specs:
         y_region = y_test[mask]
         for exp in available:
             prob = prediction_store[exp]["test"][mask]
-            if len(y_region) == 0 or len(np.unique(y_region)) < 2:
-                continue
-            precision, recall, _ = precision_recall_curve(y_region, prob)
-            ap = average_precision_score(y_region, prob)
-            ax.plot(recall, precision, linewidth=1.8, label=f"{prediction_store[exp]['short_label']} ({ap:.2f})")
-        ax.set_title(region.display_name)
-        ax.set_xlabel("Recall")
-        ax.set_ylabel("Precision")
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1.02)
-        ax.grid(alpha=0.25)
-    for idx in range(n, axes.size):
-        axes[idx // math.ceil(n / 2)][idx % math.ceil(n / 2)].axis("off")
-    handles, labels = axes[0][0].get_legend_handles_labels()
-    if handles:
-        fig.legend(handles, labels, loc="lower center", ncol=min(3, len(handles)), fontsize=8)
-        fig.subplots_adjust(bottom=0.14)
-    fig.tight_layout(rect=(0, 0.08, 1, 1))
+            threshold = float(prediction_store[exp].get("threshold", 0.5))
+            y_pred = (np.asarray(prob) >= threshold).astype(int)
+            regional_rows.append(
+                {
+                    "region": region_label,
+                    "method": prediction_store[exp]["label"],
+                    "average_precision": (
+                        average_precision_score(y_region, prob)
+                        if len(y_region) and len(np.unique(y_region)) == 2
+                        else np.nan
+                    ),
+                    "f1": safe_score(lambda yt, yp: f1_score(yt, yp, zero_division=0), y_region, y_pred),
+                }
+            )
+    regional_df = pd.DataFrame(regional_rows)
+    if regional_df.empty:
+        return
+    fig, axes = plt.subplots(1, 2, figsize=(15, max(4.8, 0.58 * len(region_specs) + 2.0)), squeeze=False)
+    for ax, metric, title in [
+        (axes[0][0], "average_precision", "Regional PR-AUC"),
+        (axes[0][1], "f1", "Regional F1"),
+    ]:
+        pivot = (
+            regional_df.pivot(index="region", columns="method", values=metric)
+            .reindex(index=[name for name, _ in region_specs], columns=method_order)
+        )
+        values = pivot.to_numpy(dtype=float)
+        masked = np.ma.masked_invalid(values)
+        im = ax.imshow(masked, aspect="auto", vmin=0, vmax=1, cmap="viridis")
+        ax.set_title(title)
+        ax.set_xticks(np.arange(len(method_order)))
+        ax.set_xticklabels([wrap_plot_label(v, 18) for v in method_order], rotation=35, ha="right", fontsize=8)
+        ax.set_yticks(np.arange(len(pivot.index)))
+        ax.set_yticklabels(pivot.index.astype(str), fontsize=9)
+        for row_idx in range(values.shape[0]):
+            for col_idx in range(values.shape[1]):
+                value = values[row_idx, col_idx]
+                if np.isfinite(value):
+                    color = "white" if value >= 0.55 else "black"
+                    ax.text(col_idx, row_idx, f"{value:.2f}", ha="center", va="center", fontsize=8, color=color)
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.suptitle("Regional sampled metric contrast", y=1.02)
+    fig.tight_layout()
     base = output_dir / "plots/pr_curves_regions"
     fig.savefig(base.with_suffix(".png"), dpi=240, bbox_inches="tight")
     fig.savefig(base.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
 
 
+ABLATION_DISPLAY_NAMES = {
+    "ablation_full": "Full CatBoost",
+    "ablation_weather_only": "Weather-only CatBoost",
+    "ablation_fwi_only": "FWI-only CatBoost",
+    "ablation_no_anthropogenic": "CatBoost no anthropogenic",
+    "ablation_no_ecoregion": "CatBoost-no-ecoregion",
+    "ablation_no_geography": "CatBoost-no-geography",
+    "ablation_no_fuel_ecoregion_vegetation": "CatBoost no fuel/ecoregion/vegetation",
+    "ablation_no_terrain": "CatBoost no terrain",
+    "ablation_no_seasonality": "CatBoost no seasonality",
+    "ablation_no_history": "CatBoost no history",
+    "ablation_no_temporal_history": "CatBoost no temporal-history/weather lags",
+    "ablation_shorter_sequence_30d": "CatBoost <=30d climate windows",
+    "ablation_no_periodic_seasonality": "CatBoost no sine/cos seasonality",
+    "ablation_no_gaussian_smoothing": "CatBoost no Gaussian-smoothed anthropogenic rasters",
+    "ablation_static_only": "CatBoost static only",
+    "ablation_dynamic_weather_fwi_only": "CatBoost dynamic weather+FWI only",
+}
+
+
+def ablation_display_name(experiment_id: Any, feature_set: Any | None = None, model: Any | None = None) -> str:
+    key = str(experiment_id)
+    if key in ABLATION_DISPLAY_NAMES:
+        return ABLATION_DISPLAY_NAMES[key]
+    if model is not None and str(model) and str(model) != "CatBoost":
+        return str(model)
+    if feature_set is not None and str(feature_set):
+        return f"CatBoost {feature_set}"
+    return key
+
+
+def plot_ablation_metric_comparison(
+    global_df: pd.DataFrame,
+    *,
+    full_value: float | None,
+    metric_col: str,
+    delta_col: str,
+    metric_label: str,
+    output_base: Path,
+) -> None:
+    if metric_col not in global_df.columns or delta_col not in global_df.columns:
+        return
+    work = global_df.dropna(subset=[metric_col]).sort_values(metric_col, ascending=True).copy()
+    if work.empty:
+        return
+    height = max(5.0, min(12.5, 0.42 * len(work) + 1.8))
+    labels = [wrap_plot_label(v, 34) for v in work["experiment_label"]]
+    y_pos = np.arange(len(work))
+    fig, axes = plt.subplots(
+        1,
+        2,
+        figsize=(14, height),
+        gridspec_kw={"width_ratios": [1.05, 0.95]},
+    )
+    axes[0].barh(y_pos, work[metric_col].astype(float), color="#2563eb")
+    if full_value is not None and math.isfinite(float(full_value)):
+        axes[0].axvline(float(full_value), color="#111827", linestyle="--", linewidth=1.4, label="Full CatBoost")
+        axes[0].legend(fontsize=8)
+    axes[0].set_yticks(y_pos)
+    axes[0].set_yticklabels(labels, fontsize=8)
+    axes[0].set_xlabel(metric_label)
+    axes[0].set_title(f"Absolute {metric_label}")
+    axes[0].set_xlim(0, 1)
+    axes[0].grid(axis="x", alpha=0.25)
+
+    delta_values = work[delta_col].astype(float)
+    colors = np.where(delta_values >= 0, "#dc2626", "#16a34a")
+    axes[1].barh(y_pos, delta_values, color=colors)
+    axes[1].axvline(0, color="#111827", linewidth=1.0)
+    axes[1].set_yticks(y_pos)
+    axes[1].set_yticklabels([])
+    axes[1].set_xlabel(f"Full CatBoost minus variant {metric_label}")
+    axes[1].set_title("Delta vs full")
+    axes[1].grid(axis="x", alpha=0.25)
+
+    fig.suptitle(f"Feature ablation {metric_label}: absolute metric and difference", y=1.01)
+    fig.tight_layout()
+    output_base.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_base.with_suffix(".png"), dpi=240, bbox_inches="tight")
+    fig.savefig(output_base.with_suffix(".pdf"), bbox_inches="tight")
+    plt.close(fig)
+
+
 def plot_feature_ablation_drops(ablation_df: pd.DataFrame, output_dir: Path) -> None:
+    full_rows = ablation_df[
+        (ablation_df["split"] == "test")
+        & (ablation_df["region"] == "global")
+        & (ablation_df["experiment_id"] == "ablation_full")
+    ].copy()
+    full_ap = float(full_rows["average_precision"].iloc[0]) if not full_rows.empty else None
+    full_f1 = float(full_rows["f1"].iloc[0]) if not full_rows.empty else None
     global_df = ablation_df[
         (ablation_df["split"] == "test")
         & (ablation_df["region"] == "global")
@@ -2144,30 +2465,33 @@ def plot_feature_ablation_drops(ablation_df: pd.DataFrame, output_dir: Path) -> 
     ].copy()
     if global_df.empty:
         return
-    global_df["experiment_label"] = global_df["model"].where(
-        global_df["model"].ne("CatBoost"),
-        global_df["feature_set"],
+    global_df["experiment_label"] = global_df.apply(
+        lambda row: ablation_display_name(row["experiment_id"], row.get("feature_set"), row.get("model")),
+        axis=1,
     )
-    plot_bar(
-        global_df.sort_values("delta_average_precision_vs_full", ascending=False),
-        x_col="delta_average_precision_vs_full",
-        y_col="experiment_label",
-        title="Feature Ablation PR-AUC Drop vs Full CatBoost",
+    plot_ablation_metric_comparison(
+        global_df,
+        full_value=full_ap,
+        metric_col="average_precision",
+        delta_col="delta_average_precision_vs_full",
+        metric_label="PR-AUC",
         output_base=output_dir / "plots/feature_ablation_pr_auc_drop",
-        xlabel="Delta PR-AUC vs full",
     )
-    plot_bar(
-        global_df.sort_values("delta_f1_vs_full", ascending=False),
-        x_col="delta_f1_vs_full",
-        y_col="experiment_label",
-        title="Feature Ablation F1 Drop vs Full CatBoost",
+    plot_ablation_metric_comparison(
+        global_df,
+        full_value=full_f1,
+        metric_col="f1",
+        delta_col="delta_f1_vs_full",
+        metric_label="F1",
         output_base=output_dir / "plots/feature_ablation_f1_drop",
-        xlabel="Delta F1 vs full",
     )
 
 
 def plot_input_source(input_df: pd.DataFrame, output_dir: Path) -> None:
-    df = input_df[(input_df["region"] == "global") & input_df["status"].eq("completed")].copy()
+    df = input_df[
+        (input_df["region"] == "global")
+        & input_df["status"].astype(str).str.startswith("completed")
+    ].copy()
     if df.empty:
         return
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
@@ -2183,6 +2507,7 @@ def plot_input_source(input_df: pd.DataFrame, output_dir: Path) -> None:
     fig.tight_layout()
     for name in ["input_source_comparison", "input_source_pr_auc", "input_source_f1"]:
         base = output_dir / f"plots/{name}"
+        base.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(base.with_suffix(".png"), dpi=240, bbox_inches="tight")
         fig.savefig(base.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
@@ -2214,14 +2539,6 @@ def markdown_table(df: pd.DataFrame) -> str:
 
 def write_markdown_table(path: Path, title: str, df: pd.DataFrame) -> None:
     path.write_text(f"# {title}\n\n{markdown_table(df)}\n", encoding="utf-8")
-
-
-def write_latex_table(path: Path, df: pd.DataFrame, caption: str) -> None:
-    try:
-        text = df.to_latex(index=False, escape=True, caption=caption)
-    except Exception:
-        text = "% Failed to render LaTeX table\n"
-    path.write_text(text, encoding="utf-8")
 
 
 def build_metrics_long(metrics_wide: pd.DataFrame) -> pd.DataFrame:
@@ -2285,7 +2602,6 @@ def make_main_model_table(metrics_wide: pd.DataFrame, registry: pd.DataFrame, ou
     )
     df.to_csv(output_dir / "main_model_comparison.csv", index=False)
     write_markdown_table(output_dir / "main_model_comparison.md", "Main Model Comparison", df)
-    write_latex_table(output_dir / "main_model_comparison.tex", df, "Main model comparison on the 2021--2025 test split.")
 
     by_year = metrics_wide[
         metrics_wide["experiment_id"].isin(main_ids)
@@ -2320,6 +2636,48 @@ def make_main_model_table(metrics_wide: pd.DataFrame, registry: pd.DataFrame, ou
     return df
 
 
+def save_legacy_sampled_outputs(
+    output_dir: Path,
+    *,
+    main_table: pd.DataFrame,
+    metrics_wide: pd.DataFrame,
+    metrics_long: pd.DataFrame,
+) -> None:
+    legacy_dir = output_dir / "legacy_sampled_case_control"
+    legacy_dir.mkdir(parents=True, exist_ok=True)
+    main_table.to_csv(legacy_dir / "model_comparison.csv", index=False)
+    main_table.to_csv(output_dir / "legacy_sampled_model_comparison.csv", index=False)
+    by_year = output_dir / "main_model_comparison_by_year.csv"
+    if by_year.exists():
+        by = pd.read_csv(by_year)
+        by.to_csv(legacy_dir / "model_comparison_by_year.csv", index=False)
+        by.to_csv(output_dir / "legacy_sampled_model_comparison_by_year.csv", index=False)
+    if not metrics_wide.empty:
+        legacy_metrics = metrics_wide.copy()
+        legacy_metrics["evaluation_type"] = "legacy_sampled_case_control"
+        legacy_metrics["is_primary"] = False
+        legacy_metrics.to_csv(legacy_dir / "metrics_wide.csv", index=False)
+        threshold_cols = [
+            col
+            for col in [
+                "experiment_id",
+                "model",
+                "feature_set",
+                "split",
+                "region",
+                "region_display",
+                "threshold",
+                "precision",
+                "recall",
+                "f1",
+            ]
+            if col in legacy_metrics.columns
+        ]
+        legacy_metrics[threshold_cols].to_csv(legacy_dir / "threshold_metrics.csv", index=False)
+    if not metrics_long.empty:
+        metrics_long.to_csv(legacy_dir / "metrics_long.csv", index=False)
+
+
 def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) -> pd.DataFrame:
     df = metrics_wide[
         metrics_wide["experiment_type"].eq("feature_ablation")
@@ -2336,8 +2694,13 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
     df = df.merge(full, on="region", how="left")
     df["delta_f1_vs_full"] = df["full_f1"] - df["f1"]
     df["delta_average_precision_vs_full"] = df["full_average_precision"] - df["average_precision"]
+    df["experiment_label"] = df.apply(
+        lambda row: ablation_display_name(row["experiment_id"], row.get("feature_set"), row.get("model")),
+        axis=1,
+    )
     table = df[
         [
+            "experiment_label",
             "experiment_id",
             "model",
             "feature_set",
@@ -2353,7 +2716,8 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
         ]
     ].rename(
         columns={
-            "experiment_id": "Experiment",
+            "experiment_label": "Experiment",
+            "experiment_id": "Experiment ID",
             "model": "Model",
             "feature_set": "Feature set",
             "region_display": "Region",
@@ -2366,7 +2730,6 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
     )
     table.to_csv(output_dir / "feature_ablation.csv", index=False)
     write_markdown_table(output_dir / "feature_ablation.md", "Feature Ablation", table)
-    write_latex_table(output_dir / "feature_ablation.tex", table, "CatBoost feature-source ablations.")
     plot_feature_ablation_drops(df, output_dir)
 
     by_year = metrics_wide[
@@ -2386,8 +2749,13 @@ def make_feature_ablation_table(metrics_wide: pd.DataFrame, output_dir: Path) ->
         by_year["delta_average_precision_vs_full"] = (
             by_year["full_average_precision"] - by_year["average_precision"]
         )
+        by_year["experiment_label"] = by_year.apply(
+            lambda row: ablation_display_name(row["experiment_id"], row.get("feature_set"), row.get("model")),
+            axis=1,
+        )
         by_year[
             [
+                "experiment_label",
                 "experiment_id",
                 "model",
                 "feature_set",
@@ -2441,7 +2809,6 @@ def placeholder_blocked_tables(
     )
     embedding.to_csv(output_dir / "embedding_fusion_ablation.csv", index=False)
     write_markdown_table(output_dir / "embedding_fusion_ablation.md", "Embedding Fusion Ablation", embedding)
-    write_latex_table(output_dir / "embedding_fusion_ablation.tex", embedding, "Neural embedding/fusion ablations.")
     failures.append(
         {
             "experiment": "Neural embedding/fusion ablations",
@@ -2511,7 +2878,6 @@ def placeholder_blocked_tables(
     label = pd.DataFrame(label_rows)
     label.to_csv(output_dir / "label_sensitivity.csv", index=False)
     write_markdown_table(output_dir / "label_sensitivity.md", "Label Sensitivity", label)
-    write_latex_table(output_dir / "label_sensitivity.tex", label, "Target and label sensitivity experiments.")
     failures.extend(
         [
             {
@@ -2546,7 +2912,6 @@ def placeholder_blocked_tables(
     )
     lead_time.to_csv(output_dir / "lead_time_sensitivity.csv", index=False)
     write_markdown_table(output_dir / "lead_time_sensitivity.md", "Lead-Time Sensitivity", lead_time)
-    write_latex_table(output_dir / "lead_time_sensitivity.tex", lead_time, "Lead-time sensitivity.")
     failures.append(
         {
             "experiment": "Lead-time sensitivity",
@@ -2561,7 +2926,7 @@ def placeholder_blocked_tables(
 def input_source_table(
     output_dir: Path,
     full_metrics_wide: pd.DataFrame,
-    args: argparse.Namespace,
+    args: Any,
     failures: list[dict[str, Any]],
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
@@ -2626,7 +2991,6 @@ def input_source_table(
     df = pd.DataFrame(rows)
     df.to_csv(output_dir / "input_source_comparison.csv", index=False)
     write_markdown_table(output_dir / "input_source_comparison.md", "ERA5 / SEAS5 Input Source Comparison", df)
-    write_latex_table(output_dir / "input_source_comparison.tex", df, "ERA5 and SEAS5/ECMWF input-source comparison.")
     plot_input_source(df, output_dir)
     return df
 
@@ -2700,19 +3064,16 @@ def generate_interpretation(
     weather = get_metric_row(metrics_wide, "catboost_weather_only")
     logistic = get_metric_row(metrics_wide, "logistic_regression_full")
     poisson = get_metric_row(metrics_wide, "poisson_point_process_full")
-    spline = get_metric_row(metrics_wide, "spline_logistic_regression_full")
     best = best_global(metrics_wide, registry)
     full_ap = full.get("average_precision") if full is not None else None
     fwi_ap = fwi.get("average_precision") if fwi is not None else None
     weather_ap = weather.get("average_precision") if weather is not None else None
     logistic_ap = logistic.get("average_precision") if logistic is not None else None
     poisson_ap = poisson.get("average_precision") if poisson is not None else None
-    spline_ap = spline.get("average_precision") if spline is not None else None
     fwi_delta = metric_drop(full_ap, fwi_ap)
     weather_delta = metric_drop(full_ap, weather_ap)
     logistic_delta = metric_drop(full_ap, logistic_ap)
     poisson_delta = metric_drop(full_ap, poisson_ap)
-    spline_delta = metric_drop(full_ap, spline_ap)
 
     top_group = None
     if grouped_perm is not None and not grouped_perm.empty:
@@ -2741,12 +3102,11 @@ def generate_interpretation(
             f"Relative to the FWI-only baseline, the full model changes PR-AUC by {fmt(fwi_delta)}; "
             f"relative to weather-only CatBoost by {fmt(weather_delta)}; "
             f"relative to linear logistic by {fmt(logistic_delta)}; "
-            f"relative to Poisson point-process by {fmt(poisson_delta)}; "
-            f"and relative to spline logistic by {fmt(spline_delta)}."
+            f"and relative to Poisson point-process by {fmt(poisson_delta)}."
         ),
         "",
         "## Feature Ablations",
-        "The CatBoost ablations quantify data-fusion value by removing or isolating feature sources while keeping the same validation thresholding rule. Positive Delta PR-AUC/F1 values in the ablation table indicate a drop relative to the full fused CatBoost model.",
+        "The CatBoost ablations quantify data-fusion value by removing or isolating feature sources while keeping the same validation thresholding rule. The ablation plots report absolute PR-AUC/F1 next to the full-minus-variant delta, so positive deltas mean the variant scored lower than the full fused CatBoost model and negative deltas mean the variant scored higher.",
         "",
         "## ERA5 / SEAS5",
         "SEAS5/ECMWF -> SEAS5/ECMWF is the clean operationally matched setting available from the existing feature matrix. ERA5->ERA5 would represent a retrospective upper-bound setting, while ERA5->SEAS5 measures input-source domain shift, not simply model quality. The raw ERA5 files are readable, but exact feature-schema parity was blocked by the absence of a precomputed ERA5-derived feature parquet.",
@@ -2845,21 +3205,6 @@ def generate_reports(
         "",
     ]
     (output_dir / "paper_ready_tables.md").write_text("\n".join(tables_md), encoding="utf-8")
-    tex_parts = [
-        dataset_stats.to_latex(index=False, escape=True, caption="Dataset statistics."),
-        main_table.to_latex(index=False, escape=True, caption="Main model comparison."),
-        ablation_table.to_latex(index=False, escape=True, caption="Feature-source ablations."),
-        input_source.to_latex(index=False, escape=True, caption="Input-source comparison."),
-        lead_time.to_latex(index=False, escape=True, caption="Lead-time sensitivity."),
-    ]
-    if native_importance is not None:
-        tex_parts.append(native_importance.head(30).to_latex(index=False, escape=True, caption="Native CatBoost feature importance."))
-    if grouped_perm is not None:
-        tex_parts.append(grouped_perm.to_latex(index=False, escape=True, caption="Grouped permutation importance."))
-    if climate_window_perm is not None:
-        tex_parts.append(climate_window_perm.to_latex(index=False, escape=True, caption="Climate-window permutation importance."))
-    (output_dir / "paper_ready_tables.tex").write_text("\n\n".join(tex_parts), encoding="utf-8")
-
     report = [
         "# Revision Experiments Report",
         "",
@@ -2956,13 +3301,13 @@ def record_failure(
     )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = parse_args(argv)
+def run(args: Any, command: str | None = None) -> int:
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
+    cleanup_removed_model_artifacts(output_dir)
     setup_logging(output_dir)
     started_at = datetime.now()
-    command = "conda run -n pointnet python " + " ".join([str(Path(__file__)), *sys.argv[1:]])
+    command = command or "config-driven revision_evaluation.tabular"
     (output_dir / "commands_used.txt").write_text(command + "\n", encoding="utf-8")
 
     np.random.seed(args.seed)
@@ -2999,12 +3344,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         if isinstance(catboost_config.get("catboost_train"), dict)
         else DEFAULT_IGNORED_FEATURES
     )
-    all_features = model_feature_columns(df, ignored_features)
+    all_features = model_feature_columns(
+        df,
+        ignored_features,
+        use_lat_lon_features=args.use_lat_lon_features,
+        use_ecoregion_features=args.use_ecoregion_features,
+        use_historical_fire_features=args.use_historical_fire_features,
+    )
+    (
+        selected_feature_filter_enabled,
+        selected_feature_columns_path,
+        selected_features,
+    ) = selected_feature_filter_spec(feature_config, catboost_config)
+    all_features, selected_feature_metadata = apply_selected_feature_columns(
+        all_features,
+        selected_features,
+        enabled=selected_feature_filter_enabled,
+        table_columns=df.columns,
+    )
+    selected_feature_metadata["selected_feature_columns_path"] = selected_feature_columns_path
+    if selected_feature_metadata["enabled"]:
+        logging.info(
+            "Applied CatBoost selected-feature filter for revision features: kept %d columns, dropped %d columns.",
+            selected_feature_metadata["applied_selected_features_count"],
+            len(selected_feature_metadata["dropped_by_selected_feature_filter"]),
+        )
+    validate_no_leakage_features(all_features)
     feature_sets = build_feature_sets(all_features)
     write_json(
         output_dir / "feature_groups.json",
         {
             "all_feature_count": len(all_features),
+            "selected_feature_filter": selected_feature_metadata,
             "feature_groups": {col: group_display(feature_group(col)) for col in all_features},
             "feature_sets": {
                 key: {
@@ -3029,8 +3400,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         metric_rows.extend(rows)
         prediction_store["logistic_regression_full"] = {
             **preds,
-            "label": "Logistic Regression",
-            "short_label": "Logistic",
+            "label": "Logistic Regression (linear SGD)",
+            "short_label": "Logistic Regression (linear SGD)",
+            "threshold": row.get("threshold"),
         }
     except Exception as exc:
         record_failure(
@@ -3053,8 +3425,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         metric_rows.extend(rows)
         prediction_store["poisson_point_process_full"] = {
             **preds,
-            "label": "Poisson Point-Process",
-            "short_label": "Poisson",
+            "label": "Poisson Point-Process GLM",
+            "short_label": "Poisson Point-Process GLM",
+            "threshold": row.get("threshold"),
         }
     except Exception as exc:
         record_failure(
@@ -3067,30 +3440,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             exc,
             "Low; other discriminative baselines still ran.",
             "Retry with fewer point-process training rows or stronger L2 regularization.",
-        )
-
-    try:
-        row, rows, preds = run_spline_logistic_experiment(
-            df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
-        )
-        registry_rows.append(row)
-        metric_rows.extend(rows)
-        prediction_store["spline_logistic_regression_full"] = {
-            **preds,
-            "label": "Spline Logistic Regression",
-            "short_label": "Spline Logit",
-        }
-    except Exception as exc:
-        record_failure(
-            failures,
-            registry_rows,
-            "spline_logistic_regression_full",
-            "main_model_comparison",
-            "Spline Logistic Regression",
-            "full features",
-            exc,
-            "Low; linear logistic and tree baselines still ran.",
-            "Retry with fewer spline knots or a smaller spline fit sample.",
         )
 
     catboost_order = [
@@ -3117,8 +3466,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             metric_rows.extend(rows)
             prediction_store[experiment_id] = {
                 **preds,
-                "label": model_label.replace("CatBoost", "CB"),
-                "short_label": model_label.replace("CatBoost", "CB"),
+                "label": model_label,
+                "short_label": model_label,
+                "threshold": row.get("threshold"),
             }
             if experiment_id == "catboost_full":
                 full_model = model
@@ -3145,7 +3495,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         prediction_store["random_forest_full"] = {
             **preds,
             "label": "Random Forest",
-            "short_label": "RF",
+            "short_label": "Random Forest",
+            "threshold": row.get("threshold"),
         }
     except Exception as exc:
         record_failure(
@@ -3200,6 +3551,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     ablation_specs = [
         ("ablation_no_anthropogenic", feature_sets["no_anthropogenic"]),
+        ("ablation_no_ecoregion", feature_sets["no_ecoregion"]),
+        ("ablation_no_geography", feature_sets["no_geography"]),
         ("ablation_no_fuel_ecoregion_vegetation", feature_sets["no_fuel_ecoregion_vegetation"]),
         ("ablation_no_terrain", feature_sets["no_terrain"]),
         ("ablation_no_seasonality", feature_sets["no_seasonality"]),
@@ -3251,6 +3604,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 **preds,
                 "label": spec["label"],
                 "short_label": spec["label"],
+                "threshold": row.get("threshold"),
             }
         except Exception as exc:
             record_failure(
@@ -3277,6 +3631,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     metrics_long.to_csv(output_dir / "metrics_long.csv", index=False)
 
     main_table = make_main_model_table(metrics_wide, registry_df, output_dir)
+    if args.run_legacy_sampled_evaluation:
+        save_legacy_sampled_outputs(
+            output_dir,
+            main_table=main_table,
+            metrics_wide=metrics_wide,
+            metrics_long=metrics_long,
+        )
     ablation_table = make_feature_ablation_table(metrics_wide, output_dir)
     plot_pr_curves(prediction_store, df, masks, regions, output_dir)
 
@@ -3391,7 +3752,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     registry_df.to_csv(output_dir / "experiment_registry.csv", index=False)
     metrics_wide.to_csv(output_dir / "metrics_wide.csv", index=False)
     metrics_long.to_csv(output_dir / "metrics_long.csv", index=False)
-
     interpretation = generate_interpretation(
         output_dir,
         metrics_wide,
@@ -3459,6 +3819,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     prune_empty_dirs(output_dir)
     logging.info("Revision experiment package complete: %s", output_dir)
     return 0
+
+
+def main() -> int:
+    return run(default_args(), command="config-driven default revision_evaluation.tabular")
 
 
 if __name__ == "__main__":

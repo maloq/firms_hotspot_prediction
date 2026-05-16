@@ -202,7 +202,7 @@ def save_map(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input-dir", type=Path, default=Path("data/land_features/night_lights_features_1km"))
+    parser.add_argument("--input-dir", type=Path, default=Path("data/land_features/night_lights_black_marble_features_1km"))
     parser.add_argument("--output-dir", type=Path, default=Path("data/land_features/night_light_feature_maps_baikal"))
     parser.add_argument("--bbox", nargs=4, type=float, default=DEFAULT_BAIKAL_BBOX)
     parser.add_argument("--kernels-km", nargs="+", type=float, default=(5.0, 10.0, 25.0))

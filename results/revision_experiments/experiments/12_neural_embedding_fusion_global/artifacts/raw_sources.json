@@ -1,0 +1,47 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_dynamic_sequence_only_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_full_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_no_categorical_features_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_no_dynamic_sequence_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_no_static_features_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_ft_transformer_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_lstm_attention_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_lstm_gated_moe_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_lstm_static_concat_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_minimal_mlp_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_spatial_tsn_ecmwf_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_spatial_tsn_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_spatial_tsn_no_tp_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_tsn_metrics.json",
+    "shared_artifacts/models/nn_global_full_ft_transformer-ft_transformer-epoch=00-val_f1=0.4462.ckpt",
+    "shared_artifacts/models/nn_global_full_lstm_attention-lstm_attention-epoch=00-val_f1=0.4686.ckpt",
+    "shared_artifacts/models/nn_global_full_lstm_gated_moe-lstm_gated_moe-epoch=00-val_f1=0.4626.ckpt",
+    "shared_artifacts/models/nn_global_full_lstm_static_concat-lstm_mlp-epoch=03-val_f1=0.4573.ckpt",
+    "shared_artifacts/models/nn_global_full_minimal_mlp-minimal_mlp-epoch=07-val_f1=0.4687.ckpt",
+    "shared_artifacts/models/nn_global_full_spatial_tsn-spatial_climate_tsn_mlp-epoch=00-val_ap=0.6388-v1.ckpt",
+    "shared_artifacts/models/nn_global_full_spatial_tsn_ecmwf-spatial_climate_tsn_mlp-epoch=03-val_ap=0.3311.ckpt",
+    "shared_artifacts/models/nn_global_full_spatial_tsn_no_tp-spatial_climate_tsn_mlp-epoch=02-val_ap=0.6082.ckpt",
+    "shared_artifacts/models/nn_global_full_tsn-tsn_mlp-epoch=00-val_ap=0.3466.ckpt",
+    "shared_artifacts/configs_used/nn_global_full_ft_transformer.yaml",
+    "shared_artifacts/configs_used/nn_global_full_lstm_attention.yaml",
+    "shared_artifacts/configs_used/nn_global_full_lstm_gated_moe.yaml",
+    "shared_artifacts/configs_used/nn_global_full_lstm_static_concat.yaml",
+    "shared_artifacts/configs_used/nn_global_full_minimal_mlp.yaml",
+    "shared_artifacts/configs_used/nn_global_full_spatial_tsn.yaml",
+    "shared_artifacts/configs_used/nn_global_full_spatial_tsn_ecmwf.yaml",
+    "shared_artifacts/configs_used/nn_global_full_spatial_tsn_no_tp.yaml",
+    "shared_artifacts/configs_used/nn_global_full_tsn.yaml"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/embedding_fusion_pr_auc.png",
+    "shared_artifacts/source_plots_mixed/embedding_fusion_pr_auc.pdf",
+    "shared_artifacts/source_plots_mixed/embedding_fusion_f1.png",
+    "shared_artifacts/source_plots_mixed/embedding_fusion_f1.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/embedding_fusion_ablation.jsonl.gz"
+  ]
+}

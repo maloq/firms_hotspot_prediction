@@ -35,6 +35,13 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
+from src.revision_evaluation.calibration import (
+    apply_calibrator,
+    fit_calibrator,
+    logit,
+    save_calibrator,
+)
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
@@ -85,15 +92,26 @@ DEFAULT_COUNTRIES = [
 ]
 
 DEFAULT_FEATURES_PATH = Path(
-    "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb.parquet"
+    "data/saved_features_boost/train_test_features_30d_strats.parquet"
 )
-DEFAULT_IGNORED_FEATURES = ["datetime", "day", "latitude", "longitude", "year"]
+DEFAULT_IGNORED_FEATURES = [
+    "datetime",
+    "day",
+    "latitude",
+    "longitude",
+    "year",
+    "lon_rounded",
+    "soft_label",
+    "negative_stratum",
+    "sampling_probability",
+    "sample_weight",
+    "nearest_positive_distance_cells",
+    "nearest_positive_delta_days",
+]
 DEFAULT_VALIDATION_START_DATE = "2021-01-01"
 DEFAULT_TEST_START_DATE = "2023-01-01"
 DEFAULT_FEATURE_WEIGHTS = {
     "ecoregion_name": 0.3,
-    "lat_rounded": 0.3,
-    "lon_rounded": 0.3,
 }
 DEFAULT_BAGGING_TEMPERATURE = 0.96
 DEFAULT_PLOT_REGIONS = {
@@ -141,6 +159,10 @@ def _as_list(value: Any, default: Sequence[Any] = ()) -> List[Any]:
     return [value]
 
 
+def _as_int_list(value: Any, default: Sequence[int] = ()) -> List[int]:
+    return [int(item) for item in _as_list(value, default)]
+
+
 def _first_defined(*values: Any, default: Any = None) -> Any:
     for value in values:
         if value is not None:
@@ -167,6 +189,7 @@ def build_args_from_config(config_path: Path) -> argparse.Namespace:
     model = _section(cfg, "model")
     features = _section(cfg, "features")
     thresholding = _section(cfg, "thresholding")
+    calibration = _section(cfg, "calibration")
     plots = _section(cfg, "plots")
     importance = _section(cfg, "feature_importance_analysis")
     analysis = _section(cfg, "analysis")
@@ -207,6 +230,8 @@ def build_args_from_config(config_path: Path) -> argparse.Namespace:
         analysis_only=bool(analysis.get("analysis_only", False)),
         target_column=target.get("column", data.get("target_column", "count")),
         positive_threshold=float(target.get("positive_threshold", 0.0)),
+        soft_label_column=target.get("soft_label_column", "soft_label"),
+        use_soft_labels_for_training=bool(target.get("use_soft_labels_for_training", False)),
         test_size=float(split.get("test_size", 0.15)),
         validation_size=float(split.get("validation_size", 0.15)),
         date_column=split.get("date_column", "datetime"),
@@ -238,6 +263,13 @@ def build_args_from_config(config_path: Path) -> argparse.Namespace:
         threshold_tuning_split=thresholding.get("tuning_split", "validation"),
         threshold_min_precision=thresholding.get("min_precision"),
         threshold_min_recall=thresholding.get("min_recall"),
+        threshold_exclude_years=_as_int_list(thresholding.get("exclude_years")),
+        calibration_enabled=bool(calibration.get("enabled", False)),
+        calibration_method=calibration.get("method", "platt_month"),
+        calibration_split=calibration.get("split", "validation"),
+        calibration_exclude_years=_as_int_list(calibration.get("exclude_years"), [2021]),
+        calibration_apply_to_metrics=bool(calibration.get("apply_to_metrics", True)),
+        calibration_artifact_name=calibration.get("artifact_name", "probability_calibrator.joblib"),
         verbose=int(model.get("verbose", 50)),
         task_type=_first_defined(hardware.get("task_type"), model.get("task_type")),
         ignored_features=_as_list(features.get("ignored"), DEFAULT_IGNORED_FEATURES),
@@ -559,6 +591,77 @@ def prepare_catboost_input(
 def class_balance(series: pd.Series) -> Dict[str, int]:
     counts = series.value_counts().sort_index()
     return {str(int(label)): int(count) for label, count in counts.items()}
+
+
+def extract_optional_soft_labels(
+    df: pd.DataFrame,
+    column: str,
+    enabled: bool,
+) -> Optional[pd.Series]:
+    if not enabled:
+        return None
+    if not column:
+        raise ValueError("Soft-label training is enabled, but target.soft_label_column is empty.")
+    if column not in df.columns:
+        raise ValueError(
+            f"Soft-label training is enabled, but column {column!r} is missing from the "
+            "feature table. Regenerate per-country features so target-derived columns are present."
+        )
+    soft = pd.to_numeric(df[column], errors="coerce").fillna(0.0).clip(0.0, 1.0)
+    return soft.astype(float)
+
+
+def expand_soft_labels_for_binary_training(
+    X: pd.DataFrame,
+    y_binary: pd.Series,
+    soft_label: Optional[pd.Series],
+) -> Tuple[pd.DataFrame, pd.Series, Optional[np.ndarray], Dict[str, Any]]:
+    info: Dict[str, Any] = {
+        "enabled": soft_label is not None,
+        "input_rows": int(len(X)),
+        "expanded_rows": int(len(X)),
+        "soft_negative_rows": 0,
+    }
+    if soft_label is None:
+        return X, y_binary.astype(int), None, info
+
+    y = y_binary.astype(int)
+    soft = soft_label.reindex(y.index).fillna(0.0).astype(float).clip(0.0, 1.0)
+    soft = pd.Series(np.maximum(soft.to_numpy(dtype=float), y.to_numpy(dtype=float)), index=y.index)
+    soft_negative_mask = (y == 0) & (soft > 0.0) & (soft < 1.0)
+    info.update(
+        {
+            "soft_label_min": float(soft.min()) if len(soft) else None,
+            "soft_label_max": float(soft.max()) if len(soft) else None,
+            "soft_label_mean": float(soft.mean()) if len(soft) else None,
+            "soft_negative_rows": int(soft_negative_mask.sum()),
+        }
+    )
+
+    base_weight = np.ones(len(X), dtype=np.float32)
+    base_weight[soft_negative_mask.to_numpy()] = (
+        1.0 - soft.loc[soft_negative_mask].to_numpy(dtype=np.float32)
+    )
+    X_parts = [X]
+    y_parts = [y]
+    weight_parts = [base_weight]
+
+    if soft_negative_mask.any():
+        X_soft_positive = X.loc[soft_negative_mask]
+        y_soft_positive = pd.Series(1, index=X_soft_positive.index, dtype=int)
+        positive_weight = soft.loc[soft_negative_mask].to_numpy(dtype=np.float32)
+        X_parts.append(X_soft_positive)
+        y_parts.append(y_soft_positive)
+        weight_parts.append(positive_weight)
+
+    X_expanded = pd.concat(X_parts, axis=0)
+    y_expanded = pd.concat(y_parts, axis=0).astype(int)
+    weights = np.concatenate(weight_parts).astype(np.float32)
+    info["expanded_rows"] = int(len(X_expanded))
+    info["total_weight"] = float(weights.sum())
+    info["positive_weight"] = float(weights[y_expanded.to_numpy(dtype=int) == 1].sum())
+    info["negative_weight"] = float(weights[y_expanded.to_numpy(dtype=int) == 0].sum())
+    return X_expanded, y_expanded, weights, info
 
 
 def date_summary(
@@ -1413,6 +1516,181 @@ def resolve_prediction_threshold(
     return tuning_result
 
 
+def mask_excluding_years(
+    X: pd.DataFrame,
+    date_column: str,
+    exclude_years: Sequence[int],
+) -> np.ndarray:
+    mask = np.ones(len(X), dtype=bool)
+    years_to_exclude = {int(year) for year in exclude_years}
+    if not years_to_exclude or date_column not in X.columns:
+        return mask
+    dates = pd.to_datetime(X[date_column], errors="coerce")
+    years = dates.dt.year
+    return (~years.isin(years_to_exclude)).fillna(False).to_numpy(dtype=bool)
+
+
+def probability_calibration_frame(
+    X: pd.DataFrame,
+    y_true: Optional[pd.Series | np.ndarray],
+    probabilities: np.ndarray,
+    date_column: str,
+    exclude_years: Sequence[int] = (),
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    prob = np.clip(np.asarray(probabilities, dtype=float), 1e-12, 1.0 - 1e-12)
+    mask = mask_excluding_years(X, date_column, exclude_years)
+    frame = pd.DataFrame(
+        {
+            "prob_raw": prob[mask],
+            "raw_score": logit(prob[mask]),
+        }
+    )
+    if y_true is not None:
+        frame["is_fire"] = np.asarray(y_true, dtype=int)[mask]
+    if "month" in X.columns:
+        frame["month"] = pd.to_numeric(X.loc[mask, "month"], errors="coerce").fillna(-1).astype(int).to_numpy()
+    elif date_column in X.columns:
+        frame["month"] = (
+            pd.to_datetime(X.loc[mask, date_column], errors="coerce")
+            .dt.month.fillna(-1)
+            .astype(int)
+            .to_numpy()
+        )
+    if "country" in X.columns:
+        frame["country"] = X.loc[mask, "country"].fillna("missing").astype(str).to_numpy()
+
+    info = {
+        "input_rows": int(len(X)),
+        "used_rows": int(mask.sum()),
+        "excluded_rows": int((~mask).sum()),
+        "exclude_years": [int(year) for year in exclude_years],
+    }
+    if "is_fire" in frame.columns and len(frame):
+        info["used_positives"] = int(frame["is_fire"].sum())
+        info["used_prevalence"] = float(frame["is_fire"].mean())
+    return frame, info
+
+
+def filter_probability_input_for_threshold(
+    X: pd.DataFrame,
+    y_true: pd.Series,
+    probabilities: np.ndarray,
+    date_column: str,
+    exclude_years: Sequence[int],
+) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
+    mask = mask_excluding_years(X, date_column, exclude_years)
+    info = {
+        "input_rows": int(len(X)),
+        "used_rows": int(mask.sum()),
+        "excluded_rows": int((~mask).sum()),
+        "exclude_years": [int(year) for year in exclude_years],
+    }
+    if not mask.any():
+        logger.warning(
+            "Threshold year filter removed every row; using unfiltered %s split.",
+            date_column,
+        )
+        return y_true, probabilities, {**info, "fallback": "unfiltered_empty_after_year_filter"}
+    return y_true.loc[mask], np.asarray(probabilities)[mask], info
+
+
+def calibrate_split_probabilities(
+    args: argparse.Namespace,
+    model_dir: Path,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    train_prob: np.ndarray,
+    X_validation: Optional[pd.DataFrame],
+    y_validation: Optional[pd.Series],
+    validation_prob: Optional[np.ndarray],
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    test_prob: np.ndarray,
+) -> Tuple[np.ndarray, Optional[np.ndarray], np.ndarray, Dict[str, Any]]:
+    info: Dict[str, Any] = {
+        "enabled": bool(args.calibration_enabled),
+        "method": args.calibration_method,
+        "split": args.calibration_split,
+        "exclude_years": list(args.calibration_exclude_years),
+        "apply_to_metrics": bool(args.calibration_apply_to_metrics),
+        "applied": False,
+    }
+    if not args.calibration_enabled:
+        return train_prob, validation_prob, test_prob, info
+    if args.calibration_split != "validation":
+        raise ValueError("Only calibration.split='validation' is supported for CatBoost training.")
+    if X_validation is None or y_validation is None or validation_prob is None:
+        logger.warning("Calibration requested but validation split is unavailable; using raw probabilities.")
+        info["reason"] = "missing_validation_split"
+        return train_prob, validation_prob, test_prob, info
+
+    calibration_frame, frame_info = probability_calibration_frame(
+        X_validation,
+        y_validation,
+        validation_prob,
+        args.date_column,
+        exclude_years=args.calibration_exclude_years,
+    )
+    info["frame"] = frame_info
+    if len(calibration_frame) == 0 or calibration_frame["is_fire"].nunique() < 2:
+        logger.warning(
+            "Calibration skipped because filtered validation rows contain fewer than two classes."
+        )
+        info["reason"] = "insufficient_calibration_classes"
+        return train_prob, validation_prob, test_prob, info
+
+    logger.info(
+        "Fitting %s calibrator on %d validation rows, excluding years %s.",
+        args.calibration_method,
+        len(calibration_frame),
+        list(args.calibration_exclude_years),
+    )
+    calibrator = fit_calibrator(calibration_frame, args.calibration_method)
+    calibrator_path = save_calibrator(calibrator, model_dir / args.calibration_artifact_name)
+
+    train_frame, _ = probability_calibration_frame(
+        X_train,
+        y_train,
+        train_prob,
+        args.date_column,
+    )
+    validation_frame, _ = probability_calibration_frame(
+        X_validation,
+        y_validation,
+        validation_prob,
+        args.date_column,
+    )
+    test_frame, _ = probability_calibration_frame(
+        X_test,
+        y_test,
+        test_prob,
+        args.date_column,
+    )
+    calibrated_train = apply_calibrator(calibrator, train_frame)
+    calibrated_validation = apply_calibrator(calibrator, validation_frame)
+    calibrated_test = apply_calibrator(calibrator, test_frame)
+    info.update(
+        {
+            "applied": bool(args.calibration_apply_to_metrics),
+            "calibrator_path": str(calibrator_path),
+            "calibrator_type": type(calibrator).__name__,
+            "raw_probability_mean": {
+                "train": float(np.mean(train_prob)),
+                "validation": float(np.mean(validation_prob)),
+                "test": float(np.mean(test_prob)),
+            },
+            "calibrated_probability_mean": {
+                "train": float(np.mean(calibrated_train)),
+                "validation": float(np.mean(calibrated_validation)),
+                "test": float(np.mean(calibrated_test)),
+            },
+        }
+    )
+    if not args.calibration_apply_to_metrics:
+        return train_prob, validation_prob, test_prob, info
+    return calibrated_train, calibrated_validation, calibrated_test, info
+
+
 def select_importance_splits(
     available_splits: Dict[str, Tuple[pd.DataFrame, pd.Series]],
     requested_split: str,
@@ -1557,6 +1835,7 @@ def plot_top_bars(
     plot_df = df.dropna(subset=[value_col]).sort_values(
         value_col, ascending=False, kind="mergesort"
     )
+    plot_df = plot_df[plot_df[value_col].abs() > 1e-15]
     if top_n > 0:
         plot_df = plot_df.head(top_n)
     if plot_df.empty:
@@ -2813,6 +3092,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         logger.info("Limiting dataframe from %d to %d rows.", len(df), args.limit_rows)
         df = df.head(args.limit_rows)
 
+    soft_label_all = extract_optional_soft_labels(
+        df,
+        column=args.soft_label_column,
+        enabled=args.use_soft_labels_for_training,
+    )
     X, y, configured_cat_features, cat_features, missing_cat_features = prepare_dataframe(
         df=df,
         config=config,
@@ -2882,6 +3166,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         else None
     )
     y_test_binary = (y_test > args.positive_threshold).astype(int)
+    soft_train = soft_label_all.loc[y_train.index] if soft_label_all is not None else None
 
     ignored_features = [col for col in args.ignored_features if col in X_train.columns]
     missing_ignored_features = sorted(set(args.ignored_features) - set(ignored_features))
@@ -2933,6 +3218,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if y_validation_binary is not None:
         logger.info("Validation class balance: %s", class_balance(y_validation_binary))
     logger.info("Test class balance: %s", class_balance(y_test_binary))
+    (
+        X_train_fit,
+        y_train_fit,
+        train_sample_weight,
+        soft_label_training_info,
+    ) = expand_soft_labels_for_binary_training(
+        X_train_model,
+        y_train_binary,
+        soft_train,
+    )
+    if soft_label_training_info.get("enabled"):
+        logger.info(
+            "Soft-label training expanded %d train rows to %d weighted rows (%d softened negatives).",
+            soft_label_training_info.get("input_rows"),
+            soft_label_training_info.get("expanded_rows"),
+            soft_label_training_info.get("soft_negative_rows"),
+        )
 
     existing_model_path = resolve_existing_model_path(args, config) if args.analysis_only else None
     model_params = (
@@ -2966,6 +3268,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "input_columns": int(df.shape[1]),
             "target_column": args.target_column,
             "positive_threshold": args.positive_threshold,
+            "soft_label_column": args.soft_label_column,
+            "use_soft_labels_for_training": args.use_soft_labels_for_training,
             "save_eval_data": args.save_eval_data,
             "save_full_eval_data": not args.no_full_eval_data,
             "save_prediction_csv": args.save_prediction_csv,
@@ -3026,6 +3330,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "catboost_dropped_cat_features": dropped_cat_features,
             "catboost_feature_weights": model_feature_weights,
             "catboost_dropped_feature_weights": dropped_feature_weights,
+            "soft_label_training": soft_label_training_info,
         },
         "plots": {
             "train_map_year": args.train_map_year,
@@ -3059,6 +3364,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             "threshold_tuning_split": args.threshold_tuning_split,
             "threshold_min_precision": args.threshold_min_precision,
             "threshold_min_recall": args.threshold_min_recall,
+            "threshold_exclude_years": list(args.threshold_exclude_years),
+        },
+        "calibration": {
+            "enabled": args.calibration_enabled,
+            "method": args.calibration_method,
+            "split": args.calibration_split,
+            "exclude_years": list(args.calibration_exclude_years),
+            "apply_to_metrics": args.calibration_apply_to_metrics,
+            "artifact_name": args.calibration_artifact_name,
         },
         "environment": collect_environment(),
     }
@@ -3085,7 +3399,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             logger.warning(
                 "Early stopping requested but validation is disabled; fitting all iterations."
             )
-        model.fit(X_train_model, y_train_binary, **fit_kwargs)
+        if train_sample_weight is not None:
+            fit_kwargs["sample_weight"] = train_sample_weight
+        model.fit(X_train_fit, y_train_fit, **fit_kwargs)
 
         training_config["model_diagnostics"] = {
             "best_iteration": model.get_best_iteration(),
@@ -3123,21 +3439,45 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     write_yaml(run_dir / "training_config.yaml", training_config)
     write_json(run_dir / "training_config.json", training_config)
 
-    train_prob = predict_probabilities(model, X_train_model, prediction_cat_features)
-    validation_prob = (
+    raw_train_prob = predict_probabilities(model, X_train_model, prediction_cat_features)
+    raw_validation_prob = (
         predict_probabilities(model, X_validation_model, prediction_cat_features)
         if X_validation_model is not None
         else None
     )
-    test_prob = predict_probabilities(model, X_test_model, prediction_cat_features)
+    raw_test_prob = predict_probabilities(model, X_test_model, prediction_cat_features)
+    train_prob, validation_prob, test_prob, calibration_info = calibrate_split_probabilities(
+        args=args,
+        model_dir=model_dir,
+        X_train=X_train,
+        y_train=y_train_binary,
+        train_prob=raw_train_prob,
+        X_validation=X_validation,
+        y_validation=y_validation_binary,
+        validation_prob=raw_validation_prob,
+        X_test=X_test,
+        y_test=y_test_binary,
+        test_prob=raw_test_prob,
+    )
+    training_config["calibration"]["resolved"] = calibration_info
 
     threshold_inputs: Dict[str, Tuple[pd.Series, np.ndarray]] = {
         "train": (y_train_binary, train_prob),
         "test": (y_test_binary, test_prob),
     }
+    threshold_filter_info = None
     if y_validation_binary is not None and validation_prob is not None:
-        threshold_inputs["validation"] = (y_validation_binary, validation_prob)
+        threshold_y, threshold_prob, threshold_filter_info = filter_probability_input_for_threshold(
+            X_validation,
+            y_validation_binary,
+            validation_prob,
+            args.date_column,
+            args.threshold_exclude_years,
+        )
+        threshold_inputs["validation"] = (threshold_y, threshold_prob)
     threshold_info = resolve_prediction_threshold(args, threshold_inputs)
+    if threshold_filter_info is not None:
+        threshold_info["filter"] = threshold_filter_info
     prediction_threshold = float(threshold_info["threshold"])
     logger.info(
         "Using probability threshold %.4f for binary metrics/maps (%s).",

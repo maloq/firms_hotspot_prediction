@@ -1,0 +1,157 @@
+# Complete revision evaluation config with neural nets imported into the
+# organized experiment tables and direct latitude/longitude features disabled.
+
+output_dir: results/revision_experiments_complete_with_nns_no_latlon
+python:
+overwrite_output_dir: true
+seed: 17
+
+run_main_tabular: true
+run_sensitivity_experiments: true
+run_new_nn_models: true
+import_nn_metrics: true
+run_neural_feature_importance: true
+run_era5_source_comparison: true
+run_representative_model_ablation: true
+run_probability_overlays: true
+run_organizer: true
+
+run_legacy_sampled_evaluation: true
+run_full_grid_evaluation: true
+full_grid_is_primary: false
+fail_on_full_grid_error: false
+
+calibration_start_date: "2021-01-01"
+calibration_end_date: "2021-12-31"
+test_start_date: "2022-01-01"
+test_end_date: "2025-10-02"
+
+deployment_grid_resolution: 0.1
+deployment_grid_universe: land_or_burnable
+deployment_grid_chunk_by: ["country", "month"]
+deployment_grid_countries:
+  - Russian_Federation
+deployment_grid_coordinate_bounds:
+deployment_grid_clip_to_feature_bounds: true
+
+full_grid_mode: weighted_grid_sample
+weighted_grid_sample: true
+weighted_grid_sample_fraction: 0.005
+weighted_grid_sample_strata: ["country", "month"]
+weighted_grid_sample_include_all_positives: true
+
+calibration_method: prior_offset_month
+n_reliability_bins: 20
+reliability_binning: equal_count
+save_full_grid_predictions: true
+save_calibrated_predictions: true
+max_grid_rows_per_chunk: 500000
+cache_full_grid_features: true
+
+use_lat_lon_features: false
+use_ecoregion_features: true
+use_historical_fire_features: true
+
+features_path: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
+seven_day_features_path: data/saved_features/train_test_features_7d_all.parquet
+feature_config: configs/features_config_30d.yaml
+target_config: configs/target_config.yaml
+catboost_config: configs/catboost_train_config.yaml
+regions_file: configs/regions_example.yaml
+era5_dir: /home/ids/vmorozov/era5
+era5_feature_root: /home/ids/vmorozov/data/climate_data/climate_features/ERA5
+ecmwf_feature_root: /home/ids/vmorozov/data/climate_data/climate_features/ECMWF
+era5_source_cache_dir: data/saved_features/revision_evaluation/era5_source_comparison
+
+catboost_iterations: 450
+sensitivity_catboost_iterations: 260
+catboost_depth: 5
+catboost_learning_rate: 0.03
+catboost_task_type: GPU
+catboost_verbose: 100
+rf_max_train_rows: 300000
+linear_epochs: 4
+point_process_max_train_rows: 500000
+point_process_alpha: 0.0001
+point_process_max_iter: 200
+prediction_batch_size: 100000
+random_error_trials: 5
+random_error_sample_size: 50000
+permutation_trials: 5
+permutation_sample_size: 50000
+shap_sample_size: 8000
+skip_shap: false
+run_label_sensitivity: true
+run_lead_time_sensitivity: true
+
+era5_train_start_year: 2001
+era5_validation_start_year: 2019
+era5_test_start_year: 2021
+era5_test_end_year:
+force_rebuild_era5_features: false
+skip_mixed_source: false
+drop_climate_variables:
+  - tp
+only_era5_source_experiments:
+merge_existing_input_source: false
+update_organized_results: false
+input_source_include_best_neural: true
+input_source_neural_model: nn_global_full_spatial_tsn_no_tp
+input_source_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
+input_source_neural_batch_size: 8192
+input_source_neural_device: auto
+input_source_neural_masked_climate_variables: []
+
+main_nn_model: tsn
+run_neural_feature_ablation: true
+neural_feature_ablation_model: tsn
+neural_feature_ablation_variants:
+  - no_dynamic_sequence
+  - no_static_features
+  - no_categorical_features
+  - dynamic_sequence_only
+nn_data_path:
+nn_dry_run: false
+nn_metrics_glob: outputs/nn_global_full_*/metrics.json
+nn_feature_ablation_metrics_glob: outputs/nn_feature_ablation_*/metrics.json
+neural_importance_sample_size: 50000
+neural_importance_batch_size: 8192
+neural_importance_device: auto
+new_nn_models:
+  - minimal_mlp
+  - ft_transformer
+  - tsn
+  - spatial_tsn
+  - spatial_tsn_no_tp
+  - spatial_tsn_ecmwf
+  - lstm_static_concat
+  - lstm_attention
+  - lstm_gated_moe
+
+probability_overlay_source: legacy
+probability_overlay_model: best_neural
+probability_overlay_best_model_scope: global
+probability_overlay_selection_metric: average_precision
+probability_overlay_min_wildfires: 7
+probability_overlay_window_days: 3
+probability_overlay_top_periods: 1
+probability_overlay_regions:
+probability_overlay_include_global: true
+probability_overlay_surface_source: dense-neural
+probability_overlay_map_summary: sum
+probability_overlay_formats: ["png", "pdf"]
+probability_overlay_dpi: 320
+probability_overlay_prior_correction: true
+probability_overlay_train_prior: 0.15
+probability_overlay_deploy_prior: 0.001
+probability_overlay_dense_neural_batch_size: 8192
+probability_overlay_dense_neural_device: auto
+probability_overlay_overwrite_dense: false
+probability_overlay_dense_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
+probability_overlay_source_runs:
+  - name: ECMWF
+    feature_config: configs/features_config_30d.yaml
+    dense_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
+  - name: ERA5
+    feature_config: configs/features_config_30d_era5.yaml
+    dense_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet

@@ -1,1 +1,0 @@
-../../../../../shared_artifacts/logs/commands_used.txt

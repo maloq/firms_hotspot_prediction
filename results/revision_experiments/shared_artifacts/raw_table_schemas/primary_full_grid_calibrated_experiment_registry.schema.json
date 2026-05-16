@@ -1,0 +1,42 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "evaluation_type"
+    },
+    {
+      "dtype": "bool",
+      "name": "is_primary"
+    },
+    {
+      "dtype": "str",
+      "name": "calibration_method"
+    },
+    {
+      "dtype": "str",
+      "name": "test_universe"
+    },
+    {
+      "dtype": "str",
+      "name": "test_period"
+    },
+    {
+      "dtype": "str",
+      "name": "metric_name"
+    },
+    {
+      "dtype": "float64",
+      "name": "metric_value"
+    }
+  ],
+  "rows": 72,
+  "source_csv": "primary_full_grid_calibrated/experiment_registry.csv"
+}

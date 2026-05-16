@@ -1,0 +1,12 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json"
+  ],
+  "plots": [],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/legacy_sampled_case_control_model_comparison.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/legacy_sampled_case_control_threshold_metrics.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/legacy_sampled_model_comparison.jsonl.gz"
+  ]
+}

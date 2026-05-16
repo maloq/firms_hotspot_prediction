@@ -975,6 +975,357 @@ class TemporalConvNetModel(nn.Module):
         return logits.squeeze(-1)
 
 
+@register_model("spatial_tsn_mlp")
+@register_model("tsn_spatial_mlp")
+class SpatialTemporalConvNetModel(nn.Module):
+    """Temporal-convolution encoder with a dedicated local spatial-context branch."""
+
+    def __init__(
+        self,
+        seq_len: int,
+        n_channels: int,
+        n_static: int,
+        tcn_units: int = 192,
+        num_blocks: int = 3,
+        kernel_sizes: tuple[int, ...] | list[int] = (2, 3, 5),
+        dilations: tuple[int, ...] | list[int] = (1, 2, 4),
+        dropout_tcn: float = 0.1,
+        pooling: str = "attention",
+        static_units: int = 512,
+        dropout_static: float = 0.0,
+        spatial_units: int = 192,
+        dropout_spatial: float = 0.1,
+        merge_units: int = 256,
+        dropout_merged: float = 0.0,
+        spatial_static_indices: list[int] | tuple[int, ...] | None = None,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        if seq_len <= 0 or n_channels <= 0:
+            raise ValueError("'seq_len' and 'n_channels' must be positive")
+        if tcn_units <= 0 or num_blocks <= 0 or static_units <= 0 or merge_units <= 0:
+            raise ValueError("tcn_units, num_blocks, static_units, and merge_units must be positive")
+        if spatial_units <= 0:
+            raise ValueError("spatial_units must be positive")
+
+        self.seq_len = int(seq_len)
+        kernel_sizes = _as_int_tuple(kernel_sizes, "kernel_sizes")
+        dilations = _as_int_tuple(dilations, "dilations")
+        self.pooling = _normalize_pooling_mode(pooling)
+
+        spatial_indices = sorted({int(idx) for idx in (spatial_static_indices or [])})
+        if not spatial_indices:
+            raise ValueError("SpatialTemporalConvNetModel requires non-empty spatial_static_indices")
+        if spatial_indices[0] < 0 or spatial_indices[-1] >= n_static:
+            raise ValueError(
+                f"spatial_static_indices must be within [0, {n_static - 1}], got {spatial_indices}"
+            )
+        spatial_set = set(spatial_indices)
+        regular_indices = [idx for idx in range(n_static) if idx not in spatial_set]
+        self.register_buffer(
+            "spatial_static_indices",
+            torch.as_tensor(spatial_indices, dtype=torch.long),
+            persistent=False,
+        )
+        self.register_buffer(
+            "regular_static_indices",
+            torch.as_tensor(regular_indices, dtype=torch.long),
+            persistent=False,
+        )
+
+        blocks: list[nn.Module] = []
+        in_channels = n_channels
+        for _ in range(num_blocks):
+            blocks.append(
+                DilatedTemporalConvBlock(
+                    in_channels=in_channels,
+                    out_channels=tcn_units,
+                    kernel_sizes=kernel_sizes,
+                    dilations=dilations,
+                    dropout=dropout_tcn,
+                )
+            )
+            in_channels = tcn_units
+        self.temporal_net = nn.Sequential(*blocks)
+        self.attention = AttentionPooling(tcn_units) if self.pooling == "attention" else None
+        dyn_dim = tcn_units * 2 if self.pooling == "mean_max" else tcn_units
+
+        (
+            self.embedding_layers,
+            categorical_dim,
+            self.categorical_mode,
+            self.n_categorical,
+        ) = _build_categorical_layers(categorical_embeddings, n_categorical, categorical_mode)
+
+        regular_static_input_dim = len(regular_indices) + categorical_dim
+        if regular_static_input_dim > 0:
+            static_layers = [
+                nn.Linear(regular_static_input_dim, static_units, bias=True),
+                nn.ReLU(),
+                nn.BatchNorm1d(static_units),
+            ]
+            if dropout_static > 0:
+                static_layers.append(nn.Dropout(dropout_static))
+            self.static_net: nn.Module | None = nn.Sequential(*static_layers)
+            static_out_dim = static_units
+        else:
+            self.static_net = None
+            static_out_dim = 0
+
+        spatial_layers = [
+            nn.Linear(len(spatial_indices), spatial_units, bias=True),
+            nn.ReLU(),
+            nn.BatchNorm1d(spatial_units),
+        ]
+        if dropout_spatial > 0:
+            spatial_layers.append(nn.Dropout(dropout_spatial))
+        spatial_layers.extend(
+            [
+                nn.Linear(spatial_units, spatial_units, bias=False),
+                nn.BatchNorm1d(spatial_units),
+                nn.ReLU(),
+            ]
+        )
+        self.spatial_net = nn.Sequential(*spatial_layers)
+
+        half_units = max(merge_units // 2, 1)
+        quarter_units = max(merge_units // 4, 1)
+        merged_layers: list[nn.Module] = [
+            nn.Linear(dyn_dim + static_out_dim + spatial_units, merge_units, bias=False),
+            nn.BatchNorm1d(merge_units),
+            nn.ReLU(),
+        ]
+        if dropout_merged > 0:
+            merged_layers.append(nn.Dropout(dropout_merged))
+        merged_layers.extend(
+            [
+                nn.Linear(merge_units, half_units, bias=False),
+                nn.BatchNorm1d(half_units),
+                nn.ReLU(),
+                nn.Linear(half_units, quarter_units, bias=False),
+                nn.BatchNorm1d(quarter_units),
+                nn.ReLU(),
+            ]
+        )
+        self.mlp = nn.Sequential(*merged_layers)
+        self.out = nn.Linear(quarter_units, 1, bias=True)
+
+    def _pool_temporal_features(self, encoded: torch.Tensor) -> torch.Tensor:
+        if self.pooling == "attention":
+            if self.attention is None:
+                raise RuntimeError("Attention pooling was not initialized")
+            return self.attention(encoded)
+        if self.pooling == "last":
+            return encoded[:, -1, :]
+        if self.pooling == "mean":
+            return encoded.mean(dim=1)
+        if self.pooling == "max":
+            return torch.amax(encoded, dim=1)
+        if self.pooling == "mean_max":
+            return torch.cat([encoded.mean(dim=1), torch.amax(encoded, dim=1)], dim=1)
+        raise AssertionError(f"Unhandled pooling mode: {self.pooling}")
+
+    def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if dyn.size(1) != self.seq_len:
+            raise ValueError(f"Expected sequence length {self.seq_len}, got {dyn.size(1)}")
+        temporal = dyn.transpose(1, 2)
+        encoded = self.temporal_net(temporal).transpose(1, 2)
+        dyn_feat = self._pool_temporal_features(encoded)
+
+        spatial_input = stat.index_select(1, self.spatial_static_indices)
+        spatial_feat = self.spatial_net(spatial_input)
+
+        features = [dyn_feat]
+        if self.static_net is not None:
+            regular_stat = stat.index_select(1, self.regular_static_indices)
+            regular_stat = _concat_categorical_features(
+                self.embedding_layers,
+                regular_stat,
+                cat,
+                self.categorical_mode,
+                self.n_categorical,
+            )
+            features.append(self.static_net(regular_stat))
+        features.append(spatial_feat)
+
+        logits = self.out(self.mlp(torch.cat(features, dim=1)))
+        return logits.squeeze(-1)
+
+
+@register_model("spatial_climate_tsn_mlp")
+@register_model("tsn_spatial_climate_mlp")
+class SpatialClimateTemporalConvNetModel(nn.Module):
+    """Encode daily spatial climate patches, then model the 128-day sequence."""
+
+    def __init__(
+        self,
+        seq_len: int,
+        n_channels: int,
+        n_static: int,
+        spatial_height: int = 3,
+        spatial_width: int = 3,
+        spatial_conv_units: int = 48,
+        spatial_patch_units: int = 96,
+        tcn_units: int = 256,
+        num_blocks: int = 3,
+        kernel_sizes: tuple[int, ...] | list[int] = (3, 5, 9),
+        dilations: tuple[int, ...] | list[int] = (1, 2, 4, 8),
+        dropout_spatial: float = 0.05,
+        dropout_tcn: float = 0.12,
+        pooling: str = "attention",
+        static_units: int = 512,
+        dropout_static: float = 0.05,
+        merge_units: int = 448,
+        dropout_merged: float = 0.15,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        if seq_len <= 0 or n_channels <= 0:
+            raise ValueError("'seq_len' and 'n_channels' must be positive")
+        if spatial_height <= 0 or spatial_width <= 0:
+            raise ValueError("'spatial_height' and 'spatial_width' must be positive")
+        if spatial_conv_units <= 0 or spatial_patch_units <= 0:
+            raise ValueError("spatial_conv_units and spatial_patch_units must be positive")
+        if tcn_units <= 0 or num_blocks <= 0 or static_units <= 0 or merge_units <= 0:
+            raise ValueError("tcn_units, num_blocks, static_units, and merge_units must be positive")
+
+        self.seq_len = int(seq_len)
+        self.n_channels = int(n_channels)
+        self.spatial_height = int(spatial_height)
+        self.spatial_width = int(spatial_width)
+        kernel_sizes = _as_int_tuple(kernel_sizes, "kernel_sizes")
+        dilations = _as_int_tuple(dilations, "dilations")
+        self.pooling = _normalize_pooling_mode(pooling)
+
+        patch_layers: list[nn.Module] = [
+            nn.Conv2d(n_channels, spatial_conv_units, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(spatial_conv_units),
+            nn.GELU(),
+            nn.Conv2d(spatial_conv_units, spatial_conv_units, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(spatial_conv_units),
+            nn.GELU(),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(spatial_conv_units, spatial_patch_units, bias=True),
+            nn.GELU(),
+        ]
+        if dropout_spatial > 0:
+            patch_layers.append(nn.Dropout(dropout_spatial))
+        self.patch_encoder = nn.Sequential(*patch_layers)
+
+        blocks: list[nn.Module] = []
+        in_channels = spatial_patch_units
+        for _ in range(num_blocks):
+            blocks.append(
+                DilatedTemporalConvBlock(
+                    in_channels=in_channels,
+                    out_channels=tcn_units,
+                    kernel_sizes=kernel_sizes,
+                    dilations=dilations,
+                    dropout=dropout_tcn,
+                )
+            )
+            in_channels = tcn_units
+        self.temporal_net = nn.Sequential(*blocks)
+        self.attention = AttentionPooling(tcn_units) if self.pooling == "attention" else None
+        dyn_dim = tcn_units * 2 if self.pooling == "mean_max" else tcn_units
+
+        (
+            self.embedding_layers,
+            categorical_dim,
+            self.categorical_mode,
+            self.n_categorical,
+        ) = _build_categorical_layers(categorical_embeddings, n_categorical, categorical_mode)
+        static_input_dim = n_static + categorical_dim
+        if static_input_dim <= 0:
+            raise ValueError("Static feature dimension must be positive after adding categorical inputs")
+        static_layers = [
+            nn.Linear(static_input_dim, static_units, bias=True),
+            nn.ReLU(),
+            nn.BatchNorm1d(static_units),
+        ]
+        if dropout_static > 0:
+            static_layers.append(nn.Dropout(dropout_static))
+        self.static_net = nn.Sequential(*static_layers)
+
+        half_units = max(merge_units // 2, 1)
+        quarter_units = max(merge_units // 4, 1)
+        merged_layers: list[nn.Module] = [
+            nn.Linear(dyn_dim + static_units, merge_units, bias=False),
+            nn.BatchNorm1d(merge_units),
+            nn.ReLU(),
+        ]
+        if dropout_merged > 0:
+            merged_layers.append(nn.Dropout(dropout_merged))
+        merged_layers.extend(
+            [
+                nn.Linear(merge_units, half_units, bias=False),
+                nn.BatchNorm1d(half_units),
+                nn.ReLU(),
+                nn.Linear(half_units, quarter_units, bias=False),
+                nn.BatchNorm1d(quarter_units),
+                nn.ReLU(),
+            ]
+        )
+        self.mlp = nn.Sequential(*merged_layers)
+        self.out = nn.Linear(quarter_units, 1, bias=True)
+
+    def _pool_temporal_features(self, encoded: torch.Tensor) -> torch.Tensor:
+        if self.pooling == "attention":
+            if self.attention is None:
+                raise RuntimeError("Attention pooling was not initialized")
+            return self.attention(encoded)
+        if self.pooling == "last":
+            return encoded[:, -1, :]
+        if self.pooling == "mean":
+            return encoded.mean(dim=1)
+        if self.pooling == "max":
+            return torch.amax(encoded, dim=1)
+        if self.pooling == "mean_max":
+            return torch.cat([encoded.mean(dim=1), torch.amax(encoded, dim=1)], dim=1)
+        raise AssertionError(f"Unhandled pooling mode: {self.pooling}")
+
+    def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if dyn.ndim != 5:
+            raise ValueError(
+                "SpatialClimateTemporalConvNetModel expects dynamic input shaped "
+                "(batch, time, height, width, channels)."
+            )
+        if dyn.size(1) != self.seq_len:
+            raise ValueError(f"Expected sequence length {self.seq_len}, got {dyn.size(1)}")
+        if dyn.size(2) != self.spatial_height or dyn.size(3) != self.spatial_width:
+            raise ValueError(
+                f"Expected spatial patch {(self.spatial_height, self.spatial_width)}, "
+                f"got {(dyn.size(2), dyn.size(3))}"
+            )
+        if dyn.size(4) != self.n_channels:
+            raise ValueError(f"Expected {self.n_channels} climate channels, got {dyn.size(4)}")
+
+        batch_size, seq_len, height, width, channels = dyn.shape
+        patches = dyn.reshape(batch_size * seq_len, height, width, channels)
+        patches = patches.permute(0, 3, 1, 2).contiguous()
+        patch_features = self.patch_encoder(patches).reshape(batch_size, seq_len, -1)
+
+        temporal = patch_features.transpose(1, 2)
+        encoded = self.temporal_net(temporal).transpose(1, 2)
+        dyn_feat = self._pool_temporal_features(encoded)
+
+        stat = _concat_categorical_features(
+            self.embedding_layers,
+            stat,
+            cat,
+            self.categorical_mode,
+            self.n_categorical,
+        )
+        stat_feat = self.static_net(stat)
+        logits = self.out(self.mlp(torch.cat([dyn_feat, stat_feat], dim=1)))
+        return logits.squeeze(-1)
+
+
 @register_model("lstm_gated_moe")
 class LSTMGatedMoEModel(nn.Module):
     """Global LSTM model with learned mixture-of-experts fusion.
@@ -1101,6 +1452,8 @@ __all__ = [
     "MinimalMLPModel",
     "FTTransformerModel",
     "TemporalConvNetModel",
+    "SpatialTemporalConvNetModel",
+    "SpatialClimateTemporalConvNetModel",
     "available_models",
     "build_model",
     "register_model",

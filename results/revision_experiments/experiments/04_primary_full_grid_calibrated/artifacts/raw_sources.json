@@ -1,0 +1,37 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/primary_full_grid_calibrated/calibrators/CatBoost_prior_offset_month.joblib",
+    "shared_artifacts/primary_full_grid_calibrated/calibrators/FWI-only_CatBoost_prior_offset_month.joblib",
+    "shared_artifacts/primary_full_grid_calibrated/calibrators/Logistic_Regression_linear_SGD_prior_offset_month.joblib",
+    "shared_artifacts/primary_full_grid_calibrated/calibrators/Poisson_Point-Process_GLM_prior_offset_month.joblib",
+    "shared_artifacts/primary_full_grid_calibrated/calibrators/Random_Forest_prior_offset_month.joblib",
+    "shared_artifacts/primary_full_grid_calibrated/calibrators/Weather-only_CatBoost_prior_offset_month.joblib",
+    "shared_artifacts/primary_full_grid_calibrated/calibration_metadata.json",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/CatBoost_calibration_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/CatBoost_test_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/FWI-only_CatBoost_calibration_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/FWI-only_CatBoost_test_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Logistic_Regression_linear_SGD_calibration_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Logistic_Regression_linear_SGD_test_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Poisson_Point-Process_GLM_calibration_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Poisson_Point-Process_GLM_test_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Random_Forest_calibration_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Random_Forest_test_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Weather-only_CatBoost_calibration_predictions.parquet",
+    "shared_artifacts/primary_full_grid_calibrated/predictions/Weather-only_CatBoost_test_predictions.parquet"
+  ],
+  "plots": [],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_model_comparison.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_probability_metrics.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_reliability_bins.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_monthly_count_calibration.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_country_count_calibration.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_prevalence_audit.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_risk_concentration.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_count_correction.jsonl.gz",
+    "shared_artifacts/raw_tables_jsonl/primary_full_grid_calibrated_spatial_scale_evaluation.jsonl.gz"
+  ]
+}

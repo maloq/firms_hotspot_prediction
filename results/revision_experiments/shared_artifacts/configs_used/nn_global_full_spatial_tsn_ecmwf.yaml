@@ -1,0 +1,62 @@
+seed: 17
+
+output_train_data_dir: "data/saved_features/nn_train_data_daily_spatial_3x3_ecmwf"
+output_nn_plots_dir: "outputs/plots_nn/global_full_spatial_tsn_ecmwf"
+nn_output_model_path: "models/nn_global_full_spatial_tsn_ecmwf.ckpt"
+nn_metrics_path: "outputs/nn_global_full_spatial_tsn_ecmwf/metrics.json"
+
+batch_size: 4096
+epochs: 15
+num_workers: 6
+selection_metric: val_ap
+compute_train_metrics: true
+
+class_weights:
+  0: 1.0
+  1: 1.0
+
+loss:
+  name: focal
+  focal_gamma: 2.0
+  focal_alpha: 0.65
+  use_soft_labels: false
+
+spatial_coordinate_features:
+  enabled: true
+
+nn_model:
+  architecture: spatial_climate_tsn_mlp
+  params:
+    spatial_height: 3
+    spatial_width: 3
+    spatial_conv_units: 48
+    spatial_patch_units: 96
+    tcn_units: 256
+    num_blocks: 3
+    kernel_sizes: [3, 5, 9]
+    dilations: [1, 2, 4, 8]
+    dropout_tcn: 0.12
+    pooling: attention
+    static_units: 512
+    dropout_static: 0.05
+    dropout_spatial: 0.05
+    merge_units: 448
+    dropout_merged: 0.15
+    categorical_mode: embedding
+  lightning:
+    learning_rate: 0.0005
+    l2: 0.0001
+    clip_gradient_norm: 5.0
+    log_train_ap: false
+    scheduler_config:
+      type: cosine
+      interval: epoch
+      frequency: 1
+      params:
+        T_max: 15
+        eta_min: 0.00002
+  trainer:
+    enable_progress_bar: true
+    early_stopping:
+      patience: 6
+      min_delta: 0.0005

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Create missing ERA5 NetCDF links and processed zarrs for 2000-2008.
+"""Create processed ERA5 zarrs for 2000-2008 from raw NetCDF files.
 
-The files under /home/ids/vmorozov/era5 have a historical quirk: many files are
-named ``*.grib`` but are HDF5/NetCDF files produced by cfgrib.  This script opens
-them with xarray's NetCDF reader, creates missing ``*.nc`` symlinks for clarity,
-and writes the processed zarr schema expected by the feature builder:
+The raw ERA5 staging directory uses NetCDF daily-stat files with a ``.nc``
+suffix. This script opens those files with xarray's NetCDF reader and writes the
+processed zarr schema expected by the feature builder:
 
     /home/ids/vmorozov/data/climate_data/climate_features/ERA5/{var}/{var}_{year}.zarr
 
@@ -16,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import time
 from dataclasses import dataclass
@@ -66,16 +64,12 @@ def write_json(path: Path, data: object) -> None:
     path.write_text(json.dumps(sanitize(data), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def ensure_nc_link(raw_root: Path, spec: Era5Variable, year: int) -> tuple[Path, str]:
+def raw_nc_path(raw_root: Path, spec: Era5Variable, year: int) -> tuple[Path, str]:
     raw_dir = raw_root / spec.raw_dir
     nc_path = raw_dir / f"{spec.raw_prefix}_{year}.nc"
-    grib_path = raw_dir / f"{spec.raw_prefix}_{year}.grib"
     if nc_path.exists():
         return nc_path, "existing_nc"
-    if not grib_path.exists():
-        raise FileNotFoundError(f"Missing raw source for {spec.short_name} {year}: {nc_path} or {grib_path}")
-    nc_path.symlink_to(grib_path.name)
-    return nc_path, "created_nc_symlink_to_hdf5_grib_suffix"
+    raise FileNotFoundError(f"Missing raw NetCDF source for {spec.short_name} {year}: {nc_path}")
 
 
 def reference_grid(processed_root: Path, var: str) -> tuple[np.ndarray, np.ndarray]:
@@ -183,7 +177,7 @@ def main() -> int:
         lat_grid, lon_grid = reference_grid(args.processed_root, spec.short_name)
         for year in args.years:
             started = time.perf_counter()
-            nc_path, nc_status = ensure_nc_link(args.raw_root, spec, year)
+            nc_path, nc_status = raw_nc_path(args.raw_root, spec, year)
             out = args.processed_root / spec.short_name / f"{spec.short_name}_{year}.zarr"
             if out.exists() and not args.force:
                 status = "existing_zarr"

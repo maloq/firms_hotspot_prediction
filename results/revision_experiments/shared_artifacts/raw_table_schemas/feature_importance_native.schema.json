@@ -1,0 +1,26 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "feature"
+    },
+    {
+      "dtype": "str",
+      "name": "group"
+    },
+    {
+      "dtype": "float64",
+      "name": "importance"
+    },
+    {
+      "dtype": "float64",
+      "name": "normalized_importance"
+    },
+    {
+      "dtype": "int64",
+      "name": "rank"
+    }
+  ],
+  "rows": 263,
+  "source_csv": "feature_importance_native.csv"
+}

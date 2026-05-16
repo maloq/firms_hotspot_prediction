@@ -1,0 +1,184 @@
+{
+  "config_path": "configs/nn_global_full_spatial_tsn.yaml",
+  "data_path": "data/saved_features/nn_train_data_daily_spatial_3x3/prepared_data.npz",
+  "model_path": "/home/infres/vmorozov/Misc/models/nn_global_full_spatial_tsn-spatial_climate_tsn_mlp-epoch=00-val_ap=0.6388-v1.ckpt",
+  "architecture": "spatial_climate_tsn_mlp",
+  "model_config": {
+    "spatial_height": 3,
+    "spatial_width": 3,
+    "spatial_conv_units": 48,
+    "spatial_patch_units": 96,
+    "tcn_units": 256,
+    "num_blocks": 3,
+    "kernel_sizes": [
+      3,
+      5,
+      9
+    ],
+    "dilations": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "dropout_tcn": 0.12,
+    "pooling": "attention",
+    "static_units": 512,
+    "dropout_static": 0.05,
+    "dropout_spatial": 0.05,
+    "merge_units": 448,
+    "dropout_merged": 0.15,
+    "categorical_mode": "embedding",
+    "seq_len": 128,
+    "n_channels": 4,
+    "n_static": 90,
+    "n_categorical": 6,
+    "categorical_embeddings": [
+      {
+        "name": "cat_0",
+        "cardinality": 131,
+        "embedding_dim": 14
+      },
+      {
+        "name": "cat_1",
+        "cardinality": 3,
+        "embedding_dim": 5
+      },
+      {
+        "name": "cat_2",
+        "cardinality": 8,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_3",
+        "cardinality": 11,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_4",
+        "cardinality": 7,
+        "embedding_dim": 7
+      },
+      {
+        "name": "cat_5",
+        "cardinality": 8,
+        "embedding_dim": 7
+      }
+    ]
+  },
+  "input_ablation": {},
+  "loss_training": {
+    "enabled": true,
+    "soft_labels": {
+      "enabled": false
+    }
+  },
+  "spatial_training": {
+    "coordinate_features": {
+      "enabled": true,
+      "columns": [
+        "coord_lat_scaled",
+        "coord_lon_scaled",
+        "coord_lat_sin",
+        "coord_lat_cos",
+        "coord_lon_sin",
+        "coord_lon_cos"
+      ],
+      "description": "Latitude/longitude coordinate encodings appended to x_static at train time."
+    },
+    "static_branch": {
+      "enabled": false
+    }
+  },
+  "feature_set": null,
+  "selection_metric": "val_ap",
+  "validation_threshold": 0.49071040749549866,
+  "validation_best_f1": 0.643346684467689,
+  "train": {
+    "precision": 0.5780469969762249,
+    "recall": 0.8299876843795936,
+    "f1": 0.6814773738682274,
+    "ap": 0.7248553189698727,
+    "threshold": 0.49071040749549866,
+    "precision_error": 0.0031477036152651617,
+    "recall_error": 0.0032221173103033907,
+    "f1_error": 0.0020151675589207413,
+    "ap_error": 0.0023894668939583403
+  },
+  "validation": {
+    "precision": 0.5663541149737509,
+    "recall": 0.744566150465268,
+    "f1": 0.6433466844681798,
+    "ap": 0.6390511204362939,
+    "threshold": 0.49071040749549866,
+    "precision_error": 0.0026496886850594322,
+    "recall_error": 0.007196439093252264,
+    "f1_error": 0.0036585699275747826,
+    "ap_error": 0.004434496410673085
+  },
+  "test": {
+    "precision": 0.5572640803083664,
+    "recall": 0.7982006673021925,
+    "f1": 0.6563188921730326,
+    "ap": 0.6805024217937665,
+    "threshold": 0.49071040749549866,
+    "precision_error": 0.002343214974611176,
+    "recall_error": 0.0062695541859186495,
+    "f1_error": 0.0033740581348975862,
+    "ap_error": 0.007110262110372052
+  },
+  "legacy_sampled_metrics": {
+    "train": {
+      "precision": 0.5780469969762249,
+      "recall": 0.8299876843795936,
+      "f1": 0.6814773738682274,
+      "ap": 0.7248553189698727,
+      "threshold": 0.49071040749549866,
+      "precision_error": 0.0031477036152651617,
+      "recall_error": 0.0032221173103033907,
+      "f1_error": 0.0020151675589207413,
+      "ap_error": 0.0023894668939583403
+    },
+    "validation": {
+      "precision": 0.5663541149737509,
+      "recall": 0.744566150465268,
+      "f1": 0.6433466844681798,
+      "ap": 0.6390511204362939,
+      "threshold": 0.49071040749549866,
+      "precision_error": 0.0026496886850594322,
+      "recall_error": 0.007196439093252264,
+      "f1_error": 0.0036585699275747826,
+      "ap_error": 0.004434496410673085
+    },
+    "test": {
+      "precision": 0.5572640803083664,
+      "recall": 0.7982006673021925,
+      "f1": 0.6563188921730326,
+      "ap": 0.6805024217937665,
+      "threshold": 0.49071040749549866,
+      "precision_error": 0.002343214974611176,
+      "recall_error": 0.0062695541859186495,
+      "f1_error": 0.0033740581348975862,
+      "ap_error": 0.007110262110372052
+    },
+    "evaluation_type": "legacy_sampled_case_control",
+    "note": "Metrics are computed on the undersampled/case-control neural dataset."
+  },
+  "primary_full_grid_calibrated_metrics": {
+    "status": "adapter_required",
+    "evaluation_type": "primary_full_grid_calibrated",
+    "is_primary": false,
+    "calibration_method": "prior_offset_month",
+    "note": "Full-grid calibrated NN evaluation is part of revision_evaluation, but this architecture requires a deployment-grid tensor adapter before it can generate calibrated deployment predictions. Legacy sampled logits are saved separately and are not reported as deployment probabilities."
+  },
+  "prediction_artifacts": {
+    "validation": "outputs/nn_global_full_spatial_tsn/legacy_sampled_predictions/validation_predictions.parquet",
+    "test": "outputs/nn_global_full_spatial_tsn/legacy_sampled_predictions/test_predictions.parquet",
+    "train": "outputs/nn_global_full_spatial_tsn/legacy_sampled_predictions/train_predictions.parquet"
+  },
+  "split_sizes": {
+    "train": 1217788,
+    "validation": 150671,
+    "test": 328317
+  }
+}

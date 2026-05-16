@@ -1,0 +1,51 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/models/nn_global_full_ft_transformer-ft_transformer-epoch=00-val_f1=0.4462.ckpt",
+    "shared_artifacts/models/nn_global_full_lstm_attention-lstm_attention-epoch=00-val_f1=0.4686.ckpt",
+    "shared_artifacts/models/nn_global_full_lstm_gated_moe-lstm_gated_moe-epoch=00-val_f1=0.4626.ckpt",
+    "shared_artifacts/models/nn_global_full_lstm_static_concat-lstm_mlp-epoch=03-val_f1=0.4573.ckpt",
+    "shared_artifacts/models/nn_global_full_minimal_mlp-minimal_mlp-epoch=07-val_f1=0.4687.ckpt",
+    "shared_artifacts/models/nn_global_full_spatial_tsn-spatial_climate_tsn_mlp-epoch=00-val_ap=0.6388-v1.ckpt",
+    "shared_artifacts/models/nn_global_full_spatial_tsn_ecmwf-spatial_climate_tsn_mlp-epoch=03-val_ap=0.3311.ckpt",
+    "shared_artifacts/models/nn_global_full_spatial_tsn_no_tp-spatial_climate_tsn_mlp-epoch=02-val_ap=0.6082.ckpt",
+    "shared_artifacts/models/nn_global_full_tsn-tsn_mlp-epoch=00-val_ap=0.3466.ckpt",
+    "shared_artifacts/neural_model_metrics/nn_global_full_ft_transformer_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_lstm_attention_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_lstm_gated_moe_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_lstm_static_concat_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_minimal_mlp_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_spatial_tsn_ecmwf_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_spatial_tsn_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_spatial_tsn_no_tp_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_global_full_tsn_metrics.json",
+    "shared_artifacts/predictions/nn_global_full_ft_transformer_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_ft_transformer_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_lstm_attention_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_lstm_attention_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_lstm_gated_moe_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_lstm_gated_moe_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_lstm_static_concat_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_lstm_static_concat_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_minimal_mlp_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_minimal_mlp_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_ecmwf_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_ecmwf_train_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_ecmwf_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_no_tp_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_no_tp_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_train_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_spatial_tsn_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_tsn_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_global_full_tsn_validation_legacy_predictions.parquet"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/neural_feature_importance_top30.png",
+    "shared_artifacts/source_plots_mixed/neural_feature_importance_top30.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/neural_feature_importance.jsonl.gz"
+  ]
+}

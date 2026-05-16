@@ -16,7 +16,16 @@ from src.feature_generation.prepare_land import (
     assign_ecoregion,
     landsea_distance,
 )
-from src.feature_generation.prepare_night_light_features import get_night_light_features_for_coords
+from src.feature_generation.prepare_night_light_features import (
+    DEFAULT_BLACK_MARBLE_FILTERED_FEATURE_NAME,
+    DEFAULT_BLACK_MARBLE_OBSERVATIONS_FEATURE_NAME,
+    DEFAULT_BLACK_MARBLE_QUALITY_FEATURE_NAME,
+    DEFAULT_BLACK_MARBLE_RADIANCE_FEATURE_NAME,
+    DEFAULT_RECENT_COVERAGE_FEATURE_NAME,
+    DEFAULT_RECENT_FILTERED_FEATURE_NAME,
+    DEFAULT_RECENT_FEATURE_NAME,
+    get_night_light_features_for_coords,
+)
 from src.feature_generation.prepare_road_features import get_road_features_for_coords
 from src.feature_generation.prepare_fire_index_features import get_fire_index_features
 
@@ -41,6 +50,7 @@ def generate_target_data(
     end_date,
     use_cached: bool = False,
     cache_path: str | None = None,
+    feature_config: dict | None = None,
 ):
     print(f"--- Generating Target Data ({start_date} to {end_date}) ---")
 
@@ -55,7 +65,13 @@ def generate_target_data(
     df_modis = load_modis_data(modis_data_path, modis_countries, start_date, end_date)
     print(f"Loaded MODIS data shape: {df_modis.shape}")
     
-    df_target = prepare_target_data(df_modis, modis_countries, samples_per_area_per_year=target_samples_per_area_per_year)
+    df_target = prepare_target_data(
+        df_modis,
+        modis_countries,
+        samples_per_area_per_year=target_samples_per_area_per_year,
+        coordinate_bounds=coordinate_bounds,
+        negative_sampling_feature_config=feature_config,
+    )
     print(f"Target data shape after adding negative samples: {df_target.shape}")
     
     df_target_cropped = crop_target_df(df_target, coordinate_bounds)
@@ -85,9 +101,56 @@ def prepare_road_features_wrapper(target_df: pd.DataFrame, feature_map_path: str
     ]
     return df_road, road_feature_names
 
-def prepare_night_light_features_wrapper(target_df: pd.DataFrame, feature_map_path: str):
+def _target_year_column(target_df: pd.DataFrame) -> pd.Series | None:
+    if "year" in target_df.columns:
+        return target_df["year"]
+    if "datetime" in target_df.columns:
+        return pd.to_datetime(target_df["datetime"], errors="coerce").dt.year
+    return None
+
+
+def prepare_night_light_features_wrapper(
+    target_df: pd.DataFrame,
+    feature_map_path: str,
+    annual_source_dir: str | None = None,
+    recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
+    recent_source_glob: str = "*.tif",
+    recent_cache_path: str | None = None,
+    cf_cvg_source_glob: str | None = None,
+    cf_cvg_feature_name: str = DEFAULT_RECENT_COVERAGE_FEATURE_NAME,
+    cf_cvg_cache_path: str | None = None,
+    cf_filtered_feature_name: str | None = DEFAULT_RECENT_FILTERED_FEATURE_NAME,
+    min_cf_cvg: float | None = None,
+    cf_filter_north_lat_min: float = 58.0,
+    black_marble_source_dir: str | None = None,
+    black_marble_cache_path: str | None = None,
+):
     coords_array = target_df[['lat_rounded', 'lon_rounded']].to_numpy()
-    df_lights = get_night_light_features_for_coords(coords=coords_array.T, feature_map_path=feature_map_path)
+    years = None
+    if annual_source_dir is not None or black_marble_source_dir is not None:
+        years = _target_year_column(target_df)
+        if years is None:
+            raise ValueError(
+                "Dated night-light features are configured, but target rows do not "
+                "contain 'year' or 'datetime'."
+            )
+    df_lights = get_night_light_features_for_coords(
+        coords=coords_array.T,
+        feature_map_path=feature_map_path,
+        years=years,
+        annual_source_dir=annual_source_dir,
+        recent_feature_name=recent_feature_name,
+        recent_source_glob=recent_source_glob,
+        recent_cache_path=recent_cache_path,
+        cf_cvg_source_glob=cf_cvg_source_glob,
+        cf_cvg_feature_name=cf_cvg_feature_name,
+        cf_cvg_cache_path=cf_cvg_cache_path,
+        cf_filtered_feature_name=cf_filtered_feature_name,
+        min_cf_cvg=min_cf_cvg,
+        cf_filter_north_lat_min=cf_filter_north_lat_min,
+        black_marble_source_dir=black_marble_source_dir,
+        black_marble_cache_path=black_marble_cache_path,
+    )
     light_feature_names = [
         col for col in df_lights.columns
         if col not in ['lat', 'lon', 'latitude', 'longitude', 'lat_rounded', 'lon_rounded']
@@ -234,7 +297,19 @@ def generate_all_features(
     test_mode: bool = False,
     skip_climate: bool = False,
     use_cached_files: bool = False,
-    cache_dir: str = 'data/saved_features/climate_features_cache'
+    cache_dir: str = 'data/saved_features/climate_features_cache',
+    night_light_annual_source_dir: str | None = None,
+    night_light_recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
+    night_light_recent_source_glob: str = "*.tif",
+    night_light_recent_cache_path: str | None = None,
+    night_light_cf_cvg_source_glob: str | None = None,
+    night_light_cf_cvg_feature_name: str = DEFAULT_RECENT_COVERAGE_FEATURE_NAME,
+    night_light_cf_cvg_cache_path: str | None = None,
+    night_light_cf_filtered_feature_name: str | None = DEFAULT_RECENT_FILTERED_FEATURE_NAME,
+    night_light_min_cf_cvg: float | None = None,
+    night_light_cf_filter_north_lat_min: float = 58.0,
+    night_light_black_marble_source_dir: str | None = None,
+    night_light_black_marble_cache_path: str | None = None,
 ) -> tuple[pd.DataFrame, pd.Index]:
     """
     Orchestrates the full feature generation pipeline.
@@ -302,7 +377,19 @@ def generate_all_features(
         night_light_start_time = time.time()
         df_night_light, night_light_feature_names = prepare_night_light_features_wrapper(
             target_df=df_target.copy(),
-            feature_map_path=night_light_feature_map_path
+            feature_map_path=night_light_feature_map_path,
+            annual_source_dir=night_light_annual_source_dir,
+            recent_feature_name=night_light_recent_feature_name,
+            recent_source_glob=night_light_recent_source_glob,
+            recent_cache_path=night_light_recent_cache_path,
+            cf_cvg_source_glob=night_light_cf_cvg_source_glob,
+            cf_cvg_feature_name=night_light_cf_cvg_feature_name,
+            cf_cvg_cache_path=night_light_cf_cvg_cache_path,
+            cf_filtered_feature_name=night_light_cf_filtered_feature_name,
+            min_cf_cvg=night_light_min_cf_cvg,
+            cf_filter_north_lat_min=night_light_cf_filter_north_lat_min,
+            black_marble_source_dir=night_light_black_marble_source_dir,
+            black_marble_cache_path=night_light_black_marble_cache_path,
         )
         print(
             f"Night-light features generated ({len(night_light_feature_names)} columns). "
@@ -434,6 +521,7 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
         end_date=current_end_date,
         use_cached=use_cached_target,
         cache_path=target_cache_path,
+        feature_config=config,
     )
 
     # df_target_processed = df_target_processed[:1000] # For quick testing
@@ -457,6 +545,24 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
     # Example: df_target_processed['year'] = pd.to_datetime(df_target_processed['datetime']).dt.year
     # For now, assuming 'year' is present if listed.
     anchor_columns = ['datetime', 'lat_rounded', 'lon_rounded', 'month', 'day', 'year', 'count']
+    target_metadata_columns = {
+        'soft_label',
+        'negative_stratum',
+        'sampling_probability',
+        'sample_weight',
+        'nearest_positive_distance_cells',
+        'nearest_positive_delta_days',
+        'country',
+    }
+    target_derived_prefixes = (
+        'past_fire_count_',
+        'recent_fire_count_',
+        'days_since_fire_',
+    )
+    for col in df_target_processed.columns:
+        if col in target_metadata_columns or col.startswith(target_derived_prefixes):
+            if col not in anchor_columns:
+                anchor_columns.append(col)
     # Verify all anchor columns are in df_target_processed
     for col in anchor_columns:
         if col not in df_target_processed.columns:
@@ -486,6 +592,26 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
         # Night lights
         night_light_feature_map_path=night_light_params_cfg.get("feature_map_path"),
         use_night_light_features=night_light_params_cfg.get("use_night_light_features", False),
+        night_light_annual_source_dir=night_light_params_cfg.get("annual_source_dir"),
+        night_light_recent_feature_name=night_light_params_cfg.get(
+            "recent_feature_name", DEFAULT_RECENT_FEATURE_NAME
+        ),
+        night_light_recent_source_glob=night_light_params_cfg.get("recent_source_glob", "*.tif"),
+        night_light_recent_cache_path=night_light_params_cfg.get("recent_cache_path"),
+        night_light_cf_cvg_source_glob=night_light_params_cfg.get("cf_cvg_source_glob"),
+        night_light_cf_cvg_feature_name=night_light_params_cfg.get(
+            "cf_cvg_feature_name", DEFAULT_RECENT_COVERAGE_FEATURE_NAME
+        ),
+        night_light_cf_cvg_cache_path=night_light_params_cfg.get("cf_cvg_cache_path"),
+        night_light_cf_filtered_feature_name=night_light_params_cfg.get(
+            "cf_filtered_feature_name", DEFAULT_RECENT_FILTERED_FEATURE_NAME
+        ),
+        night_light_min_cf_cvg=night_light_params_cfg.get("min_cf_cvg"),
+        night_light_cf_filter_north_lat_min=night_light_params_cfg.get(
+            "cf_filter_north_lat_min", 58.0
+        ),
+        night_light_black_marble_source_dir=night_light_params_cfg.get("black_marble_source_dir"),
+        night_light_black_marble_cache_path=night_light_params_cfg.get("black_marble_cache_path"),
         # Fire Index
         fire_index_npz_path=land_params_cfg.get("fire_index_npz_path", "data/land_features/fire_index_features.npz"),
         # Land

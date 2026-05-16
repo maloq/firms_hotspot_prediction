@@ -1,0 +1,42 @@
+{
+  "linked_artifacts": [
+    "shared_artifacts/json/feature_groups.json",
+    "shared_artifacts/json/run_manifest.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_dynamic_sequence_only_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_full_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_no_categorical_features_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_no_dynamic_sequence_metrics.json",
+    "shared_artifacts/neural_model_metrics/nn_feature_ablation_tsn_no_static_features_metrics.json",
+    "shared_artifacts/models/nn_feature_ablation_tsn_dynamic_sequence_only-tsn_mlp-epoch=04-val_ap=0.3011.ckpt",
+    "shared_artifacts/models/nn_feature_ablation_tsn_no_categorical_features-tsn_mlp-epoch=00-val_ap=0.3469.ckpt",
+    "shared_artifacts/models/nn_feature_ablation_tsn_no_dynamic_sequence-tsn_mlp-epoch=03-val_ap=0.2383.ckpt",
+    "shared_artifacts/models/nn_feature_ablation_tsn_no_static_features-tsn_mlp-epoch=00-val_ap=0.3381.ckpt",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_dynamic_sequence_only_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_dynamic_sequence_only_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_full_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_full_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_no_categorical_features_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_no_categorical_features_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_no_dynamic_sequence_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_no_dynamic_sequence_validation_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_no_static_features_test_legacy_predictions.parquet",
+    "shared_artifacts/predictions/nn_feature_ablation_tsn_no_static_features_validation_legacy_predictions.parquet",
+    "shared_artifacts/configs_used/nn_feature_ablation_tsn_dynamic_sequence_only.yaml",
+    "shared_artifacts/configs_used/nn_feature_ablation_tsn_no_categorical_features.yaml",
+    "shared_artifacts/configs_used/nn_feature_ablation_tsn_no_dynamic_sequence.yaml",
+    "shared_artifacts/configs_used/nn_feature_ablation_tsn_no_static_features.yaml",
+    "shared_artifacts/generated_configs/nn_feature_ablation_tsn_dynamic_sequence_only.yaml",
+    "shared_artifacts/generated_configs/nn_feature_ablation_tsn_no_categorical_features.yaml",
+    "shared_artifacts/generated_configs/nn_feature_ablation_tsn_no_dynamic_sequence.yaml",
+    "shared_artifacts/generated_configs/nn_feature_ablation_tsn_no_static_features.yaml"
+  ],
+  "plots": [
+    "shared_artifacts/source_plots_mixed/neural_feature_ablation_pr_auc.png",
+    "shared_artifacts/source_plots_mixed/neural_feature_ablation_pr_auc.pdf",
+    "shared_artifacts/source_plots_mixed/neural_feature_ablation_f1.png",
+    "shared_artifacts/source_plots_mixed/neural_feature_ablation_f1.pdf"
+  ],
+  "source_tables": [
+    "shared_artifacts/raw_tables_jsonl/neural_feature_ablation.jsonl.gz"
+  ]
+}

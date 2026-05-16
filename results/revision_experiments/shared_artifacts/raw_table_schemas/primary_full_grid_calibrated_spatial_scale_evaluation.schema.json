@@ -1,0 +1,98 @@
+{
+  "columns": [
+    {
+      "dtype": "str",
+      "name": "model_name"
+    },
+    {
+      "dtype": "str",
+      "name": "model_type"
+    },
+    {
+      "dtype": "str",
+      "name": "scale"
+    },
+    {
+      "dtype": "float64",
+      "name": "spatial_resolution_degrees"
+    },
+    {
+      "dtype": "int64",
+      "name": "support_units"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_support"
+    },
+    {
+      "dtype": "float64",
+      "name": "positive_units"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_prevalence"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc"
+    },
+    {
+      "dtype": "float64",
+      "name": "max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "precision_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "recall_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "threshold_at_max_f1"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_brier_score"
+    },
+    {
+      "dtype": "float64",
+      "name": "weighted_logloss"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_fire_positive_grid_cells"
+    },
+    {
+      "dtype": "float64",
+      "name": "expected_observed_count_ratio"
+    },
+    {
+      "dtype": "float64",
+      "name": "observed_prevalence_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "average_precision_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "roc_auc_error"
+    },
+    {
+      "dtype": "float64",
+      "name": "max_f1_error"
+    }
+  ],
+  "rows": 24,
+  "source_csv": "primary_full_grid_calibrated/spatial_scale_evaluation.csv"
+}

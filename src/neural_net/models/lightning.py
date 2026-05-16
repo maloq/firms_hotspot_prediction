@@ -27,10 +27,16 @@ class SequenceStaticLightningModule(pl.LightningModule):
         clip_gradient_norm: float = 5.0,
         scheduler_config: Dict | None = None,
         log_train_ap: bool = True,
+        loss_name: str = "bce",
+        focal_gamma: float = 2.0,
+        focal_alpha: float | None = None,
     ) -> None:
         super().__init__()
         model_config = dict(model_config or {})
         scheduler_config = dict(scheduler_config or {})
+        loss_name = str(loss_name or "bce").strip().lower()
+        if loss_name not in {"bce", "focal"}:
+            raise ValueError("loss_name must be one of 'bce' or 'focal'")
         self.save_hyperparameters({
             "model_name": model_name,
             "model_config": model_config,
@@ -41,6 +47,9 @@ class SequenceStaticLightningModule(pl.LightningModule):
             "clip_gradient_norm": clip_gradient_norm,
             "scheduler_config": scheduler_config,
             "log_train_ap": log_train_ap,
+            "loss_name": loss_name,
+            "focal_gamma": focal_gamma,
+            "focal_alpha": focal_alpha,
         })
         self.model: nn.Module = build_model(model_name, **model_config)
         self.training_outputs: List[Tuple[torch.Tensor, torch.Tensor]] = []
@@ -70,10 +79,27 @@ class SequenceStaticLightningModule(pl.LightningModule):
     def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: torch.Tensor | None = None) -> torch.Tensor:
         return self.model(dyn, stat, cat)
 
+    def _loss(self, logits: torch.Tensor, target: torch.Tensor, weight: torch.Tensor | None) -> torch.Tensor:
+        if self.hparams.loss_name == "focal":
+            bce = F.binary_cross_entropy_with_logits(logits, target, reduction="none")
+            prob = torch.sigmoid(logits)
+            p_t = prob * target + (1.0 - prob) * (1.0 - target)
+            loss = bce * torch.pow(1.0 - p_t, float(self.hparams.focal_gamma))
+            if self.hparams.focal_alpha is not None:
+                alpha = float(self.hparams.focal_alpha)
+                alpha_t = alpha * target + (1.0 - alpha) * (1.0 - target)
+                loss = loss * alpha_t
+        else:
+            loss = F.binary_cross_entropy_with_logits(logits, target, reduction="none")
+
+        if weight is not None:
+            loss = loss * weight
+        return loss.mean()
+
     def _shared_step(self, batch):
-        dyn, stat, cat, y, weight = batch
+        dyn, stat, cat, y, loss_target, weight = batch
         logits = self(dyn, stat, cat if cat is not None and cat.numel() else None)
-        loss = F.binary_cross_entropy_with_logits(logits, y, weight=weight)
+        loss = self._loss(logits, loss_target, weight)
         probs = torch.sigmoid(logits)
         return loss, probs, y
 
@@ -82,7 +108,8 @@ class SequenceStaticLightningModule(pl.LightningModule):
         if self.log_train_ap:
             self.training_outputs.append((probs.detach(), y.detach()))
         batch_size = batch[0].shape[0]
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, batch_size=batch_size)
+        self.log("loss", loss, on_step=True, on_epoch=False, prog_bar=True, batch_size=batch_size)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, batch_size=batch_size)
         return loss
 
     def on_train_epoch_start(self):
@@ -99,7 +126,7 @@ class SequenceStaticLightningModule(pl.LightningModule):
             train_ap = float('nan')
         self._train_ap_last = train_ap
         # log as epoch metric
-        self.log("train_ap", train_ap, prog_bar=False, sync_dist=True)
+        self.log("train_ap", train_ap, prog_bar=True, sync_dist=True)
 
     def on_validation_epoch_start(self):
         self.validation_outputs.clear()

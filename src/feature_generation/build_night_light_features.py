@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import resource
 import shutil
 import time
@@ -21,10 +22,25 @@ from pyproj import CRS, Transformer
 from scipy.ndimage import distance_transform_edt, gaussian_filter
 
 
-ZENODO_VIIRS_2024_URL = (
-    "https://zenodo.org/records/17294744/files/"
-    "nightlights.average_viirs.v21_m_500m_s_20240101_20241231_go_epsg4326_v20250904.tif?download=1"
+ZENODO_VIIRS_RECORD_URL = "https://zenodo.org/records/17294744"
+ANNUAL_VIIRS_PATTERN = re.compile(
+    r"nightlights\.average_viirs\..*?_s_(?P<start_year>\d{4})0101_"
+    r"(?P<end_year>\d{4})1231_.*?\.tif$"
 )
+BLACK_MARBLE_FILE_PATTERN = re.compile(
+    r"VNP46A4\.A(?P<year>\d{4})001\.h(?P<h>\d{2})v(?P<v>\d{2})\."
+    r".*?\.h5$"
+)
+BLACK_MARBLE_TILE_SIZE = 2400
+BLACK_MARBLE_TILE_DEGREES = 10.0
+BLACK_MARBLE_DATASET_GROUP = "HDFEOS/GRIDS/VIIRS_Grid_DNB_2d/Data Fields"
+BLACK_MARBLE_PRODUCT_URL = (
+    "https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A4"
+)
+BLACK_MARBLE_ARCHIVE_URL = (
+    "https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/5200/VNP46A4"
+)
+BLACK_MARBLE_DOI = "10.5067/VIIRS/VNP46A4.002"
 
 
 def _set_memory_limit(memory_limit_gb: float | None) -> None:
@@ -43,6 +59,19 @@ def _kernel_label(kernel_km: float) -> str:
     if float(kernel_km).is_integer():
         return f"{int(kernel_km)}km"
     return f"{str(kernel_km).replace('.', 'p')}km"
+
+
+def _source_year_from_tif(source_tif: Path) -> int | None:
+    match = ANNUAL_VIIRS_PATTERN.match(source_tif.name)
+    if not match:
+        return None
+    start_year = int(match.group("start_year"))
+    end_year = int(match.group("end_year"))
+    return start_year if start_year == end_year else None
+
+
+def _zenodo_url_for_tif(source_tif: Path) -> str:
+    return f"{ZENODO_VIIRS_RECORD_URL}/files/{source_tif.name}?download=1"
 
 
 def _load_target_grid(path: Path) -> dict:
@@ -94,6 +123,66 @@ def _source_grid_from_tiff(image: Image.Image) -> dict:
         "pixel_height": pixel_height,
         "nodata": nodata,
     }
+
+
+def _available_black_marble_sources(source_dir: Path) -> dict[tuple[int, int, int], Path]:
+    if not source_dir.exists():
+        raise FileNotFoundError(f"Black Marble source directory not found: {source_dir}")
+
+    sources: dict[tuple[int, int, int], Path] = {}
+    for h5_path in sorted(source_dir.rglob("VNP46A4.A*.h*.h5")):
+        match = BLACK_MARBLE_FILE_PATTERN.match(h5_path.name)
+        if not match:
+            continue
+        year = int(match.group("year"))
+        h = int(match.group("h"))
+        v = int(match.group("v"))
+        sources[(year, h, v)] = h5_path
+    if not sources:
+        raise FileNotFoundError(f"No VNP46A4 HDF5 tiles found in {source_dir}")
+    return sources
+
+
+def _h5_dataset(file_handle: object, dataset_name: str):
+    group = file_handle
+    for part in BLACK_MARBLE_DATASET_GROUP.split("/"):
+        group = group[part]
+    return group[dataset_name]
+
+
+def _attr_scalar(value: object, default: float | None = None) -> float | None:
+    if value is None:
+        return default
+    arr = np.asarray(value)
+    if arr.size == 0:
+        return default
+    item = arr.reshape(-1)[0]
+    if isinstance(item, bytes):
+        item = item.decode("utf-8", errors="ignore")
+    try:
+        return float(item)
+    except (TypeError, ValueError):
+        return default
+
+
+def _sample_h5_dataset(dataset: object, rows: np.ndarray, cols: np.ndarray, *, as_quality: bool) -> np.ndarray:
+    arr = dataset[()]
+    sampled = arr[rows, cols]
+    fill_value = _attr_scalar(dataset.attrs.get("_FillValue"))
+    scale = _attr_scalar(dataset.attrs.get("scale_factor"), 1.0) or 1.0
+    offset = _attr_scalar(dataset.attrs.get("offset"), 0.0) or 0.0
+    if as_quality:
+        values = sampled.astype(np.float32, copy=False)
+        if fill_value is not None:
+            values = np.where(sampled == fill_value, 255.0, values)
+        return values.astype(np.float32, copy=False)
+
+    values = sampled.astype(np.float32, copy=False)
+    if fill_value is not None:
+        values = np.where(sampled == fill_value, np.nan, values)
+    values = values * float(scale) + float(offset)
+    values = np.where(np.isfinite(values) & (values > 0.0), values, 0.0)
+    return values.astype(np.float32, copy=False)
 
 
 def _target_centers_for_rows(
@@ -156,11 +245,124 @@ def _sample_source_chunk(
     return radiance, presence
 
 
+def _black_marble_pixels_for_coords(lons: np.ndarray, lats: np.ndarray) -> dict[str, np.ndarray]:
+    h = np.zeros(lons.shape, dtype=np.int16)
+    v = np.zeros(lons.shape, dtype=np.int16)
+    rows = np.zeros(lons.shape, dtype=np.int16)
+    cols = np.zeros(lons.shape, dtype=np.int16)
+
+    finite = np.isfinite(lons) & np.isfinite(lats)
+    valid = np.zeros(lons.shape, dtype=bool)
+    if not np.any(finite):
+        return {"h": h, "v": v, "row": rows, "col": cols, "valid": valid}
+
+    h_candidate = np.floor((lons[finite] + 180.0) / BLACK_MARBLE_TILE_DEGREES).astype(np.int16)
+    v_candidate = np.floor((90.0 - lats[finite]) / BLACK_MARBLE_TILE_DEGREES).astype(np.int16)
+    in_tile_range = (
+        (h_candidate >= 0)
+        & (h_candidate <= 35)
+        & (v_candidate >= 0)
+        & (v_candidate <= 17)
+    )
+    finite_positions = np.flatnonzero(finite)
+    candidate_positions = finite_positions[in_tile_range]
+    if candidate_positions.size == 0:
+        return {"h": h, "v": v, "row": rows, "col": cols, "valid": valid}
+
+    h_valid = h_candidate[in_tile_range]
+    v_valid = v_candidate[in_tile_range]
+    west = -180.0 + h_valid.astype(np.float64) * BLACK_MARBLE_TILE_DEGREES
+    north = 90.0 - v_valid.astype(np.float64) * BLACK_MARBLE_TILE_DEGREES
+    pixel_size = BLACK_MARBLE_TILE_DEGREES / BLACK_MARBLE_TILE_SIZE
+    row_valid = np.floor((north - lats.reshape(-1)[candidate_positions]) / pixel_size).astype(np.int16)
+    col_valid = np.floor((lons.reshape(-1)[candidate_positions] - west) / pixel_size).astype(np.int16)
+    in_pixel_range = (
+        (row_valid >= 0)
+        & (row_valid < BLACK_MARBLE_TILE_SIZE)
+        & (col_valid >= 0)
+        & (col_valid < BLACK_MARBLE_TILE_SIZE)
+    )
+    final_positions = candidate_positions[in_pixel_range]
+    h.reshape(-1)[final_positions] = h_valid[in_pixel_range]
+    v.reshape(-1)[final_positions] = v_valid[in_pixel_range]
+    rows.reshape(-1)[final_positions] = row_valid[in_pixel_range]
+    cols.reshape(-1)[final_positions] = col_valid[in_pixel_range]
+    valid.reshape(-1)[final_positions] = True
+    return {"h": h, "v": v, "row": rows, "col": cols, "valid": valid}
+
+
+def _sample_black_marble_chunk(
+    sources: dict[tuple[int, int, int], Path],
+    source_year: int,
+    lons: np.ndarray,
+    lats: np.ndarray,
+    *,
+    radiance_sds: str,
+    quality_sds: str,
+    quality_keep_values: list[int],
+    light_threshold: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    import h5py
+
+    pixels = _black_marble_pixels_for_coords(lons, lats)
+    valid = pixels["valid"]
+    radiance = np.zeros(lons.shape, dtype=np.float32)
+    if not np.any(valid):
+        return radiance, np.zeros(lons.shape, dtype=np.uint8)
+
+    flat_valid_positions = np.flatnonzero(valid.ravel())
+    flat_h = pixels["h"].ravel()[flat_valid_positions]
+    flat_v = pixels["v"].ravel()[flat_valid_positions]
+    flat_rows = pixels["row"].ravel()[flat_valid_positions].astype(np.int64)
+    flat_cols = pixels["col"].ravel()[flat_valid_positions].astype(np.int64)
+    tile_ids = flat_h.astype(np.int32) * 100 + flat_v.astype(np.int32)
+    order = np.argsort(tile_ids, kind="stable")
+    ordered_ids = tile_ids[order]
+    group_starts = np.r_[0, np.flatnonzero(np.diff(ordered_ids)) + 1]
+    group_ends = np.r_[group_starts[1:], ordered_ids.size]
+    keep_values = np.asarray([int(value) for value in quality_keep_values], dtype=np.int16)
+
+    flat_radiance = radiance.ravel()
+    for start, end in zip(group_starts, group_ends):
+        group_order = order[start:end]
+        h = int(flat_h[group_order[0]])
+        v = int(flat_v[group_order[0]])
+        source_path = sources.get((source_year, h, v))
+        if source_path is None:
+            continue
+
+        rows = flat_rows[group_order]
+        cols = flat_cols[group_order]
+        with h5py.File(source_path, "r") as handle:
+            sampled_radiance = _sample_h5_dataset(
+                _h5_dataset(handle, radiance_sds),
+                rows,
+                cols,
+                as_quality=False,
+            )
+            sampled_quality = _sample_h5_dataset(
+                _h5_dataset(handle, quality_sds),
+                rows,
+                cols,
+                as_quality=True,
+            )
+        good_quality = np.isin(sampled_quality.astype(np.int16, copy=False), keep_values)
+        sampled_radiance = np.where(good_quality, sampled_radiance, 0.0)
+        flat_radiance[flat_valid_positions[group_order]] = sampled_radiance.astype(
+            np.float32,
+            copy=False,
+        )
+
+    presence = (radiance > light_threshold).astype(np.uint8)
+    return radiance, presence
+
+
 def _sample_night_lights_to_target_grid(
     source_tif: Path,
     target_grid: dict,
     output_dir: Path,
     *,
+    source_year: int,
     light_threshold: float,
     row_chunk_size: int,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
@@ -169,7 +371,8 @@ def _sample_night_lights_to_target_grid(
     source_grid = _source_grid_from_tiff(image)
 
     shape = target_grid["shape"]
-    radiance_path = output_dir / "night_light_radiance_2024.float32.npy"
+    radiance_name = f"night_light_radiance_{source_year}"
+    radiance_path = output_dir / f"{radiance_name}.float32.npy"
     presence_path = output_dir / "night_light_presence_1km.uint8.npy"
     radiance = np.lib.format.open_memmap(radiance_path, mode="w+", dtype=np.float32, shape=shape)
     presence = np.lib.format.open_memmap(presence_path, mode="w+", dtype=np.uint8, shape=shape)
@@ -201,11 +404,12 @@ def _sample_night_lights_to_target_grid(
     radiance.flush()
     presence.flush()
     return radiance, presence, {
-        "night_light_radiance_2024": {
+        radiance_name: {
             "path": radiance_path.name,
             "dtype": "float32",
             "units": "source raster value",
-            "long_name": "2024 VIIRS annual night-light value sampled to model grid",
+            "source_year": int(source_year),
+            "long_name": f"{source_year} VIIRS annual night-light value sampled to model grid",
         },
         "night_light_presence_1km": {
             "path": presence_path.name,
@@ -217,12 +421,99 @@ def _sample_night_lights_to_target_grid(
     }
 
 
+def _sample_black_marble_to_target_grid(
+    source_dir: Path,
+    target_grid: dict,
+    output_dir: Path,
+    *,
+    source_year: int,
+    radiance_sds: str,
+    quality_sds: str,
+    quality_keep_values: list[int],
+    light_threshold: float,
+    row_chunk_size: int,
+) -> tuple[np.ndarray, np.ndarray, dict]:
+    sources = _available_black_marble_sources(source_dir)
+    available_tiles = sorted((h, v) for year, h, v in sources if year == source_year)
+    if not available_tiles:
+        raise FileNotFoundError(
+            f"No Black Marble VNP46A4 tiles for {source_year} found in {source_dir}"
+        )
+
+    shape = target_grid["shape"]
+    radiance_name = f"night_light_radiance_{source_year}"
+    radiance_path = output_dir / f"{radiance_name}.float32.npy"
+    presence_path = output_dir / "night_light_presence_1km.uint8.npy"
+    radiance = np.lib.format.open_memmap(radiance_path, mode="w+", dtype=np.float32, shape=shape)
+    presence = np.lib.format.open_memmap(presence_path, mode="w+", dtype=np.uint8, shape=shape)
+
+    target_crs = CRS.from_wkt(target_grid["crs_wkt"])
+    to_wgs84 = Transformer.from_crs(target_crs, "EPSG:4326", always_xy=True)
+    height, width = shape
+    print(
+        f"Sampling Black Marble {source_year} to target grid {height:,} x {width:,}; "
+        f"{len(available_tiles):,} tiles available for that year"
+    )
+
+    for row0 in range(0, height, row_chunk_size):
+        row1 = min(height, row0 + row_chunk_size)
+        x_grid, y_grid = _target_centers_for_rows(target_grid["transform"], row0, row1, width)
+        lons, lats = to_wgs84.transform(x_grid, y_grid)
+        radiance_chunk, presence_chunk = _sample_black_marble_chunk(
+            sources,
+            source_year,
+            lons,
+            lats,
+            radiance_sds=radiance_sds,
+            quality_sds=quality_sds,
+            quality_keep_values=quality_keep_values,
+            light_threshold=light_threshold,
+        )
+        radiance[row0:row1] = radiance_chunk
+        presence[row0:row1] = presence_chunk
+        if row0 == 0 or row1 == height or row1 % max(row_chunk_size * 10, 1) == 0:
+            print(f"  sampled rows {row0:,}-{row1:,} / {height:,}")
+
+    radiance.flush()
+    presence.flush()
+    quality_values_label = ",".join(str(value) for value in quality_keep_values)
+    return radiance, presence, {
+        radiance_name: {
+            "path": radiance_path.name,
+            "dtype": "float32",
+            "units": "nW cm-2 sr-1",
+            "source_year": int(source_year),
+            "source_product": "VNP46A4",
+            "radiance_sds": radiance_sds,
+            "quality_sds": quality_sds,
+            "quality_keep_values": [int(value) for value in quality_keep_values],
+            "long_name": (
+                f"{source_year} NASA Black Marble VNP46A4 annual radiance "
+                f"sampled to model grid; quality values kept: {quality_values_label}"
+            ),
+        },
+        "night_light_presence_1km": {
+            "path": presence_path.name,
+            "dtype": "uint8",
+            "units": "0/1",
+            "threshold": float(light_threshold),
+            "source_product": "VNP46A4",
+            "long_name": "quality-filtered Black Marble night-light source presence in 1 km cell",
+        },
+    }
+
+
 def build_night_light_features(
-    source_tif: Path,
+    source_tif: Path | None,
     target_grid_path: Path,
     output_dir: Path,
     kernels_km: list[float],
     *,
+    black_marble_source_dir: Path | None,
+    black_marble_source_year: int,
+    black_marble_radiance_sds: str,
+    black_marble_quality_sds: str,
+    black_marble_quality_keep_values: list[int],
     light_threshold: float,
     row_chunk_size: int,
     memory_limit_gb: float | None,
@@ -243,13 +534,56 @@ def build_night_light_features(
 
     start = time.time()
     target_grid = _load_target_grid(target_grid_path)
-    radiance, presence, feature_specs = _sample_night_lights_to_target_grid(
-        source_tif,
-        target_grid,
-        tmp_dir,
-        light_threshold=light_threshold,
-        row_chunk_size=row_chunk_size,
-    )
+    if source_tif is not None:
+        source_year = _source_year_from_tif(source_tif) or black_marble_source_year
+        radiance, presence, feature_specs = _sample_night_lights_to_target_grid(
+            source_tif,
+            target_grid,
+            tmp_dir,
+            source_year=source_year,
+            light_threshold=light_threshold,
+            row_chunk_size=row_chunk_size,
+        )
+        source_metadata = {
+            "source_type": "zenodo_viirs_geotiff",
+            "source_tif": str(source_tif),
+            "source_url": _zenodo_url_for_tif(source_tif),
+            "source_doi": "10.5281/zenodo.17294744",
+            "source_title": (
+                "Annual time series of global VIIRS nighttime lights for 2000-2024 "
+                "at 500-m spatial resolution extrapolated using logistic regression"
+            ),
+        }
+    else:
+        if black_marble_source_dir is None:
+            raise ValueError("Either source_tif or black_marble_source_dir must be provided.")
+        source_year = int(black_marble_source_year)
+        radiance, presence, feature_specs = _sample_black_marble_to_target_grid(
+            black_marble_source_dir,
+            target_grid,
+            tmp_dir,
+            source_year=source_year,
+            radiance_sds=black_marble_radiance_sds,
+            quality_sds=black_marble_quality_sds,
+            quality_keep_values=black_marble_quality_keep_values,
+            light_threshold=light_threshold,
+            row_chunk_size=row_chunk_size,
+        )
+        source_metadata = {
+            "source_type": "nasa_black_marble_vnp46a4",
+            "source_dir": str(black_marble_source_dir),
+            "source_year": int(source_year),
+            "source_url": f"{BLACK_MARBLE_ARCHIVE_URL}/{source_year}/001/",
+            "source_product_url": BLACK_MARBLE_PRODUCT_URL,
+            "source_doi": BLACK_MARBLE_DOI,
+            "source_title": (
+                "VIIRS/NPP Lunar BRDF-Adjusted Nighttime Lights Yearly L3 Global "
+                "15 arc second Linear Lat Lon Grid"
+            ),
+            "radiance_sds": black_marble_radiance_sds,
+            "quality_sds": black_marble_quality_sds,
+            "quality_keep_values": [int(value) for value in black_marble_quality_keep_values],
+        }
     shape = target_grid["shape"]
     resolution_m = target_grid["resolution_m"]
 
@@ -317,13 +651,6 @@ def build_night_light_features(
     manifest = {
         "format": "night_light_feature_map_v1",
         "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "source_tif": str(source_tif),
-        "source_url": ZENODO_VIIRS_2024_URL,
-        "source_doi": "10.5281/zenodo.17294744",
-        "source_title": (
-            "Annual time series of global VIIRS nighttime lights for 2000-2024 "
-            "at 500-m spatial resolution extrapolated using logistic regression"
-        ),
         "target_grid": str(target_grid_path),
         "shape": list(shape),
         "transform": list(target_grid["transform"]),
@@ -334,6 +661,7 @@ def build_night_light_features(
         "light_threshold": float(light_threshold),
         "features": feature_specs,
     }
+    manifest.update(source_metadata)
     with (tmp_dir / "manifest.json").open("w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=2)
 
@@ -349,10 +677,35 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source-tif",
         type=Path,
-        default=Path(
-            "data/night_lights/raw/"
-            "nightlights.average_viirs.v21_m_500m_s_20240101_20241231_go_epsg4326_v20250904.tif"
-        ),
+        default=None,
+        help="Legacy annual VIIRS GeoTIFF source. If omitted, NASA Black Marble HDF5 tiles are used.",
+    )
+    parser.add_argument(
+        "--black-marble-source-dir",
+        type=Path,
+        default=Path("data/night_lights/black_marble_vnp46a4"),
+        help="Directory containing downloaded VNP46A4 annual HDF5 tiles.",
+    )
+    parser.add_argument(
+        "--black-marble-source-year",
+        type=int,
+        default=2024,
+        help="VNP46A4 annual year to build the static night-light map from.",
+    )
+    parser.add_argument(
+        "--black-marble-radiance-sds",
+        default="NearNadir_Composite_Snow_Free",
+    )
+    parser.add_argument(
+        "--black-marble-quality-sds",
+        default="NearNadir_Composite_Snow_Free_Quality",
+    )
+    parser.add_argument(
+        "--black-marble-quality-keep-values",
+        nargs="+",
+        type=int,
+        default=[0],
+        help="Quality flag values to keep when writing radiance and presence maps.",
     )
     parser.add_argument(
         "--target-grid",
@@ -363,7 +716,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("data/land_features/night_lights_features_1km"),
+        default=Path("data/land_features/night_lights_black_marble_features_1km"),
     )
     parser.add_argument("--kernels-km", nargs="+", type=float, default=[5.0, 10.0, 25.0])
     parser.add_argument("--light-threshold", type=float, default=0.0)
@@ -382,6 +735,11 @@ def main() -> int:
         target_grid_path=args.target_grid,
         output_dir=args.output_dir,
         kernels_km=list(args.kernels_km),
+        black_marble_source_dir=args.black_marble_source_dir,
+        black_marble_source_year=args.black_marble_source_year,
+        black_marble_radiance_sds=args.black_marble_radiance_sds,
+        black_marble_quality_sds=args.black_marble_quality_sds,
+        black_marble_quality_keep_values=list(args.black_marble_quality_keep_values),
         light_threshold=args.light_threshold,
         row_chunk_size=args.row_chunk_size,
         memory_limit_gb=args.memory_limit_gb,
