@@ -29,15 +29,58 @@ default_config = {
     'filter_stationary_points': True,
     'stationary_points_dir': str(DEFAULT_OUTPUT_DIR),
     'use_high_latitude_filter': True,  # Set to False to use standard thresholds for all latitudes
+    'positive_count_boost_regions': [],
+    'positive_label_filter': {
+        'enabled': True,
+        'require_land': True,
+        'require_burnable_landcover': True,
+        'keep_unknown_static': True,
+        'landseamask_land_threshold': 70,
+        'min_burnable_cover': 0.05,
+        'min_burnable_categorical_value': 1.0,
+        'burnable_cover_feature_columns': [
+            'forest_cover',
+            'tree_cover',
+            'lai_hv',
+            'lai_lv',
+        ],
+        'burnable_categorical_feature_columns': [
+            'tvl',
+            'tvh',
+            'type_of_low_vegetation',
+            'type_of_high_vegetation',
+        ],
+        'landcover_file_keywords': [
+            'forest',
+            'vegetation',
+            'land_sea',
+            'landsea',
+            'landseamask',
+            'type_of_high_vegetation',
+            'type_of_low_vegetation',
+        ],
+        'use_night_light_artifact_filter': True,
+        'night_light_feature_map_path': None,
+        'night_light_artifact_columns': [
+            'night_light_black_marble_quality_filtered',
+            'night_light_black_marble_recent',
+            'night_light_radiance_recent',
+            'night_light_radiance_2024',
+        ],
+        'max_night_light_radiance': 50.0,
+        'population_columns': ['population'],
+        'max_population': None,
+    },
     'negative_sampling': {
         'strategy': 'legacy_area',
         'target_positive_fraction': 0.10,
         'stratum_weights': {
-            'near_fire_hard': 0.30,
+            'near_fire_hard': 0.25,
+            'large_city_hard': 0.10,
             'same_season': 0.20,
             'same_ecoregion': 0.20,
             'same_burnable_landcover': 0.20,
-            'random_background': 0.10,
+            'random_background': 0.05,
         },
         'exclude_positive_buffer_cells': 1,
         'exclude_positive_buffer_days': 1,
@@ -52,6 +95,8 @@ default_config = {
         'burnable_feature_columns': [
             'forest_cover',
             'tree_cover',
+            'lai_hv',
+            'lai_lv',
             'tvl',
             'tvh',
             'type_of_low_vegetation',
@@ -67,6 +112,11 @@ default_config = {
             'type_of_high_vegetation',
             'type_of_low_vegetation',
         ],
+        'large_city_min_population': 50000,
+        'large_city_min_samples_per_cell': 1,
+        'large_city_require_land': True,
+        'large_city_population_columns': ['population'],
+        'large_city_file_keywords': ['population'],
     },
     'soft_labels': {
         'enabled': True,
@@ -175,6 +225,7 @@ def deterministic_negative_seed(global_seed: int, country: str, date_start, date
 
 STRATIFIED_NEGATIVE_STRATA = [
     "near_fire_hard",
+    "large_city_hard",
     "same_season",
     "same_ecoregion",
     "same_burnable_landcover",
@@ -221,6 +272,31 @@ def _negative_sampling_settings(feature_config: dict[str, Any] | None = None) ->
     return settings
 
 
+def _positive_label_filter_settings(feature_config: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return positive-label filtering settings plus static data paths."""
+
+    settings = _deep_update(default_config["positive_label_filter"], config.get("positive_label_filter") or {})
+    feature_config = feature_config or {}
+    if "positive_label_filter" in feature_config:
+        settings = _deep_update(settings, feature_config.get("positive_label_filter") or {})
+
+    land_params = feature_config.get("land_data_params") or {}
+    if "land_data_files" not in settings and land_params.get("land_data_files"):
+        settings["land_data_files"] = land_params["land_data_files"]
+    settings.setdefault("land_data_files", [])
+    settings["land_data_files"] = list(settings.get("land_data_files") or [])
+
+    landsea_mask_path = land_params.get("landsea_mask_path")
+    if landsea_mask_path and landsea_mask_path not in settings["land_data_files"]:
+        settings["land_data_files"] = list(settings["land_data_files"]) + [landsea_mask_path]
+
+    night_light_params = feature_config.get("night_light_data_params") or {}
+    if not settings.get("night_light_feature_map_path") and night_light_params.get("feature_map_path"):
+        settings["night_light_feature_map_path"] = night_light_params["feature_map_path"]
+
+    return settings
+
+
 def _target_section_settings(
     section_name: str,
     feature_config: dict[str, Any] | None = None,
@@ -232,6 +308,14 @@ def _target_section_settings(
     if section_name in feature_config:
         settings = _deep_update(settings, feature_config.get(section_name) or {})
     return settings
+
+
+def _positive_count_boost_regions(feature_config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    regions = copy.deepcopy(config.get("positive_count_boost_regions", []) or [])
+    feature_config = feature_config or {}
+    if "positive_count_boost_regions" in feature_config:
+        regions = copy.deepcopy(feature_config.get("positive_count_boost_regions") or [])
+    return [region for region in regions if isinstance(region, dict)]
 
 
 def _desired_negative_count(positive_count: int, target_positive_fraction: float) -> int:
@@ -430,6 +514,278 @@ def _landcover_relevant_paths(paths: list[str], settings: dict[str, Any]) -> lis
     return relevant
 
 
+def _positive_filter_relevant_paths(paths: list[str], settings: dict[str, Any]) -> list[str]:
+    relevant = _landcover_relevant_paths(paths, settings)
+    if settings.get("max_population") is not None:
+        for path in paths:
+            if "population" in os.path.basename(str(path)).lower() and path not in relevant:
+                relevant.append(path)
+    return relevant
+
+
+def _large_city_relevant_paths(paths: list[str], settings: dict[str, Any]) -> list[str]:
+    keywords = [str(item).lower() for item in settings.get("large_city_file_keywords", ["population"])]
+    if not keywords:
+        return []
+    relevant = []
+    for path in paths:
+        path_lower = os.path.basename(str(path)).lower()
+        if any(keyword in path_lower for keyword in keywords):
+            relevant.append(path)
+    return relevant
+
+
+def _stratum_weight_enabled(settings: dict[str, Any], stratum: str) -> bool:
+    weights = settings.get("stratum_weights") or {}
+    try:
+        return float(weights.get(stratum, 0.0)) > 0.0
+    except (TypeError, ValueError):
+        return False
+
+
+_BURNABLE_CATEGORICAL_COLUMN_NAMES = {
+    "tvl",
+    "tvh",
+    "type_of_low_vegetation",
+    "type_of_high_vegetation",
+}
+
+
+def _configured_burnable_columns(settings: dict[str, Any]) -> tuple[list[str], list[str]]:
+    legacy_columns = [str(col) for col in settings.get("burnable_feature_columns", [])]
+
+    cover_columns = settings.get("burnable_cover_feature_columns")
+    if cover_columns is None:
+        cover_columns = [
+            col
+            for col in legacy_columns
+            if col not in _BURNABLE_CATEGORICAL_COLUMN_NAMES
+        ]
+    cover_columns = [str(col) for col in cover_columns]
+
+    categorical_columns = settings.get("burnable_categorical_feature_columns")
+    if categorical_columns is None:
+        categorical_columns = [
+            col
+            for col in legacy_columns
+            if col in _BURNABLE_CATEGORICAL_COLUMN_NAMES
+        ]
+    categorical_columns = [str(col) for col in categorical_columns]
+
+    return cover_columns, categorical_columns
+
+
+def _burnable_mask_from_static_fields(
+    frame: pd.DataFrame,
+    settings: dict[str, Any],
+) -> np.ndarray:
+    keep_unknown = bool(settings.get("keep_unknown_static", True))
+    mask = np.ones(len(frame), dtype=bool)
+
+    if bool(settings.get("require_land", True)):
+        if "landseamask" in frame.columns:
+            land_threshold = float(settings.get("landseamask_land_threshold", 70))
+            values = pd.to_numeric(frame["landseamask"], errors="coerce").to_numpy(dtype=float)
+            land = values < land_threshold
+            if keep_unknown:
+                land |= ~np.isfinite(values)
+            mask &= land
+        elif not keep_unknown:
+            mask &= False
+
+    if bool(settings.get("require_burnable_landcover", True)):
+        cover_columns, categorical_columns = _configured_burnable_columns(settings)
+        present_cover = [col for col in cover_columns if col in frame.columns]
+        present_categorical = [col for col in categorical_columns if col in frame.columns]
+
+        burnable = np.full(len(frame), bool(keep_unknown), dtype=bool)
+        if present_cover:
+            cover_values = frame[present_cover].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+            finite_rows = np.isfinite(cover_values).any(axis=1)
+            burnable = np.zeros(len(frame), dtype=bool)
+            if finite_rows.any():
+                burnable[finite_rows] = (
+                    np.nanmax(cover_values[finite_rows], axis=1)
+                    >= float(settings.get("min_burnable_cover", 0.05))
+                )
+            if keep_unknown:
+                burnable |= ~finite_rows
+        elif present_categorical:
+            categorical_values = (
+                frame[present_categorical]
+                .apply(pd.to_numeric, errors="coerce")
+                .to_numpy(dtype=float)
+            )
+            finite_rows = np.isfinite(categorical_values).any(axis=1)
+            burnable = np.zeros(len(frame), dtype=bool)
+            if finite_rows.any():
+                burnable[finite_rows] = (
+                    np.nanmax(categorical_values[finite_rows], axis=1)
+                    >= float(settings.get("min_burnable_categorical_value", 1.0))
+                )
+            if keep_unknown:
+                burnable |= ~finite_rows
+
+        mask &= burnable
+
+    return mask
+
+
+def _urban_artifact_mask_from_static_fields(
+    frame: pd.DataFrame,
+    settings: dict[str, Any],
+) -> np.ndarray:
+    artifact = np.zeros(len(frame), dtype=bool)
+
+    if bool(settings.get("use_night_light_artifact_filter", True)):
+        max_radiance = settings.get("max_night_light_radiance")
+        if max_radiance is not None:
+            for column in settings.get("night_light_artifact_columns", []):
+                if column not in frame.columns:
+                    continue
+                values = pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float)
+                artifact |= np.isfinite(values) & (values > float(max_radiance))
+
+    max_population = settings.get("max_population")
+    if max_population is not None:
+        for column in settings.get("population_columns", []):
+            if column not in frame.columns:
+                continue
+            values = pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float)
+            artifact |= np.isfinite(values) & (values > float(max_population))
+
+    return artifact
+
+
+def _large_city_mask_from_static_fields(
+    frame: pd.DataFrame,
+    settings: dict[str, Any],
+) -> np.ndarray:
+    city = np.zeros(len(frame), dtype=bool)
+
+    min_population = settings.get("large_city_min_population")
+    if min_population is not None:
+        for column in settings.get("large_city_population_columns", ["population"]):
+            if column not in frame.columns:
+                continue
+            values = pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float)
+            city |= np.isfinite(values) & (values >= float(min_population))
+
+    min_night_light = settings.get("large_city_min_night_light_radiance")
+    if min_night_light is not None:
+        for column in settings.get("large_city_night_light_columns", []):
+            if column not in frame.columns:
+                continue
+            values = pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float)
+            city |= np.isfinite(values) & (values >= float(min_night_light))
+
+    if bool(settings.get("large_city_require_land", True)) and "landseamask" in frame.columns:
+        land_threshold = float(settings.get("landseamask_land_threshold", 70))
+        values = pd.to_numeric(frame["landseamask"], errors="coerce").to_numpy(dtype=float)
+        city &= np.isfinite(values) & (values < land_threshold)
+
+    return city
+
+
+def _filter_positive_labels_by_static_context(
+    positives: pd.DataFrame,
+    settings: dict[str, Any],
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    burnable = _burnable_mask_from_static_fields(positives, settings)
+    artifact = _urban_artifact_mask_from_static_fields(positives, settings)
+    keep = burnable & ~artifact
+    stats = {
+        "input_rows": int(len(positives)),
+        "removed_non_burnable": int((~burnable).sum()),
+        "removed_urban_artifact": int((burnable & artifact).sum()),
+        "removed_total": int((~keep).sum()),
+        "output_rows": int(keep.sum()),
+    }
+    return positives.loc[keep].reset_index(drop=True), stats
+
+
+def _enrich_positive_labels_for_filter(
+    positives: pd.DataFrame,
+    settings: dict[str, Any],
+) -> pd.DataFrame:
+    unique_coords = (
+        positives[["lat_rounded", "lon_rounded"]]
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    if unique_coords.empty:
+        return positives
+
+    static_coords = unique_coords.copy()
+
+    land_files = _existing_paths(_positive_filter_relevant_paths(list(settings.get("land_data_files") or []), settings))
+    if land_files:
+        try:
+            from src.feature_generation.prepare_land import prepare_land_data
+
+            land_df, land_names = prepare_land_data(
+                land_data_files=land_files,
+                target_df=unique_coords,
+                radius_meters=None,
+            )
+            land_cols = ["lat_rounded", "lon_rounded"] + [
+                name for name in land_names if name in land_df.columns
+            ]
+            static_coords = static_coords.merge(
+                land_df[land_cols].drop_duplicates(["lat_rounded", "lon_rounded"]),
+                on=["lat_rounded", "lon_rounded"],
+                how="left",
+            )
+            print(f"Added static land-cover fields for positive-label filtering: {land_cols[2:]}")
+        except Exception as exc:
+            print(f"Warning: failed to add static fields for positive-label filtering: {exc}")
+    else:
+        print("Warning: no static land-cover files available for positive-label filtering.")
+
+    night_light_path = settings.get("night_light_feature_map_path")
+    if bool(settings.get("use_night_light_artifact_filter", True)) and night_light_path:
+        if os.path.exists(str(night_light_path)):
+            try:
+                from src.feature_generation.prepare_night_light_features import get_night_light_features_for_coords
+
+                coords = unique_coords[["lat_rounded", "lon_rounded"]].to_numpy(dtype=float).T
+                night_df = get_night_light_features_for_coords(
+                    coords=coords,
+                    feature_map_path=str(night_light_path),
+                )
+                night_cols = [
+                    col for col in night_df.columns
+                    if col not in {"lat", "lon", "latitude", "longitude", "lat_rounded", "lon_rounded"}
+                ]
+                if night_cols:
+                    night_features = pd.concat(
+                        [
+                            unique_coords.reset_index(drop=True),
+                            night_df[night_cols].reset_index(drop=True),
+                        ],
+                        axis=1,
+                    )
+                    static_coords = static_coords.merge(
+                        night_features.drop_duplicates(["lat_rounded", "lon_rounded"]),
+                        on=["lat_rounded", "lon_rounded"],
+                        how="left",
+                    )
+                    print(f"Added night-light fields for positive-label filtering: {night_cols}")
+            except Exception as exc:
+                print(f"Warning: failed to add night-light fields for positive-label filtering: {exc}")
+        else:
+            print(
+                "Warning: night-light artifact filter configured but feature map path "
+                f"does not exist: {night_light_path}"
+            )
+
+    return positives.merge(
+        static_coords.drop_duplicates(["lat_rounded", "lon_rounded"]),
+        on=["lat_rounded", "lon_rounded"],
+        how="left",
+    )
+
+
 def _enrich_cells_with_static_strata(cells: pd.DataFrame, settings: dict[str, Any]) -> pd.DataFrame:
     """Add ecoregion and burnable/land-cover fields to candidate cells when available."""
 
@@ -455,7 +811,15 @@ def _enrich_cells_with_static_strata(cells: pd.DataFrame, settings: dict[str, An
     if "ecoregion_realm" not in enriched.columns:
         enriched["ecoregion_realm"] = "Unknown"
 
-    land_files = _existing_paths(_landcover_relevant_paths(list(settings.get("land_data_files") or []), settings))
+    configured_land_files = list(settings.get("land_data_files") or [])
+    relevant_land_files = _landcover_relevant_paths(configured_land_files, settings)
+    if _stratum_weight_enabled(settings, "large_city_hard"):
+        relevant_land_files = list(
+            dict.fromkeys(
+                relevant_land_files + _large_city_relevant_paths(configured_land_files, settings)
+            )
+        )
+    land_files = _existing_paths(relevant_land_files)
     if bool(settings.get("use_landcover", True)) and land_files:
         try:
             from src.feature_generation.prepare_land import prepare_land_data
@@ -474,19 +838,13 @@ def _enrich_cells_with_static_strata(cells: pd.DataFrame, settings: dict[str, An
     elif bool(settings.get("use_landcover", True)):
         print("Warning: no static land-cover files available; burnable stratum will use land-only fallback.")
 
-    land_threshold = float(settings.get("landseamask_land_threshold", 70))
-    burnable = np.ones(len(enriched), dtype=bool)
-    if "landseamask" in enriched.columns:
-        burnable &= pd.to_numeric(enriched["landseamask"], errors="coerce").fillna(100).to_numpy(dtype=float) < land_threshold
-
-    burnable_cols = [col for col in settings.get("burnable_feature_columns", []) if col in enriched.columns]
-    if burnable_cols:
-        vegetation_like = np.zeros(len(enriched), dtype=bool)
-        for col in burnable_cols:
-            values = pd.to_numeric(enriched[col], errors="coerce")
-            vegetation_like |= values.fillna(0).to_numpy(dtype=float) > 0
-        burnable &= vegetation_like
-    enriched["burnable"] = burnable
+    enriched["burnable"] = _burnable_mask_from_static_fields(enriched, settings)
+    enriched["large_city_hard"] = _large_city_mask_from_static_fields(enriched, settings)
+    if _stratum_weight_enabled(settings, "large_city_hard"):
+        print(
+            "Large-city hard-negative candidate cells:"
+            f" {int(enriched['large_city_hard'].sum())}"
+        )
 
     match_cols = [col for col in settings.get("landcover_match_columns", []) if col in enriched.columns]
     if match_cols:
@@ -621,6 +979,7 @@ def _append_negative_candidate(
     lon_keys: np.ndarray,
     all_dates_count: int,
     requested_in_stratum: int,
+    universe_cell_count: int | None = None,
     nearest_positive_distance_cells: float | None = None,
     nearest_positive_delta_days: float | None = None,
 ) -> bool:
@@ -630,7 +989,8 @@ def _append_negative_candidate(
     if key in blocked_keys or key in used_keys:
         return False
     used_keys.add(key)
-    universe = max(1, len(cells) * max(1, all_dates_count))
+    cell_count = len(cells) if universe_cell_count is None else int(universe_cell_count)
+    universe = max(1, cell_count * max(1, all_dates_count))
     probability = min(1.0, max(0.0, float(requested_in_stratum) / float(universe)))
     sample_weight = float("nan") if probability <= 0 else 1.0 / probability
     rows.append(
@@ -820,6 +1180,79 @@ def _sample_near_fire_stratum(
     return len(rows) - before
 
 
+def _sample_large_city_stratum(
+    *,
+    take: int,
+    cells: pd.DataFrame,
+    dates: pd.DatetimeIndex,
+    rng: np.random.Generator,
+    rows: list[dict[str, Any]],
+    used_keys: set[tuple[str, int, int, int]],
+    blocked_keys: set[tuple[str, int, int, int]],
+    lat_keys: np.ndarray,
+    lon_keys: np.ndarray,
+    settings: dict[str, Any],
+) -> int:
+    if take <= 0 or cells.empty or len(dates) == 0 or "large_city_hard" not in cells.columns:
+        return 0
+
+    city_indices = np.flatnonzero(cells["large_city_hard"].fillna(False).to_numpy(dtype=bool))
+    if len(city_indices) == 0:
+        print("Warning: no large-city candidate cells available for hard negatives.")
+        return 0
+
+    before = len(rows)
+    min_samples_per_cell = max(0, int(settings.get("large_city_min_samples_per_cell", 1)))
+    max_attempts = max(1000, int(take) * int(settings.get("max_attempt_multiplier", 80)))
+    date_values = dates.to_numpy()
+
+    if min_samples_per_cell > 0:
+        guaranteed = np.repeat(city_indices, min_samples_per_cell)
+        rng.shuffle(guaranteed)
+        for cell_idx in guaranteed:
+            if len(rows) - before >= take:
+                break
+            for _ in range(20):
+                date_value = rng.choice(date_values)
+                if _append_negative_candidate(
+                    rows,
+                    used_keys,
+                    blocked_keys,
+                    cell_idx=int(cell_idx),
+                    date_value=date_value,
+                    stratum="large_city_hard",
+                    cells=cells,
+                    lat_keys=lat_keys,
+                    lon_keys=lon_keys,
+                    all_dates_count=len(dates),
+                    requested_in_stratum=take,
+                    universe_cell_count=len(city_indices),
+                ):
+                    break
+
+    for _ in range(max_attempts):
+        if len(rows) - before >= take:
+            break
+        cell_idx = int(rng.choice(city_indices))
+        date_value = rng.choice(date_values)
+        _append_negative_candidate(
+            rows,
+            used_keys,
+            blocked_keys,
+            cell_idx=cell_idx,
+            date_value=date_value,
+            stratum="large_city_hard",
+            cells=cells,
+            lat_keys=lat_keys,
+            lon_keys=lon_keys,
+            all_dates_count=len(dates),
+            requested_in_stratum=take,
+            universe_cell_count=len(city_indices),
+        )
+
+    return len(rows) - before
+
+
 def _sample_stratified_negatives_from_cells(
     *,
     positives: pd.DataFrame,
@@ -887,6 +1320,18 @@ def _sample_stratified_negatives_from_cells(
         positives=positives,
         cells=cells,
         cell_lookup=cell_lookup,
+        dates=dates,
+        rng=rng,
+        rows=rows,
+        used_keys=used_keys,
+        blocked_keys=blocked_keys,
+        lat_keys=lat_keys,
+        lon_keys=lon_keys,
+        settings=settings,
+    )
+    sampled_counts["large_city_hard"] = _sample_large_city_stratum(
+        take=allocations.get("large_city_hard", 0),
+        cells=cells,
         dates=dates,
         rng=rng,
         rows=rows,
@@ -1297,18 +1742,31 @@ def filter_negative_neighbors(data: pd.DataFrame,
     return result.reset_index(drop=True)
 
 
-def _initial_positive_counts(latitude, longitude) -> np.ndarray:
+def _initial_positive_counts(
+    latitude,
+    longitude,
+    boost_regions: Sequence[dict[str, Any]] | None = None,
+) -> np.ndarray:
     """Return target weights for positive detections before cell/date grouping."""
 
     lat = np.asarray(latitude)
     lon = np.asarray(longitude)
-    special_region_mask_NW = (lat > 60) & (lon < 45)
-    special_region_mask_W = (lat > 55) & (lon < 60)
-    return np.select(
-        [special_region_mask_NW, special_region_mask_W],
-        [3, 2],
-        default=1,
-    ).astype(int)
+    counts = np.ones(len(lat), dtype=int)
+    for region in boost_regions or []:
+        multiplier = int(region.get("multiplier", region.get("count", 1)))
+        if multiplier <= 1:
+            continue
+        mask = np.ones(len(lat), dtype=bool)
+        if region.get("min_lat") is not None:
+            mask &= lat >= float(region["min_lat"])
+        if region.get("max_lat") is not None:
+            mask &= lat <= float(region["max_lat"])
+        if region.get("min_lon") is not None:
+            mask &= lon >= float(region["min_lon"])
+        if region.get("max_lon") is not None:
+            mask &= lon <= float(region["max_lon"])
+        counts[mask] = np.maximum(counts[mask], multiplier)
+    return counts
 
 
 def _as_positive_int_list(value: Any, default: list[int]) -> list[int]:
@@ -1684,15 +2142,42 @@ def prepare_target_data(
     data['month'] = data['acq_date'].apply(lambda d: d.month)
     data['year'] = data['acq_date'].apply(lambda d: d.year)
 
+    positive_filter_settings = _positive_label_filter_settings(negative_sampling_feature_config)
+    if bool(positive_filter_settings.get("enabled", True)):
+        print("\nFiltering positive labels using static burnable/urban context...")
+        original_columns = list(data.columns)
+        enriched_for_filter = _enrich_positive_labels_for_filter(data, positive_filter_settings)
+        filtered_data, filter_stats = _filter_positive_labels_by_static_context(
+            enriched_for_filter,
+            positive_filter_settings,
+        )
+        print(
+            "Positive-label filter:"
+            f" input={filter_stats['input_rows']},"
+            f" removed_non_burnable={filter_stats['removed_non_burnable']},"
+            f" removed_urban_artifact={filter_stats['removed_urban_artifact']},"
+            f" output={filter_stats['output_rows']}"
+        )
+        if filtered_data.empty:
+            raise ValueError("No positive target rows remain after positive-label filtering.")
+        data = filtered_data[original_columns].copy()
+    else:
+        print("\nPositive-label static filtering disabled via config.")
+
     date_start = data['acq_date'].min()
     date_end = data['acq_date'].max()
     
-    # Initialize count: 1 for normal points, 2 for points in the special region
-    special_region_mask_NW = (data['latitude'] > 60) & (data['longitude'] < 45)
-    special_region_mask_W = (data['latitude'] > 55) & (data['longitude'] < 60)
-    data['count'] = _initial_positive_counts(data['latitude'], data['longitude'])
-    print(f"\nTriple base count for {special_region_mask_NW.sum()} points in the special region (lat>60, lon<45).")
-    print(f"\nDoubled base count for {(special_region_mask_W & ~special_region_mask_NW).sum()} points in the special region (lat>55, lon<60).")
+    boost_regions = _positive_count_boost_regions(negative_sampling_feature_config)
+    data['count'] = _initial_positive_counts(
+        data['latitude'],
+        data['longitude'],
+        boost_regions=boost_regions,
+    )
+    if boost_regions:
+        boosted_rows = int((data['count'] > 1).sum())
+        print(f"\nApplied configured positive count boosts to {boosted_rows} detection rows.")
+    else:
+        print("\nNo positive count boost regions configured; all detections start with count=1.")
 
     # --- Step 1: Group positive points ---
     data_grouped = data.groupby(['lat_rounded', 'lon_rounded', 'acq_date'], observed=True).agg(

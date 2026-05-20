@@ -1,0 +1,16 @@
+region_display,model_name,period_start,period_end,window_days,average_precision,spatial_tolerant_average_precision,spatial_tolerant_weighted_brier_score
+Global,Spatial climate TSN-MLP (global full),2022-03-10,2022-03-12,3,1.0,1.0,0.0367
+Global,Spatial climate TSN-MLP (global full),2022-09-28,2022-09-30,3,1.0,1.0,0.0314
+Global,Spatial climate TSN-MLP (global full),2023-01-13,2023-01-15,3,0.9889,0.9889,0.0176
+Eastern Siberia,Spatial climate TSN-MLP (global full),2022-03-10,2022-03-12,3,1.0,1.0,0.0507
+Eastern Siberia,Spatial climate TSN-MLP (global full),2022-09-08,2022-09-10,3,1.0,1.0,0.0249
+Eastern Siberia,Spatial climate TSN-MLP (global full),2023-08-13,2023-08-15,3,0.9887,0.9887,0.056
+Far East,Spatial climate TSN-MLP (global full),2021-03-22,2021-03-24,3,1.0,1.0,0.2295
+Far East,Spatial climate TSN-MLP (global full),2022-05-01,2022-05-03,3,1.0,1.0,0.0691
+Far East,Spatial climate TSN-MLP (global full),2024-03-13,2024-03-15,3,0.9924,0.9924,0.09
+Central Asia,Spatial climate TSN-MLP (global full),2023-01-11,2023-01-13,3,1.0,1.0,0.0382
+Central Asia,Spatial climate TSN-MLP (global full),2023-03-13,2023-03-15,3,1.0,1.0,0.0346
+Central Asia,Spatial climate TSN-MLP (global full),2022-03-23,2022-03-25,3,1.0,1.0,0.0429
+Europe,Spatial climate TSN-MLP (global full),2023-01-11,2023-01-13,3,1.0,1.0,0.0325
+Europe,Spatial climate TSN-MLP (global full),2023-03-13,2023-03-15,3,1.0,1.0,0.0305
+Europe,Spatial climate TSN-MLP (global full),2022-03-03,2022-03-05,3,1.0,1.0,0.0327

@@ -1,0 +1,17 @@
+Experiment,F1,F1 Error,PR-AUC,PR-AUC Error,Delta PR-AUC
+CatBoost <=30d climate windows,0.5478,0.001454,0.5833,0.008477,-0.0018
+CatBoost dynamic weather+FWI only,0.4159,0.002149,0.4822,0.007675,0.0993
+CatBoost no Gaussian-smoothed anthropogenic rasters,0.5051,0.001745,0.5789,0.00763,0.0026
+CatBoost no anthropogenic,0.5245,0.004681,0.5278,0.007538,0.0537
+CatBoost no fuel/ecoregion/vegetation,0.5709,0.001007,0.5885,0.007673,-0.007
+CatBoost no history,0.4294,0.000793,0.3447,0.001279,0.2369
+CatBoost no seasonality,0.5103,0.001581,0.5818,0.007757,-0.0002
+CatBoost no sine/cos seasonality,0.507,0.001949,0.5815,0.007751,0.0
+CatBoost no temporal-history/weather lags,0.4644,0.001791,0.4471,0.006886,0.1344
+CatBoost no terrain,0.5748,0.002229,0.6009,0.007289,-0.0194
+CatBoost static only,0.4929,0.003533,0.5042,0.008082,0.0773
+CatBoost-no-ecoregion,0.507,0.001949,0.5815,0.007751,0.0
+CatBoost-no-geography,0.507,0.001949,0.5815,0.007751,0.0
+FWI-only CatBoost,0.3453,0.00161,0.3106,0.00629,0.2709
+Full CatBoost,0.507,0.001949,0.5815,0.007751,0.0
+Weather-only CatBoost,0.4108,0.001538,0.4912,0.006875,0.0903

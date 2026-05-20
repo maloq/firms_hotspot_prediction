@@ -256,6 +256,7 @@ def _generate_features_for_forecast_day(df_target_day: pd.DataFrame, config: dic
         land_data_files=land_data_params["land_data_files"],
         landsea_mask_path=land_data_params.get("landsea_mask_path"),
         landsea_distance_path=land_data_params.get("landsea_distance_path"),
+        landsea_mask_threshold=land_data_params.get("landsea_mask_threshold", 70),
         # Ecoregion
         wwf_shp_path=land_data_params["wwf_shp_path"],
         # Other controls

@@ -1,0 +1,7 @@
+Model,Prevalence,Mean Prob,Cal Intercept,Cal Slope,Daily MAE
+CatBoost,4.9e-05,0.0002,-0.1002,1.1381,40.11
+FWI-only CatBoost,4.9e-05,0.0002,-0.1022,1.1227,41.8051
+Logistic Regression (linear SGD),4.9e-05,0.139,-9.868,0.0684,39122.2111
+Poisson Point-Process GLM,4.9e-05,0.0001,-0.0914,1.1134,33.5261
+Random Forest,4.9e-05,0.0001,-0.0905,1.118,31.2668
+Weather-only CatBoost,4.9e-05,0.0001,-0.098,1.1117,33.943

@@ -129,12 +129,13 @@ new_nn_models:
   - lstm_gated_moe
 
 probability_overlay_source: legacy
-probability_overlay_model: best_neural
+probability_overlay_model: nn_global_full_spatial_tsn
 probability_overlay_best_model_scope: global
 probability_overlay_selection_metric: average_precision
 probability_overlay_min_wildfires: 7
 probability_overlay_window_days: 3
-probability_overlay_top_periods: 1
+probability_overlay_top_periods: 3
+probability_overlay_allow_overlapping_periods: false
 probability_overlay_regions:
 probability_overlay_include_global: true
 probability_overlay_surface_source: dense-neural

@@ -1,0 +1,51 @@
+Region,Period,Variant,F1,PR-AUC,PR-AUC Error,Delta PR-AUC
+Central Asia,2021-2023,Dynamic sequence only,0.1285,0.071,0.0007,0.2199
+Central Asia,2021-2023,Full neural feature set,0.1897,0.2909,0.0092,0.0
+Central Asia,2021-2023,No categorical features,0.2347,0.284,0.0109,0.0069
+Central Asia,2021-2023,No dynamic weather sequence,0.2035,0.2047,0.0077,0.0862
+Central Asia,2021-2023,No static features,0.172,0.2451,0.004,0.0458
+Central Asia,2021-2025,Dynamic sequence only,0.1034,0.0555,0.0009,0.2162
+Central Asia,2021-2025,Full neural feature set,0.1567,0.2717,0.0104,0.0
+Central Asia,2021-2025,No categorical features,0.1947,0.2569,0.005,0.0148
+Central Asia,2021-2025,No dynamic weather sequence,0.1619,0.1573,0.0067,0.1144
+Central Asia,2021-2025,No static features,0.1421,0.2272,0.012,0.0445
+Eastern Siberia,2021-2023,Dynamic sequence only,0.4316,0.2602,0.0013,0.3023
+Eastern Siberia,2021-2023,Full neural feature set,0.5413,0.5625,0.0037,0.0
+Eastern Siberia,2021-2023,No categorical features,0.5791,0.6019,0.0061,-0.0394
+Eastern Siberia,2021-2023,No dynamic weather sequence,0.5381,0.4559,0.003,0.1066
+Eastern Siberia,2021-2023,No static features,0.5337,0.5146,0.007,0.0479
+Eastern Siberia,2021-2025,Dynamic sequence only,0.3928,0.2796,0.0023,0.2466
+Eastern Siberia,2021-2025,Full neural feature set,0.5029,0.5262,0.0042,0.0
+Eastern Siberia,2021-2025,No categorical features,0.542,0.5483,0.0043,-0.0221
+Eastern Siberia,2021-2025,No dynamic weather sequence,0.4896,0.3987,0.0015,0.1275
+Eastern Siberia,2021-2025,No static features,0.5036,0.4846,0.0026,0.0416
+Europe,2021-2023,Dynamic sequence only,0.1001,0.0715,0.0024,0.3065
+Europe,2021-2023,Full neural feature set,0.2189,0.3779,0.0165,0.0
+Europe,2021-2023,No categorical features,0.2783,0.2922,0.0087,0.0857
+Europe,2021-2023,No dynamic weather sequence,0.2126,0.237,0.012,0.141
+Europe,2021-2023,No static features,0.1768,0.253,0.0118,0.1249
+Europe,2021-2025,Dynamic sequence only,0.1037,0.0778,0.0027,0.26
+Europe,2021-2025,Full neural feature set,0.2214,0.3378,0.0143,0.0
+Europe,2021-2025,No categorical features,0.2742,0.2726,0.0039,0.0652
+Europe,2021-2025,No dynamic weather sequence,0.2062,0.2127,0.0052,0.1251
+Europe,2021-2025,No static features,0.1805,0.2377,0.0063,0.1001
+Far East,2021-2023,Dynamic sequence only,0.2184,0.3135,0.0116,0.126
+Far East,2021-2023,Full neural feature set,0.2998,0.4394,0.0156,0.0
+Far East,2021-2023,No categorical features,0.3497,0.4238,0.011,0.0156
+Far East,2021-2023,No dynamic weather sequence,0.3814,0.2738,0.0076,0.1656
+Far East,2021-2023,No static features,0.2892,0.3802,0.0138,0.0592
+Far East,2021-2025,Dynamic sequence only,0.2105,0.2942,0.0161,0.1279
+Far East,2021-2025,Full neural feature set,0.2993,0.422,0.0132,0.0
+Far East,2021-2025,No categorical features,0.3486,0.4013,0.0097,0.0208
+Far East,2021-2025,No dynamic weather sequence,0.3796,0.275,0.0068,0.147
+Far East,2021-2025,No static features,0.2911,0.3583,0.0094,0.0637
+Global,2021-2023,Dynamic sequence only,0.3024,0.2163,0.0027,0.272
+Global,2021-2023,Full neural feature set,0.4337,0.4883,0.004,0.0
+Global,2021-2023,No categorical features,0.4851,0.511,0.0049,-0.0228
+Global,2021-2023,No dynamic weather sequence,0.4402,0.3503,0.0018,0.138
+Global,2021-2023,No static features,0.4143,0.4242,0.0038,0.0641
+Global,2021-2025,Dynamic sequence only,0.2657,0.2158,0.0037,0.2335
+Global,2021-2025,Full neural feature set,0.3927,0.4492,0.0036,0.0
+Global,2021-2025,No categorical features,0.4482,0.4658,0.0068,-0.0166
+Global,2021-2025,No dynamic weather sequence,0.3885,0.2976,0.0012,0.1517
+Global,2021-2025,No static features,0.381,0.397,0.0066,0.0522

@@ -1,0 +1,121 @@
+Experiment,Status,Year,Region,F1,F1 Error,PR-AUC,PR-AUC Error
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2021,Central Asia,0.4018,0.0055,0.4528,0.0123
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2021,Eastern Siberia,0.8003,0.0027,0.8166,0.0032
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2021,Europe,0.341,0.0034,0.4506,0.0239
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2021,Far East,0.6263,0.0115,0.6342,0.0228
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2021,Global,0.7414,0.0023,0.782,0.0036
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2022,Central Asia,0.3641,0.0048,0.5219,0.0196
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2022,Eastern Siberia,0.544,0.0111,0.5102,0.0117
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2022,Europe,0.3771,0.0058,0.4772,0.0217
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2022,Far East,0.6408,0.0127,0.7051,0.0306
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2022,Global,0.5284,0.0024,0.5531,0.0028
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2023,Central Asia,0.2885,0.0065,0.3964,0.026
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2023,Eastern Siberia,0.4512,0.0026,0.5886,0.0102
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2023,Europe,0.3953,0.0091,0.6212,0.0213
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2023,Far East,0.5714,0.0079,0.6699,0.028
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2023,Global,0.5561,0.0014,0.6175,0.0035
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2024,Central Asia,0.1972,0.0075,0.3621,0.0182
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2024,Eastern Siberia,0.6683,0.0044,0.6877,0.0056
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2024,Europe,0.3591,0.0109,0.4001,0.0208
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2024,Far East,0.6386,0.021,0.6525,0.0162
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,2024,Global,0.6228,0.0034,0.6422,0.0035
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Central Asia,0.2331,0.0024,0.289,0.0116
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Eastern Siberia,0.6949,0.0018,0.7175,0.0048
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Europe,0.1646,0.0028,0.17,0.0056
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Far East,0.2735,0.0022,0.3168,0.0105
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Global,0.5847,0.0017,0.6566,0.0045
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Central Asia,0.2113,0.0032,0.4392,0.0167
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Eastern Siberia,0.2456,0.0025,0.2054,0.0091
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Europe,0.1868,0.0052,0.1921,0.0182
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Far East,0.209,0.002,0.202,0.0146
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Global,0.2674,0.0013,0.2622,0.0054
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Central Asia,0.14,0.0023,0.2838,0.0132
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Eastern Siberia,0.2391,0.0029,0.2889,0.0054
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Europe,0.2258,0.0054,0.2864,0.0166
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Far East,0.301,0.0022,0.2506,0.0109
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Global,0.3529,0.001,0.423,0.0074
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Central Asia,0.0818,0.0015,0.1644,0.0105
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Eastern Siberia,0.5014,0.0015,0.4336,0.004
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Europe,0.1802,0.0044,0.2433,0.012
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Far East,0.2789,0.0024,0.2487,0.0132
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Global,0.3839,0.0015,0.3691,0.0049
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Central Asia,0.3983,0.0083,0.3661,0.0174
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Eastern Siberia,0.771,0.0016,0.7619,0.0044
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Europe,0.2212,0.0151,0.195,0.0055
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Far East,0.5406,0.0115,0.5874,0.018
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Global,0.7227,0.0022,0.7209,0.0032
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Central Asia,0.3925,0.0059,0.3927,0.0089
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Eastern Siberia,0.3721,0.005,0.3602,0.013
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Europe,0.3722,0.0136,0.305,0.0108
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Far East,0.4928,0.033,0.484,0.041
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Global,0.4394,0.0029,0.3929,0.0054
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Central Asia,0.346,0.008,0.3043,0.0186
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Eastern Siberia,0.3923,0.0045,0.4228,0.0184
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Europe,0.2789,0.0185,0.3331,0.0124
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Far East,0.5452,0.015,0.4558,0.0172
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Global,0.5124,0.0048,0.5244,0.0078
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Central Asia,0.139,0.0123,0.0935,0.0112
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Eastern Siberia,0.5011,0.0017,0.4615,0.004
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Europe,0.2716,0.007,0.1729,0.0115
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Far East,0.4158,0.0109,0.3355,0.0222
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Global,0.4447,0.0024,0.3954,0.0054
+ERA5 -> ERA5 (no tp),completed_available_domain,2021,Central Asia,0.5008,0.0138,0.5378,0.0209
+ERA5 -> ERA5 (no tp),completed_available_domain,2021,Eastern Siberia,0.8171,0.0022,0.8487,0.0027
+ERA5 -> ERA5 (no tp),completed_available_domain,2021,Europe,0.432,0.0066,0.3731,0.0111
+ERA5 -> ERA5 (no tp),completed_available_domain,2021,Far East,0.6356,0.013,0.6846,0.0244
+ERA5 -> ERA5 (no tp),completed_available_domain,2021,Global,0.7777,0.0022,0.8173,0.0022
+ERA5 -> ERA5 (no tp),completed_available_domain,2022,Central Asia,0.4639,0.0128,0.5252,0.0163
+ERA5 -> ERA5 (no tp),completed_available_domain,2022,Eastern Siberia,0.584,0.0053,0.6404,0.0123
+ERA5 -> ERA5 (no tp),completed_available_domain,2022,Europe,0.521,0.0146,0.41,0.0165
+ERA5 -> ERA5 (no tp),completed_available_domain,2022,Far East,0.5817,0.0355,0.6796,0.0465
+ERA5 -> ERA5 (no tp),completed_available_domain,2022,Global,0.6131,0.0019,0.6192,0.0051
+ERA5 -> ERA5 (no tp),completed_available_domain,2023,Central Asia,0.3562,0.0066,0.2952,0.0109
+ERA5 -> ERA5 (no tp),completed_available_domain,2023,Eastern Siberia,0.5468,0.0032,0.6142,0.0097
+ERA5 -> ERA5 (no tp),completed_available_domain,2023,Europe,0.5436,0.0212,0.4898,0.0278
+ERA5 -> ERA5 (no tp),completed_available_domain,2023,Far East,0.6739,0.0138,0.6566,0.0444
+ERA5 -> ERA5 (no tp),completed_available_domain,2023,Global,0.631,0.0048,0.6705,0.0046
+ERA5 -> ERA5 (no tp),completed_available_domain,2024,Central Asia,0.1605,0.007,0.1201,0.0178
+ERA5 -> ERA5 (no tp),completed_available_domain,2024,Eastern Siberia,0.6242,0.0024,0.6327,0.0021
+ERA5 -> ERA5 (no tp),completed_available_domain,2024,Europe,0.2922,0.012,0.2377,0.0137
+ERA5 -> ERA5 (no tp),completed_available_domain,2024,Far East,0.5745,0.0164,0.4918,0.0278
+ERA5 -> ERA5 (no tp),completed_available_domain,2024,Global,0.5741,0.0034,0.5732,0.0065
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Central Asia,0.2487,0.0177,0.3115,0.0116
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Eastern Siberia,0.6573,0.0012,0.765,0.0027
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Europe,0.0679,0.0079,0.1975,0.0027
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Far East,0.6309,0.0069,0.655,0.0154
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Global,0.6156,0.0031,0.7197,0.0044
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Central Asia,0.3862,0.0302,0.465,0.0167
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Eastern Siberia,0.3413,0.0092,0.3408,0.0077
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Europe,0.1199,0.0055,0.3148,0.0114
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Far East,0.533,0.0463,0.4358,0.0505
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Global,0.3635,0.0087,0.4172,0.0066
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Central Asia,0.1872,0.0254,0.3072,0.0208
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Eastern Siberia,0.5125,0.0144,0.4912,0.017
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Europe,0.0525,0.0223,0.3165,0.0092
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Far East,0.4183,0.0168,0.4293,0.0237
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Global,0.5034,0.0081,0.5648,0.0105
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Central Asia,0.0422,0.0143,0.1038,0.0088
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Eastern Siberia,0.4359,0.0026,0.4388,0.0039
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Europe,0.1057,0.0209,0.1771,0.013
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Far East,0.3883,0.0161,0.3063,0.0193
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Global,0.3676,0.0076,0.373,0.0039
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Central Asia,0.3948,0.0067,0.3349,0.0153
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Eastern Siberia,0.7647,0.0015,0.7356,0.0034
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Europe,0.2304,0.0081,0.1886,0.0083
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Far East,0.5603,0.009,0.5274,0.0177
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2021,Global,0.7112,0.0014,0.7005,0.0025
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Central Asia,0.3203,0.0078,0.2531,0.0108
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Eastern Siberia,0.3265,0.0086,0.2953,0.0084
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Europe,0.3422,0.019,0.2691,0.0082
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Far East,0.495,0.0277,0.4346,0.0289
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2022,Global,0.4041,0.0027,0.3286,0.0048
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Central Asia,0.3009,0.0056,0.2845,0.0203
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Eastern Siberia,0.3689,0.0024,0.3903,0.0164
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Europe,0.4161,0.0129,0.3089,0.01
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Far East,0.5444,0.0032,0.4448,0.0147
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2023,Global,0.5335,0.0047,0.5033,0.009
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Central Asia,0.0857,0.0099,0.0849,0.018
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Eastern Siberia,0.5085,0.0016,0.4818,0.0036
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Europe,0.2377,0.008,0.1531,0.0172
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Far East,0.4077,0.0116,0.3341,0.0204
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,2024,Global,0.4428,0.0026,0.4185,0.0075

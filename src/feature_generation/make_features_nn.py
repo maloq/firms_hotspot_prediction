@@ -203,7 +203,8 @@ def merge_features(
     landsea_distance_features: pd.DataFrame | None,
     landsea_distance_feature_names: list[str],
     anchor_cols: list[str],
-    drop_by_sea_mask: bool = True
+    drop_by_sea_mask: bool = True,
+    landsea_mask_threshold: float = 70,
 ) -> tuple[pd.DataFrame, pd.Index]:
     all_dataframes_to_concat = []
     final_feature_columns_ordered = []
@@ -252,13 +253,13 @@ def merge_features(
         else:
             rows_before_sea_mask_drop = final_features_df.shape[0]
 
-            keep_mask = final_features_df['landseamask'] < 70
+            keep_mask = final_features_df['landseamask'] < float(landsea_mask_threshold)
             dropped_indices = final_features_df.loc[~keep_mask].index
 
             final_features_df = final_features_df.loc[keep_mask].reset_index(drop=True)
 
             rows_after_sea_mask_drop = final_features_df.shape[0]
-            print(f"🌊 Using landseamask, dropped {rows_before_sea_mask_drop - rows_after_sea_mask_drop} rows due to sea_mask < 70% "
+            print(f"🌊 Using landseamask, dropped {rows_before_sea_mask_drop - rows_after_sea_mask_drop} rows due to sea_mask < {landsea_mask_threshold:g} "
                 f"Final features df shape: {final_features_df.shape}")
             
     if 'count' not in final_features_df.columns and 'count' in anchor_cols:
@@ -294,6 +295,7 @@ def generate_all_features(
     anchor_cols: list[str],
     landsea_mask_path: str | None = None,
     landsea_distance_path: str | None = None,
+    landsea_mask_threshold: float = 70,
     test_mode: bool = False,
     skip_climate: bool = False,
     use_cached_files: bool = False,
@@ -451,7 +453,8 @@ def generate_all_features(
         landsea_distance_features=df_landsea_distance,
         landsea_distance_feature_names=landsea_distance_feature_names,
         anchor_cols=anchor_cols,
-        drop_by_sea_mask=True
+        drop_by_sea_mask=True,
+        landsea_mask_threshold=landsea_mask_threshold,
     )
     print(f"Merging took {time.time() - merge_start_time:.2f}s")
 
@@ -618,6 +621,7 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
         land_data_files=land_params_cfg["land_data_files"],
         landsea_mask_path=land_params_cfg.get("landsea_mask_path"),
         landsea_distance_path=land_params_cfg.get("landsea_distance_path"),
+        landsea_mask_threshold=land_params_cfg.get("landsea_mask_threshold", 70),
         # Ecoregion
         wwf_shp_path=land_params_cfg["wwf_shp_path"],
         # Other controls

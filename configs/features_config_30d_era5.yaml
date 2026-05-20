@@ -25,6 +25,16 @@ prediction_countries:
   - 'Bosnia_and_Herzegovina'
   - 'Slovenia'
   - 'Greece'
+  - 'Ukraine'
+  - 'Italy'
+  - 'Austria'
+  - 'Belgium'
+  - 'Denmark'
+  - 'France'
+  - 'Germany'
+  - 'Luxembourg'
+  - 'Netherlands'
+  - 'Switzerland'
   - 'Turkey'
   - 'Georgia'
   - 'Azerbaijan'
@@ -36,14 +46,7 @@ prediction_countries:
   - 'Japan'
   - 'China'
   # - 'Republic_of_Korea'
-  # - 'Ukraine'
-  # - 'Italy'
-  # - 'Germany'
-  # - 'Belgium'
   # - 'Czech_Republic'
-  # - 'Denmark'
-  # - 'France'
-  # - 'Switzerland'
   # - 'Turkmenistan'
   # - 'Uzbekistan'
   # - 'Algeria'
@@ -141,6 +144,7 @@ land_data_params:
                     
   landsea_mask_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask.nc"
   landsea_distance_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask_distances.nc"
+  landsea_mask_threshold: 70
   fire_index_npz_path: "/home/ids/vmorozov/data/climate_data/land_features/fire_index_features.npz"
   wwf_shp_path: "data/wwf_terr_ecos"
 

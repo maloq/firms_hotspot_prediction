@@ -43,7 +43,6 @@ DEFAULT_SPATIAL_STATIC_PREFIXES = [
     "distance_to_light",
     "fire_index_",
     "lai_",
-    "landseamask",
     "population",
     "anor",
     "isor",
@@ -52,7 +51,6 @@ DEFAULT_SPATIAL_STATIC_PREFIXES = [
     "slor",
     "sdfor",
     "sdor",
-    "distance_to_coast",
 ]
 
 print("PyTorch version:", torch.__version__)

@@ -1,0 +1,31 @@
+Region,Feature Source,Model,Period Start,Period End,PR-AUC
+Central Asia,ERA5,Spatial climate TSN-MLP (global full),2022-03-23,2022-03-25,1.0
+Central Asia,ERA5,Spatial climate TSN-MLP (global full),2023-03-13,2023-03-15,1.0
+Central Asia,ERA5,Spatial climate TSN-MLP (global full),2023-01-11,2023-01-13,1.0
+Central Asia,ECMWF,Spatial climate TSN-MLP (global full),2023-01-11,2023-01-13,1.0
+Central Asia,ECMWF,Spatial climate TSN-MLP (global full),2023-03-13,2023-03-15,1.0
+Central Asia,ECMWF,Spatial climate TSN-MLP (global full),2022-03-23,2022-03-25,1.0
+Eastern Siberia,ECMWF,Spatial climate TSN-MLP (global full),2022-03-10,2022-03-12,1.0
+Eastern Siberia,ECMWF,Spatial climate TSN-MLP (global full),2022-09-08,2022-09-10,1.0
+Eastern Siberia,ECMWF,Spatial climate TSN-MLP (global full),2023-08-13,2023-08-15,0.9887
+Eastern Siberia,ERA5,Spatial climate TSN-MLP (global full),2023-08-13,2023-08-15,0.9887
+Eastern Siberia,ERA5,Spatial climate TSN-MLP (global full),2022-09-08,2022-09-10,1.0
+Eastern Siberia,ERA5,Spatial climate TSN-MLP (global full),2022-03-10,2022-03-12,1.0
+Europe,ECMWF,Spatial climate TSN-MLP (global full),2022-03-03,2022-03-05,1.0
+Europe,ERA5,Spatial climate TSN-MLP (global full),2023-01-11,2023-01-13,1.0
+Europe,ERA5,Spatial climate TSN-MLP (global full),2022-03-03,2022-03-05,1.0
+Europe,ECMWF,Spatial climate TSN-MLP (global full),2023-03-13,2023-03-15,1.0
+Europe,ECMWF,Spatial climate TSN-MLP (global full),2023-01-11,2023-01-13,1.0
+Europe,ERA5,Spatial climate TSN-MLP (global full),2023-03-13,2023-03-15,1.0
+Far East,ECMWF,Spatial climate TSN-MLP (global full),2024-03-13,2024-03-15,0.9924
+Far East,ERA5,Spatial climate TSN-MLP (global full),2021-03-22,2021-03-24,1.0
+Far East,ERA5,Spatial climate TSN-MLP (global full),2022-05-01,2022-05-03,1.0
+Far East,ERA5,Spatial climate TSN-MLP (global full),2024-03-13,2024-03-15,0.9924
+Far East,ECMWF,Spatial climate TSN-MLP (global full),2022-05-01,2022-05-03,1.0
+Far East,ECMWF,Spatial climate TSN-MLP (global full),2021-03-22,2021-03-24,1.0
+Global,ERA5,Spatial climate TSN-MLP (global full),2022-03-10,2022-03-12,1.0
+Global,ERA5,Spatial climate TSN-MLP (global full),2022-09-28,2022-09-30,1.0
+Global,ERA5,Spatial climate TSN-MLP (global full),2023-01-13,2023-01-15,0.9889
+Global,ECMWF,Spatial climate TSN-MLP (global full),2023-01-13,2023-01-15,0.9889
+Global,ECMWF,Spatial climate TSN-MLP (global full),2022-09-28,2022-09-30,1.0
+Global,ECMWF,Spatial climate TSN-MLP (global full),2022-03-10,2022-03-12,1.0

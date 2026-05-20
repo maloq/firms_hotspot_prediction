@@ -8,6 +8,45 @@ filter_stationary_points: true
 stationary_points_dir: data/modis_stationary_points
 use_high_latitude_filter: true
 
+positive_count_boost_regions: []
+
+positive_label_filter:
+  # Drop likely non-wildfire MODIS positives before grouping/expansion. This
+  # removes detections over water/non-burnable cells and very bright urban cores
+  # such as Moscow, where thermal detections are often industrial/city artifacts.
+  enabled: true
+  require_land: true
+  require_burnable_landcover: true
+  keep_unknown_static: true
+  landseamask_land_threshold: 70
+  min_burnable_cover: 0.05
+  burnable_cover_feature_columns:
+    - forest_cover
+    - tree_cover
+    - lai_hv
+    - lai_lv
+  burnable_categorical_feature_columns:
+    - tvl
+    - tvh
+    - type_of_low_vegetation
+    - type_of_high_vegetation
+  landcover_file_keywords:
+    - forest
+    - vegetation
+    - land_sea
+    - landsea
+    - landseamask
+    - type_of_high_vegetation
+    - type_of_low_vegetation
+  use_night_light_artifact_filter: true
+  max_night_light_radiance: 50.0
+  night_light_artifact_columns:
+    - night_light_black_marble_quality_filtered
+    - night_light_black_marble_recent
+    - night_light_radiance_recent
+    - night_light_radiance_2024
+  max_population: null
+
 negative_sampling:
   # Use all MODIS positives and sample negatives from deployment-like strata.
   # With target_positive_fraction=0.10, the sampler adds about 9 negatives per
@@ -16,10 +55,11 @@ negative_sampling:
   target_positive_fraction: 0.15
   stratum_weights:
     near_fire_hard: 0.10
+    large_city_hard: 0.15
     same_season: 0.20
-    same_ecoregion: 0.20
+    same_ecoregion: 0.15
     same_burnable_landcover: 0.20
-    random_background: 0.30
+    random_background: 0.20
   exclude_positive_buffer_cells: 1
   exclude_positive_buffer_days: 1
   near_fire_min_cells: 2
@@ -30,9 +70,18 @@ negative_sampling:
   use_ecoregion: true
   use_landcover: true
   landseamask_land_threshold: 70
+  large_city_min_population: 50000
+  large_city_min_samples_per_cell: 1
+  large_city_require_land: true
+  large_city_population_columns:
+    - population
+  large_city_file_keywords:
+    - population
   burnable_feature_columns:
     - forest_cover
     - tree_cover
+    - lai_hv
+    - lai_lv
     - tvl
     - tvh
     - type_of_low_vegetation

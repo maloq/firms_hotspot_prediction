@@ -1,0 +1,25 @@
+regions:
+  - name: lower_volga_caspian
+    display_name: Lower Volga / Caspian
+    lat_min: 41.8
+    lat_max: 50.3
+    lon_min: 43.2
+    lon_max: 54.0
+  - name: danube_delta
+    display_name: Danube Delta
+    lat_min: 41.1
+    lat_max: 49.2
+    lon_min: 24.0
+    lon_max: 34.2
+  - name: azov_don
+    display_name: Azov / Don
+    lat_min: 43.3
+    lat_max: 51.3
+    lon_min: 34.4
+    lon_max: 44.4
+  - name: northern_fennoscandia_kola
+    display_name: Northern Fennoscandia / Kola
+    lat_min: 62.6
+    lat_max: 71.9
+    lon_min: 17.9
+    lon_max: 35.1

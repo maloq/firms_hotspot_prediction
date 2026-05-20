@@ -11,7 +11,16 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
 
-DEFAULT_IGNORED_FEATURES = ["datetime", "day", "latitude", "longitude", "year"]
+DEFAULT_IGNORED_FEATURES = [
+    "datetime",
+    "day",
+    "latitude",
+    "longitude",
+    "year",
+    "landseamask",
+    "distance_to_coast_km",
+    "distance_to_coast_dilated_km",
+]
 MISSING_CATEGORY = "__nan__"
 PREPROCESSING_VERSION = 2
 

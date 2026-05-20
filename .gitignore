@@ -1,6 +1,5 @@
 data/*
 *.zip
-*.csv
 *.parquet
 *.pickle
 *.graphml
@@ -28,6 +27,13 @@ download_files.sh
 *.joblib
 data_from_loader
 outputs
+results/rev/**
+!results/rev/
+!results/rev/README.md
+!results/rev/**/
+!results/rev/**/*.csv
+!results/rev/**/*.png
+results/rev/**/artifacts/linked_files/**
 check_features.py
 input_log_test_f1_15.txt
 input_log_test_f1_16.txt
@@ -43,4 +49,3 @@ best_model/prepare_nn/prepared_data.npz
 best_model
 .vscode
 lightning_logs/
-**linked_files

@@ -1,0 +1,16 @@
+Model,Feature Set,F1,F1 Error,PR-AUC,PR-AUC Error
+CatBoost,all features,0.507,0.001949,0.5815,0.007751
+FT-Transformer (global full),global full NN features,0.423,0.00274,0.3702,0.005876
+FWI-only CatBoost,fire-weather variables only,0.3453,0.00161,0.3106,0.00629
+LSTM attention (global full),global full NN features,0.4709,0.002294,0.4465,0.003236
+LSTM gated MoE (global full),global full NN features,0.481,0.002122,0.4905,0.009525
+LSTM static concat (global full),global full NN features,0.5039,0.000694,0.4375,0.003007
+Logistic Regression (linear SGD),full features,0.3965,0.001415,0.2487,0.001083
+Minimal MLP (global full),global full NN features,0.5059,0.002931,0.4702,0.003102
+Poisson Point-Process GLM,full features,0.4643,0.002917,0.4558,0.004408
+Random Forest,full features,0.517,0.001581,0.5217,0.005406
+Spatial climate TSN-MLP (ECMWF global full),global full NN features,0.4489,0.00201,0.4982,0.006011
+Spatial climate TSN-MLP (global full),global full NN features,0.6374,0.002808,0.6915,0.002667
+Spatial climate TSN-MLP no tp (ERA5 global full),global full NN features,0.6292,0.005191,0.6712,0.005249
+TemporalConvNet / TSN-MLP (global full),global full NN features,0.3927,0.001094,0.4492,0.005582
+Weather-only CatBoost,meteorology/history features only,0.4108,0.001538,0.4912,0.006875

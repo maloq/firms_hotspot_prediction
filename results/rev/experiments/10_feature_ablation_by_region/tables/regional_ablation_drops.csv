@@ -1,0 +1,65 @@
+Region,Experiment,F1,F1 Error,PR-AUC,PR-AUC Error
+Central Asia,CatBoost <=30d climate windows,0.2673,0.001962,0.2816,0.0095
+Central Asia,CatBoost dynamic weather+FWI only,0.1398,0.001522,0.086,0.0017
+Central Asia,CatBoost no Gaussian-smoothed anthropogenic rasters,0.225,0.002014,0.2215,0.0083
+Central Asia,CatBoost no anthropogenic,0.201,0.003579,0.1265,0.0045
+Central Asia,CatBoost no fuel/ecoregion/vegetation,0.2693,0.003455,0.2311,0.0102
+Central Asia,CatBoost no history,0.2,0.000702,0.1172,0.0009
+Central Asia,CatBoost no seasonality,0.2273,0.002039,0.2189,0.0088
+Central Asia,CatBoost no sine/cos seasonality,0.2238,0.002036,0.2174,0.0088
+Central Asia,CatBoost no temporal-history/weather lags,0.21,0.001441,0.1955,0.0067
+Central Asia,CatBoost no terrain,0.2884,0.004069,0.2429,0.0106
+Central Asia,CatBoost static only,0.2313,0.002774,0.2856,0.0069
+Central Asia,CatBoost-no-ecoregion,0.2238,0.002036,0.2174,0.0088
+Central Asia,CatBoost-no-geography,0.2238,0.002036,0.2174,0.0088
+Central Asia,FWI-only CatBoost,0.1236,0.000523,0.0728,0.0014
+Central Asia,Full CatBoost,0.2238,0.002036,0.2174,0.0088
+Central Asia,Weather-only CatBoost,0.1348,0.001698,0.0835,0.0017
+Eastern Siberia,CatBoost <=30d climate windows,0.6103,0.001565,0.6452,0.0015
+Eastern Siberia,CatBoost dynamic weather+FWI only,0.5129,0.000411,0.565,0.002
+Eastern Siberia,CatBoost no Gaussian-smoothed anthropogenic rasters,0.5686,0.000876,0.6442,0.0033
+Eastern Siberia,CatBoost no anthropogenic,0.5975,0.000818,0.6185,0.0026
+Eastern Siberia,CatBoost no fuel/ecoregion/vegetation,0.6316,0.001993,0.6568,0.0025
+Eastern Siberia,CatBoost no history,0.5113,0.000508,0.4503,0.0035
+Eastern Siberia,CatBoost no seasonality,0.5727,0.000802,0.6484,0.0031
+Eastern Siberia,CatBoost no sine/cos seasonality,0.5712,0.000888,0.6491,0.0028
+Eastern Siberia,CatBoost no temporal-history/weather lags,0.5563,0.000544,0.5407,0.0031
+Eastern Siberia,CatBoost no terrain,0.6312,0.001836,0.6686,0.0022
+Eastern Siberia,CatBoost static only,0.5661,0.001657,0.58,0.0031
+Eastern Siberia,CatBoost-no-ecoregion,0.5712,0.000888,0.6491,0.0028
+Eastern Siberia,CatBoost-no-geography,0.5712,0.000888,0.6491,0.0028
+Eastern Siberia,FWI-only CatBoost,0.4654,0.000512,0.3904,0.0029
+Eastern Siberia,Full CatBoost,0.5712,0.000888,0.6491,0.0028
+Eastern Siberia,Weather-only CatBoost,0.5103,0.001202,0.5817,0.0025
+Europe,CatBoost <=30d climate windows,0.3719,0.00179,0.3029,0.0088
+Europe,CatBoost dynamic weather+FWI only,0.216,0.002925,0.1528,0.0032
+Europe,CatBoost no Gaussian-smoothed anthropogenic rasters,0.3453,0.000591,0.2742,0.0063
+Europe,CatBoost no anthropogenic,0.1932,0.00591,0.1672,0.0043
+Europe,CatBoost no fuel/ecoregion/vegetation,0.3904,0.004357,0.273,0.0063
+Europe,CatBoost no history,0.2554,0.002118,0.2125,0.0021
+Europe,CatBoost no seasonality,0.3488,0.001984,0.276,0.0065
+Europe,CatBoost no sine/cos seasonality,0.3411,0.000946,0.2782,0.006
+Europe,CatBoost no temporal-history/weather lags,0.2961,0.002481,0.2336,0.0043
+Europe,CatBoost no terrain,0.3911,0.006076,0.2826,0.0068
+Europe,CatBoost static only,0.3153,0.005791,0.3111,0.0077
+Europe,CatBoost-no-ecoregion,0.3411,0.000946,0.2782,0.006
+Europe,CatBoost-no-geography,0.3411,0.000946,0.2782,0.006
+Europe,FWI-only CatBoost,0.145,0.00239,0.1128,0.0017
+Europe,Full CatBoost,0.3411,0.000946,0.2782,0.006
+Europe,Weather-only CatBoost,0.2153,0.00228,0.1371,0.0023
+Far East,CatBoost <=30d climate windows,0.4746,0.003254,0.4557,0.0161
+Far East,CatBoost dynamic weather+FWI only,0.3303,0.005118,0.2917,0.0041
+Far East,CatBoost no Gaussian-smoothed anthropogenic rasters,0.4351,0.002925,0.4204,0.0102
+Far East,CatBoost no anthropogenic,0.3966,0.005264,0.3268,0.0097
+Far East,CatBoost no fuel/ecoregion/vegetation,0.4814,0.005273,0.4164,0.0129
+Far East,CatBoost no history,0.3544,0.003769,0.348,0.0071
+Far East,CatBoost no seasonality,0.4337,0.002157,0.4168,0.0115
+Far East,CatBoost no sine/cos seasonality,0.433,0.003387,0.4176,0.0115
+Far East,CatBoost no temporal-history/weather lags,0.4511,0.007128,0.3794,0.0113
+Far East,CatBoost no terrain,0.484,0.004399,0.4301,0.0126
+Far East,CatBoost static only,0.3508,0.003431,0.3593,0.0093
+Far East,CatBoost-no-ecoregion,0.433,0.003387,0.4176,0.0115
+Far East,CatBoost-no-geography,0.433,0.003387,0.4176,0.0115
+Far East,FWI-only CatBoost,0.3084,0.005034,0.3066,0.0066
+Far East,Full CatBoost,0.433,0.003387,0.4176,0.0115
+Far East,Weather-only CatBoost,0.317,0.004419,0.2602,0.0053

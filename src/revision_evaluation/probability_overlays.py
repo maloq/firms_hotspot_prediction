@@ -15,6 +15,7 @@ import math
 import re
 import sys
 import time
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -29,6 +30,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib import colors as mcolors  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 from scipy.interpolate import griddata  # noqa: E402
 from sklearn.metrics import average_precision_score, roc_auc_score  # noqa: E402
@@ -179,12 +181,20 @@ DEFAULT_NEURAL_CATEGORICAL_COLUMNS = [
 
 METRIC_DIRECTIONS = {
     "average_precision": "max",
+    "spatial_tolerant_average_precision": "max",
     "roc_auc": "max",
+    "spatial_tolerant_roc_auc": "max",
     "weighted_brier_score": "min",
+    "spatial_tolerant_weighted_brier_score": "min",
     "count_abs_error": "min",
     "count_ratio_abs_log_error": "min",
 }
-DISCRIMINATION_METRICS = {"average_precision", "roc_auc"}
+DISCRIMINATION_METRICS = {
+    "average_precision",
+    "roc_auc",
+    "spatial_tolerant_average_precision",
+    "spatial_tolerant_roc_auc",
+}
 _DENSE_NEURAL_CACHE: dict[tuple[str, ...], "DenseNeuralPredictor"] = {}
 
 
@@ -199,8 +209,10 @@ class ProbabilityOverlayConfig:
     prob_col: str = DEFAULT_PROB_COL
     selection_metric: str = "average_precision"
     min_wildfires: int = 7
+    spatial_tolerance_degrees: float = 0.0
     window_days: int = 3
     top_periods: int = 1
+    max_period_end: str | None = None
     allow_overlapping_periods: bool = False
     regions: list[str] | None = None
     include_global: bool = True
@@ -220,6 +232,9 @@ class ProbabilityOverlayConfig:
     prior_correction: bool = True
     train_prior: float = DEFAULT_TRAIN_PRIOR
     deploy_prior: float = DEFAULT_DEPLOY_PRIOR
+    colormap: str = "YlOrRd"
+    color_floor: float | None = None
+    color_vmax: float | None = None
     verbose_feature_generation: bool = False
     country_shapes: Path = Path("data/countries")
     output_dir: Path | None = None
@@ -465,6 +480,14 @@ def neural_data_paths(path: Path) -> list[Path]:
             data_path = payload.get("data_path")
             if data_path:
                 candidates.append(Path(data_path))
+    stem = prediction_stem(path)
+    if stem in {"nn_global_full_spatial_tsn", "nn_global_full_spatial_tsn_no_tp"}:
+        candidates.extend(
+            [
+                Path("data/saved_features/nn_train_data_daily_spatial_3x3_no_tp/prepared_data.npz"),
+                Path("/home/ids/vmorozov/data/saved_features/nn_train_data_daily_spatial_3x3_no_tp/prepared_data.npz"),
+            ]
+        )
     direct_metrics = path.parent.parent / "metrics.json"
     if direct_metrics.is_file():
         with direct_metrics.open("r", encoding="utf-8") as handle:
@@ -483,11 +506,26 @@ def neural_data_paths(path: Path) -> list[Path]:
     return unique
 
 
-def neural_coordinate_frame(path: Path, row_count: int) -> pd.DataFrame | None:
-    split_code = split_code_from_prediction_path(path)
+def readable_neural_data_paths(path: Path, required_keys: Iterable[str] = ()) -> list[Path]:
+    required = set(required_keys)
+    readable: list[Path] = []
     for data_path in neural_data_paths(path):
         if not data_path.is_file():
             continue
+        try:
+            with np.load(data_path) as data:
+                if required and not required.issubset(set(data.files)):
+                    continue
+        except (OSError, ValueError, zipfile.BadZipFile):
+            continue
+        readable.append(data_path)
+    return readable
+
+
+def neural_coordinate_frame(path: Path, row_count: int) -> pd.DataFrame | None:
+    split_code = split_code_from_prediction_path(path)
+    required_keys = ["split", "lat", "lon", "dates"]
+    for data_path in readable_neural_data_paths(path, required_keys):
         frame = neural_coordinate_frame_from_data(data_path, split_code, row_count)
         if frame is not None:
             return frame
@@ -870,7 +908,7 @@ def load_neural_encoders(data_path: Path) -> dict:
 
 
 def infer_neural_schema_from_current_dataset(prediction_path: Path, training_features_path: Path) -> dict:
-    data_path = next((path for path in neural_data_paths(prediction_path) if path.is_file()), None)
+    data_path = next(iter(readable_neural_data_paths(prediction_path)), None)
     if data_path is None:
         raise FileNotFoundError(
             f"Could not infer neural feature schema because no prepared_data.npz was found for {prediction_path}"
@@ -1017,7 +1055,7 @@ def infer_categorical_maps_from_prepared_data(
 ) -> dict[str, dict[str, int]]:
     if not categorical_columns or not training_features_path.is_file():
         return {}
-    data_path = next((path for path in neural_data_paths(prediction_path) if path.is_file()), None)
+    data_path = next(iter(readable_neural_data_paths(prediction_path, ["x_cat"])), None)
     if data_path is None:
         return {}
     with np.load(data_path) as data:
@@ -1252,6 +1290,43 @@ def weighted_brier(y: np.ndarray, p: np.ndarray, w: np.ndarray) -> float:
     return float(np.average((p - y) ** 2, weights=w))
 
 
+def spatial_tolerant_binary_labels(period: pd.DataFrame, radius_degrees: float) -> np.ndarray:
+    """Mark sampled cells near an observed fire as positive for visualization scoring."""
+    y = period[TARGET_COL].to_numpy(dtype=int)
+    if radius_degrees <= 0 or not np.any(y > 0):
+        return y
+
+    positive = period.loc[period[TARGET_COL] > 0, [LAT_COL, LON_COL]].drop_duplicates()
+    if positive.empty:
+        return y
+
+    lat = period[LAT_COL].to_numpy(dtype=float)
+    lon = period[LON_COL].to_numpy(dtype=float)
+    pos_lat = positive[LAT_COL].to_numpy(dtype=float)
+    pos_lon = positive[LON_COL].to_numpy(dtype=float)
+    cos_lat = max(math.cos(math.radians(float(np.nanmean(pos_lat)))), 0.2)
+    tolerant = y > 0
+    radius_sq = float(radius_degrees) ** 2
+
+    for start in range(0, len(pos_lat), 256):
+        end = min(start + 256, len(pos_lat))
+        dlat = lat[:, None] - pos_lat[None, start:end]
+        dlon = (lon[:, None] - pos_lon[None, start:end]) * cos_lat
+        tolerant |= np.any((dlat * dlat + dlon * dlon) <= radius_sq, axis=1)
+    return tolerant.astype(int)
+
+
+def binary_metrics(y: np.ndarray, p: np.ndarray, w: np.ndarray) -> tuple[float, float, float]:
+    unique_y = np.unique(y)
+    if unique_y.size >= 2:
+        ap = finite_or_nan(average_precision_score(y, p, sample_weight=w))
+        roc_auc = finite_or_nan(roc_auc_score(y, p, sample_weight=w))
+    else:
+        ap = math.nan
+        roc_auc = math.nan
+    return ap, roc_auc, weighted_brier(y, p, w)
+
+
 def period_metrics_for_model(
     frame: pd.DataFrame,
     *,
@@ -1259,6 +1334,7 @@ def period_metrics_for_model(
     regions: Iterable[Region],
     window_days: int,
     require_full_periods: bool,
+    spatial_tolerance_degrees: float = 0.0,
 ) -> pd.DataFrame:
     if window_days < 1:
         raise ValueError(f"window_days must be >= 1; received {window_days}.")
@@ -1295,9 +1371,13 @@ def period_metrics_for_model(
             y = period[TARGET_COL].to_numpy(dtype=int)
             p = period[PROB_COL].to_numpy(dtype=float)
             w = period[WEIGHT_COL].to_numpy(dtype=float)
+            y_spatial = spatial_tolerant_binary_labels(period, float(spatial_tolerance_degrees))
             expected = float(np.sum(p * w))
             observed = float(np.sum(y * w))
             observed_locations = int(period.loc[period[TARGET_COL] > 0, [LAT_COL, LON_COL]].drop_duplicates().shape[0])
+            spatial_tolerant_locations = int(
+                period.loc[y_spatial > 0, [LAT_COL, LON_COL]].drop_duplicates().shape[0]
+            )
             count_abs_error = abs(expected - observed)
             if expected > 0 and observed > 0:
                 count_ratio_abs_log_error = abs(math.log(expected / observed))
@@ -1306,13 +1386,8 @@ def period_metrics_for_model(
                 count_ratio_abs_log_error = math.nan
                 expected_observed_count_ratio = math.nan
 
-            unique_y = np.unique(y)
-            if unique_y.size >= 2:
-                ap = finite_or_nan(average_precision_score(y, p, sample_weight=w))
-                roc_auc = finite_or_nan(roc_auc_score(y, p, sample_weight=w))
-            else:
-                ap = math.nan
-                roc_auc = math.nan
+            ap, roc_auc, brier = binary_metrics(y, p, w)
+            spatial_ap, spatial_roc_auc, spatial_brier = binary_metrics(y_spatial, p, w)
 
             rows.append(
                 {
@@ -1330,6 +1405,9 @@ def period_metrics_for_model(
                     "weighted_support": float(np.sum(w)),
                     "positive_rows": int(np.sum(y)),
                     "observed_positive_locations": observed_locations,
+                    "spatial_tolerance_degrees": float(spatial_tolerance_degrees),
+                    "spatial_tolerant_positive_rows": int(np.sum(y_spatial)),
+                    "spatial_tolerant_positive_locations": spatial_tolerant_locations,
                     "observed_fire_positive_grid_cells": observed,
                     "expected_fire_positive_grid_cells": expected,
                     "expected_observed_count_ratio": expected_observed_count_ratio,
@@ -1339,7 +1417,10 @@ def period_metrics_for_model(
                     "max_calibrated_predicted_probability": float(np.max(p)) if len(p) else math.nan,
                     "average_precision": ap,
                     "roc_auc": roc_auc,
-                    "weighted_brier_score": weighted_brier(y, p, w),
+                    "weighted_brier_score": brier,
+                    "spatial_tolerant_average_precision": spatial_ap,
+                    "spatial_tolerant_roc_auc": spatial_roc_auc,
+                    "spatial_tolerant_weighted_brier_score": spatial_brier,
                 }
             )
 
@@ -1998,6 +2079,33 @@ def interpolated_prediction_surface(
     return interp_lon, interp_lat, interp_values
 
 
+def probability_colormap(name: str):
+    cmap = plt.get_cmap(name).copy()
+    transparent = (1.0, 1.0, 1.0, 0.0)
+    prediction_base = cmap(0.0)
+    cmap.set_bad(transparent)
+    cmap.set_under(prediction_base)
+    return cmap
+
+
+def color_scale(values: np.ndarray, *, color_floor: float | None, color_vmax: float | None) -> tuple[float, float]:
+    finite = values[np.isfinite(values)]
+    positive = finite[finite > 0]
+    if color_vmax is None:
+        vmax = float(np.nanpercentile(positive, 99.5)) if len(positive) else 1.0
+    else:
+        vmax = float(color_vmax)
+    if not math.isfinite(vmax) or vmax <= 0:
+        vmax = 1.0
+
+    floor = 0.0 if color_floor is None else float(color_floor)
+    if not math.isfinite(floor) or floor < 0:
+        floor = 0.0
+    if floor >= vmax:
+        floor = max(0.0, vmax * 0.25)
+    return floor, vmax
+
+
 def plot_selected_period(
     frame: pd.DataFrame,
     *,
@@ -2021,6 +2129,10 @@ def plot_selected_period(
     prior_correction: bool,
     train_prior: float,
     deploy_prior: float,
+    colormap: str,
+    color_floor: float | None,
+    color_vmax: float | None,
+    source_label: str | None,
     verbose_feature_generation: bool,
     world,
 ) -> list[Path]:
@@ -2127,10 +2239,7 @@ def plot_selected_period(
 
     fig, ax_map = plt.subplots(figsize=(figure_width, figure_height))
     values = spatial[color_col].to_numpy(dtype=float)
-    positive_values = values[np.isfinite(values) & (values > 0)]
-    vmax = float(np.nanpercentile(positive_values, 99.5)) if len(positive_values) else 1.0
-    if not math.isfinite(vmax) or vmax <= 0:
-        vmax = 1.0
+    display_floor, vmax = color_scale(values, color_floor=color_floor, color_vmax=color_vmax)
     lon_coords, lat_coords, probability_grid = spatial_grid(
         spatial,
         value_col=color_col,
@@ -2147,14 +2256,18 @@ def plot_selected_period(
             probability_grid,
             interpolation_factor=interpolation_factor,
         )
-    mesh_values = np.clip(mesh_values, 0.0, vmax)
+    mesh_values = np.asarray(mesh_values, dtype=float)
+    finite_mesh_values = mesh_values[np.isfinite(mesh_values)]
+    has_under_color = bool(display_floor > 0 and len(finite_mesh_values) and np.nanmin(finite_mesh_values) < display_floor)
+    has_over_color = bool(len(finite_mesh_values) and np.nanmax(finite_mesh_values) > vmax)
+    mesh_values = np.ma.masked_invalid(mesh_values)
+    norm = mcolors.Normalize(vmin=display_floor, vmax=vmax, clip=False)
     mesh = ax_map.pcolormesh(
         mesh_lon,
         mesh_lat,
         mesh_values,
-        cmap="YlOrRd",
-        vmin=0.0,
-        vmax=vmax,
+        cmap=probability_colormap(colormap),
+        norm=norm,
         rasterized=True,
         shading="auto",
         zorder=2,
@@ -2212,8 +2325,19 @@ def plot_selected_period(
         spine.set_color("#666666")
         spine.set_linewidth(0.6)
 
-    colorbar = fig.colorbar(mesh, ax=ax_map, fraction=0.045, pad=0.025)
-    colorbar.set_label(color_label.replace("\n", " "))
+    if has_under_color and has_over_color:
+        colorbar_extend = "both"
+    elif has_under_color:
+        colorbar_extend = "min"
+    elif has_over_color:
+        colorbar_extend = "max"
+    else:
+        colorbar_extend = "neither"
+    colorbar = fig.colorbar(mesh, ax=ax_map, fraction=0.045, pad=0.025, extend=colorbar_extend)
+    label = color_label.replace("\n", " ")
+    if display_floor > 0:
+        label = f"{label} (yellow < {probability_formatter(display_floor, None)})"
+    colorbar.set_label(label)
     colorbar.ax.yaxis.set_major_formatter(FuncFormatter(probability_formatter))
 
     fig.subplots_adjust(left=0.10, right=0.92, top=0.97, bottom=0.10)
@@ -2222,8 +2346,9 @@ def plot_selected_period(
     pdf_dir = output_dir / "plots" / "pdf"
     for directory in [png_dir, pdf_dir]:
         directory.mkdir(parents=True, exist_ok=True)
+    source_prefix = f"{safe_slug(source_label)}_" if source_label else ""
     stem = (
-        f"probability_overlay_{safe_slug(selection['model_name'])}_"
+        f"{source_prefix}probability_overlay_{safe_slug(selection['model_name'])}_"
         f"{safe_slug(selection['region'])}_rank{int(selection.get('period_rank', 1)):02d}_"
         f"{period_start:%Y%m%d}_{window_days}d"
     )
@@ -2301,7 +2426,7 @@ def cleanup_old_plot_files(output_dir: Path) -> None:
     for subdir in [output_dir / "plots" / "png", output_dir / "plots" / "pdf"]:
         if not subdir.exists():
             continue
-        for path in subdir.glob("probability_overlay_*"):
+        for path in subdir.glob("*probability_overlay_*"):
             if path.is_file():
                 path.unlink()
 
@@ -2360,11 +2485,18 @@ def run_probability_overlays(config: ProbabilityOverlayConfig) -> dict[str, obje
             regions=regions,
             window_days=window_days,
             require_full_periods=not config.allow_partial_periods,
+            spatial_tolerance_degrees=config.spatial_tolerance_degrees,
         )
         metric_frames.append(metrics)
         del frame
 
     period_metrics = pd.concat(metric_frames, ignore_index=True)
+    if config.max_period_end:
+        max_period_end = pd.to_datetime(config.max_period_end).normalize()
+        period_end = pd.to_datetime(period_metrics["period_end"], errors="coerce")
+        period_metrics = period_metrics.loc[period_end <= max_period_end].copy()
+        if period_metrics.empty:
+            raise ValueError(f"No probability overlay periods remain on or before {max_period_end:%Y-%m-%d}.")
     wide_dir = output_dir / "artifacts" / "wide_tables"
     write_wide_jsonl(wide_dir / "period_probability_metrics.jsonl.gz", period_metrics)
     period_metrics_path = output_dir / "tables" / "period_probability_metrics.csv"
@@ -2377,8 +2509,8 @@ def run_probability_overlays(config: ProbabilityOverlayConfig) -> dict[str, obje
             "period_end",
             "observed_positive_locations",
             "average_precision",
-            "weighted_brier_score",
-            "expected_observed_count_ratio",
+            "spatial_tolerant_average_precision",
+            "spatial_tolerant_weighted_brier_score",
         ],
     ).to_csv(period_metrics_path, index=False)
 
@@ -2395,13 +2527,13 @@ def run_probability_overlays(config: ProbabilityOverlayConfig) -> dict[str, obje
         selected,
         [
             "region_display",
-            "period_rank",
             "model_name",
             "period_start",
             "period_end",
             "window_days",
             "average_precision",
-            "weighted_brier_score",
+            "spatial_tolerant_average_precision",
+            "spatial_tolerant_weighted_brier_score",
         ],
     ).to_csv(selected_path, index=False)
     write_markdown_summary(
@@ -2450,6 +2582,10 @@ def run_probability_overlays(config: ProbabilityOverlayConfig) -> dict[str, obje
                     prior_correction=config.prior_correction,
                     train_prior=config.train_prior,
                     deploy_prior=config.deploy_prior,
+                    colormap=config.colormap,
+                    color_floor=config.color_floor,
+                    color_vmax=config.color_vmax,
+                    source_label=config.source_label,
                     verbose_feature_generation=config.verbose_feature_generation,
                     world=world,
                 )
@@ -2474,6 +2610,12 @@ def run_probability_overlays(config: ProbabilityOverlayConfig) -> dict[str, obje
         "source": config.source,
         "source_label": config.source_label,
         "surface_source": config.surface_source,
+        "selection_metric": config.selection_metric,
+        "spatial_tolerance_degrees": config.spatial_tolerance_degrees,
+        "max_period_end": config.max_period_end,
+        "colormap": config.colormap,
+        "color_floor": config.color_floor,
+        "color_vmax": config.color_vmax,
         "regions": [region.name for region in regions],
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

@@ -276,6 +276,7 @@ def generate_prediction_features(
         wwf_shp_path=land_params["wwf_shp_path"],
         landsea_mask_path=land_params.get("landsea_mask_path"),
         landsea_distance_path=land_params.get("landsea_distance_path"),
+        landsea_mask_threshold=land_params.get("landsea_mask_threshold", 70),
         anchor_cols=ANCHOR_COLUMNS,
         test_mode=True,
         skip_climate=False,

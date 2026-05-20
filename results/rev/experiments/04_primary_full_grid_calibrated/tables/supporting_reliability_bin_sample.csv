@@ -1,0 +1,61 @@
+Model,Bin,Weight,Mean Prob,Observed,E/O
+CatBoost,0,19295319.7849,0.0,0.0,
+CatBoost,1,19295527.801,0.0,3e-06,0.0079
+CatBoost,2,19295281.3712,0.0,0.0,
+CatBoost,3,19295534.8431,0.0,0.0,
+CatBoost,4,19295484.5462,0.0,0.0,
+CatBoost,5,19295409.8809,0.0,0.0,9.899
+CatBoost,6,19295319.6771,0.0,0.0,31.7879
+CatBoost,7,19295560.6096,0.0,0.0,14.0102
+CatBoost,8,19295410.0925,0.0,0.0,22.7761
+CatBoost,9,19295441.1695,0.0,0.0,31.5687
+CatBoost,10,19295462.8742,0.0,2e-06,5.1193
+CatBoost,11,19295242.1046,0.0,1e-06,12.8928
+CatBoost,12,19295491.9342,0.0,4e-06,5.1737
+CatBoost,13,19295504.9743,0.0,4e-06,7.7596
+CatBoost,14,19295371.3461,0.0001,1e-05,5.924
+CatBoost,15,19295376.2154,0.0001,1.3e-05,7.1872
+CatBoost,16,19295472.7823,0.0001,2.7e-05,4.9485
+CatBoost,17,19295519.5658,0.0002,0.00011,2.0156
+CatBoost,18,19295468.6691,0.0006,0.000243,2.5879
+CatBoost,19,19295444.7922,0.0022,0.000556,4.0338
+Logistic Regression (linear SGD),0,19295242.6534,0.0,2e-06,0.0
+Logistic Regression (linear SGD),1,19295423.3497,0.0,2.2e-05,0.0
+Logistic Regression (linear SGD),2,19295467.7104,0.0,2.7e-05,0.0
+Logistic Regression (linear SGD),3,19295564.5508,0.0,2e-06,0.0
+Logistic Regression (linear SGD),4,19295327.8388,0.0,1e-06,0.0
+Logistic Regression (linear SGD),5,19295528.2111,0.0,5e-06,0.0
+Logistic Regression (linear SGD),6,19295346.9089,0.0,5e-06,0.0
+Logistic Regression (linear SGD),7,19295503.7054,0.0,1e-06,0.0
+Logistic Regression (linear SGD),8,19295454.365,0.0,1e-06,0.0
+Logistic Regression (linear SGD),9,19295418.096,0.0,1.6e-05,0.0
+Logistic Regression (linear SGD),10,19295444.4196,0.0,1e-05,0.0
+Logistic Regression (linear SGD),11,19295391.3136,0.0,1e-06,0.0
+Logistic Regression (linear SGD),12,19295467.5964,0.0,4e-06,0.0
+Logistic Regression (linear SGD),13,19295408.2338,0.0,7e-06,0.0
+Logistic Regression (linear SGD),14,19295425.6295,0.0,1e-05,0.0
+Logistic Regression (linear SGD),15,19295317.3653,0.0,2e-06,0.0
+Logistic Regression (linear SGD),16,19295555.9925,0.0,4e-05,0.9827
+Logistic Regression (linear SGD),17,19295309.7565,0.7807,9e-05,8647.2588
+Logistic Regression (linear SGD),18,19295489.271,1.0,0.0004,2500.3874
+Logistic Regression (linear SGD),19,19295558.0666,1.0,0.00033,3028.1792
+Poisson Point-Process GLM,0,19295348.3766,0.0,2e-06,0.0
+Poisson Point-Process GLM,1,19295449.0715,0.0,5e-06,0.0
+Poisson Point-Process GLM,2,19295360.6672,0.0,6e-06,0.0
+Poisson Point-Process GLM,3,19295439.5369,0.0,1.6e-05,0.0019
+Poisson Point-Process GLM,4,19295498.6526,0.0,1e-06,0.1681
+Poisson Point-Process GLM,5,19295495.973,0.0,0.0,5.0414
+Poisson Point-Process GLM,6,19295310.2568,0.0,1e-06,0.966
+Poisson Point-Process GLM,7,19295361.4596,0.0,1e-06,1.3459
+Poisson Point-Process GLM,8,19295619.0372,0.0,1e-06,4.8957
+Poisson Point-Process GLM,9,19295429.7046,0.0,0.0,11.3997
+Poisson Point-Process GLM,10,19295270.7689,0.0,3e-06,2.7706
+Poisson Point-Process GLM,11,19295492.7039,0.0,5e-06,3.0896
+Poisson Point-Process GLM,12,19295418.474,0.0,1.1e-05,2.4746
+Poisson Point-Process GLM,13,19295512.5779,0.0,1.7e-05,2.8559
+Poisson Point-Process GLM,14,19295423.6995,0.0001,7.4e-05,1.0556
+Poisson Point-Process GLM,15,19295314.5782,0.0001,0.000109,1.2132
+Poisson Point-Process GLM,16,19295504.4138,0.0002,0.0001,2.3649
+Poisson Point-Process GLM,17,19295348.5582,0.0004,9.5e-05,4.3217
+Poisson Point-Process GLM,18,19295531.6366,0.0007,8.5e-05,7.7108
+Poisson Point-Process GLM,19,19295514.8873,0.0013,0.000446,2.9341

@@ -140,6 +140,7 @@ land_data_params:
                     data/land_features/type_of_low_vegetation_0_daily-mean.nc,
                     data/land_features/soil_type_stream-oper_daily-mean.nc]
                     
+  landsea_mask_threshold: 70
   fire_index_npz_path: "data/land_features/fire_index_features.npz"
   wwf_shp_path: "data/wwf_terr_ecos"
 

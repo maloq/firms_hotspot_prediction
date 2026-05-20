@@ -57,7 +57,7 @@ DEFAULT_COUNTRIES_TRAIN = [
     "Republic_of_Korea",
 ]
 
-TARGET_CACHE_VERSION = "target_v5_lagged_fire_history"
+TARGET_CACHE_VERSION = "target_v6_city_hard_negatives_no_north_boost"
 
 
 def _target_config_cache_token() -> str:

@@ -7,7 +7,7 @@ nn_metrics_path: "outputs/nn_global_full_minimal_mlp/metrics.json"
 
 batch_size: 4096
 epochs: 15
-num_workers: 6
+num_workers: 0
 selection_metric: val_f1
 compute_train_metrics: false
 

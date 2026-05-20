@@ -1,0 +1,65 @@
+{
+  "year": 2016,
+  "bbox_lonlat": {
+    "min_lon": 20.0,
+    "max_lon": 120.0,
+    "min_lat": 50.0,
+    "max_lat": 75.0
+  },
+  "outputs": {
+    "old_viirs_png": "results/night_lights_source_examples/old_viirs_2016_northern_eurasia.png",
+    "nasa_black_marble_png": "results/night_lights_source_examples/nasa_black_marble_2016_northern_eurasia.png",
+    "comparison_png": "results/night_lights_source_examples/night_lights_old_vs_black_marble_2016_northern_eurasia.png"
+  },
+  "old_source": {
+    "label": "Existing local annual VIIRS source",
+    "path": "data/night_lights/raw/nightlights.average_viirs.v21_m_500m_s_20160101_20161231_go_epsg4326_v20250904.tif",
+    "grid": {
+      "width": 86400,
+      "height": 35849,
+      "origin_lon": -180.0,
+      "origin_lat": 87.37,
+      "pixel_width": 0.00416666666666667,
+      "pixel_height": 0.00416666666666667
+    },
+    "crop_box_pixels": [
+      47999,
+      2968,
+      72000,
+      8969
+    ],
+    "resampled_shape": [
+      250,
+      1000
+    ]
+  },
+  "new_source": {
+    "label": "NASA Black Marble public 2016 flat-map GeoTIFF, visual QA source",
+    "path": "data/night_lights/nasa_black_marble_flat_maps/BlackMarble_2016_01deg_gray_geo.tif",
+    "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_01deg_gray_geo.tif",
+    "page": "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/",
+    "note": "Used for this visual example because LAADS VNP46A4 HDF5 training tiles require an Earthdata Download token.",
+    "grid": {
+      "width": 3600,
+      "height": 1800,
+      "origin_lon": -180.0,
+      "origin_lat": 90.0,
+      "pixel_width": 0.1,
+      "pixel_height": 0.1
+    },
+    "crop_box_pixels": [
+      2000,
+      150,
+      3000,
+      400
+    ],
+    "resampled_shape": [
+      250,
+      1000
+    ]
+  },
+  "rendering": {
+    "normalization": "Each source independently clipped to positive 99.7 percentile and log1p-scaled for visual comparison.",
+    "colormap": "magma"
+  }
+}

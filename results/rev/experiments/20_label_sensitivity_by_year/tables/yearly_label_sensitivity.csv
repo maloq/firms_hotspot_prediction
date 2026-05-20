@@ -1,0 +1,126 @@
+Region,Year,Variant,F1,PR-AUC,PR-AUC Error
+Central Asia,2021,Alternative negative ratio,0.3726,0.2976,0.0074
+Central Asia,2021,"Main labels, no historical-fire features",0.3628,0.2066,0.0054
+Central Asia,2021,Main/current labels,0.3768,0.3312,0.014
+Central Asia,2021,No morphological expansion/dilation,0.2571,0.1688,0.0046
+Central Asia,2021,Stricter MODIS thresholds,0.1636,0.1073,0.0242
+Central Asia,2022,Alternative negative ratio,0.3155,0.24,0.0122
+Central Asia,2022,"Main labels, no historical-fire features",0.3125,0.1837,0.0031
+Central Asia,2022,Main/current labels,0.3263,0.2606,0.0149
+Central Asia,2022,No morphological expansion/dilation,0.214,0.1528,0.006
+Central Asia,2022,Stricter MODIS thresholds,0.1674,0.1355,0.01
+Central Asia,2023,Alternative negative ratio,0.2314,0.2618,0.018
+Central Asia,2023,"Main labels, no historical-fire features",0.2116,0.1184,0.0036
+Central Asia,2023,Main/current labels,0.2369,0.2616,0.0185
+Central Asia,2023,No morphological expansion/dilation,0.1532,0.1477,0.0077
+Central Asia,2023,Stricter MODIS thresholds,0.1365,0.1018,0.0146
+Central Asia,2024,Alternative negative ratio,0.0736,0.0905,0.0238
+Central Asia,2024,"Main labels, no historical-fire features",0.0774,0.0393,0.0009
+Central Asia,2024,Main/current labels,0.0784,0.0976,0.0268
+Central Asia,2024,No morphological expansion/dilation,0.0481,0.0554,0.0089
+Central Asia,2024,Stricter MODIS thresholds,0.0541,0.0613,0.027
+Central Asia,2025,Alternative negative ratio,0.117,0.0916,0.0058
+Central Asia,2025,"Main labels, no historical-fire features",0.1173,0.0643,0.0026
+Central Asia,2025,Main/current labels,0.1216,0.0758,0.0035
+Central Asia,2025,No morphological expansion/dilation,0.0815,0.0545,0.0066
+Central Asia,2025,Stricter MODIS thresholds,0.0323,0.0207,0.0059
+Eastern Siberia,2021,Alternative negative ratio,0.7425,0.7094,0.0038
+Eastern Siberia,2021,"Main labels, no historical-fire features",0.7425,0.6436,0.0028
+Eastern Siberia,2021,Main/current labels,0.7437,0.7402,0.0036
+Eastern Siberia,2021,No morphological expansion/dilation,0.5375,0.4045,0.002
+Eastern Siberia,2021,Stricter MODIS thresholds,0.4124,0.3258,0.007
+Eastern Siberia,2022,Alternative negative ratio,0.3546,0.2677,0.0104
+Eastern Siberia,2022,"Main labels, no historical-fire features",0.3055,0.1902,0.004
+Eastern Siberia,2022,Main/current labels,0.3507,0.3034,0.0097
+Eastern Siberia,2022,No morphological expansion/dilation,0.2137,0.1439,0.0043
+Eastern Siberia,2022,Stricter MODIS thresholds,0.1585,0.1272,0.0072
+Eastern Siberia,2023,Alternative negative ratio,0.296,0.3973,0.0152
+Eastern Siberia,2023,"Main labels, no historical-fire features",0.2924,0.2419,0.0018
+Eastern Siberia,2023,Main/current labels,0.3042,0.4397,0.0161
+Eastern Siberia,2023,No morphological expansion/dilation,0.1842,0.2043,0.0136
+Eastern Siberia,2023,Stricter MODIS thresholds,0.145,0.2127,0.0085
+Eastern Siberia,2024,Alternative negative ratio,0.4645,0.4686,0.0042
+Eastern Siberia,2024,"Main labels, no historical-fire features",0.4659,0.3367,0.0029
+Eastern Siberia,2024,Main/current labels,0.4753,0.475,0.0028
+Eastern Siberia,2024,No morphological expansion/dilation,0.3141,0.2473,0.0028
+Eastern Siberia,2024,Stricter MODIS thresholds,0.218,0.1685,0.0036
+Eastern Siberia,2025,Alternative negative ratio,0.3431,0.5146,0.0038
+Eastern Siberia,2025,"Main labels, no historical-fire features",0.3286,0.3501,0.006
+Eastern Siberia,2025,Main/current labels,0.3472,0.5545,0.0033
+Eastern Siberia,2025,No morphological expansion/dilation,0.2229,0.265,0.0022
+Eastern Siberia,2025,Stricter MODIS thresholds,0.2142,0.2135,0.0097
+Europe,2021,Alternative negative ratio,0.4521,0.4183,0.0191
+Europe,2021,"Main labels, no historical-fire features",0.4725,0.3162,0.0133
+Europe,2021,Main/current labels,0.4685,0.4254,0.0208
+Europe,2021,No morphological expansion/dilation,0.2663,0.2311,0.0031
+Europe,2021,Stricter MODIS thresholds,0.3053,0.2466,0.0111
+Europe,2022,Alternative negative ratio,0.32,0.2667,0.0214
+Europe,2022,"Main labels, no historical-fire features",0.2798,0.1688,0.0182
+Europe,2022,Main/current labels,0.3371,0.2585,0.0248
+Europe,2022,No morphological expansion/dilation,0.2038,0.1732,0.015
+Europe,2022,Stricter MODIS thresholds,0.1194,0.0778,0.0179
+Europe,2023,Alternative negative ratio,0.368,0.3225,0.0146
+Europe,2023,"Main labels, no historical-fire features",0.3077,0.1862,0.0097
+Europe,2023,Main/current labels,0.3755,0.3216,0.0183
+Europe,2023,No morphological expansion/dilation,0.2256,0.1948,0.0133
+Europe,2023,Stricter MODIS thresholds,0.3194,0.2171,0.0165
+Europe,2024,Alternative negative ratio,0.2107,0.1857,0.0089
+Europe,2024,"Main labels, no historical-fire features",0.2088,0.1109,0.002
+Europe,2024,Main/current labels,0.2214,0.1946,0.0074
+Europe,2024,No morphological expansion/dilation,0.1519,0.1293,0.0061
+Europe,2024,Stricter MODIS thresholds,0.1156,0.0808,0.0106
+Europe,2025,Alternative negative ratio,0.2967,0.2558,0.0124
+Europe,2025,"Main labels, no historical-fire features",0.281,0.1605,0.0046
+Europe,2025,Main/current labels,0.3146,0.2594,0.0106
+Europe,2025,No morphological expansion/dilation,0.1737,0.1459,0.0056
+Europe,2025,Stricter MODIS thresholds,0.1367,0.0862,0.0101
+Far East,2021,Alternative negative ratio,0.4984,0.5748,0.0234
+Far East,2021,"Main labels, no historical-fire features",0.4784,0.3675,0.0082
+Far East,2021,Main/current labels,0.4845,0.5527,0.0226
+Far East,2021,No morphological expansion/dilation,0.3839,0.3599,0.0336
+Far East,2021,Stricter MODIS thresholds,0.2366,0.2018,0.0236
+Far East,2022,Alternative negative ratio,0.39,0.3709,0.0195
+Far East,2022,"Main labels, no historical-fire features",0.3694,0.2787,0.0096
+Far East,2022,Main/current labels,0.4456,0.4145,0.0214
+Far East,2022,No morphological expansion/dilation,0.3323,0.2395,0.0252
+Far East,2022,Stricter MODIS thresholds,0.1751,0.1484,0.013
+Far East,2023,Alternative negative ratio,0.5351,0.4663,0.0193
+Far East,2023,"Main labels, no historical-fire features",0.5171,0.3858,0.0161
+Far East,2023,Main/current labels,0.5527,0.5191,0.0164
+Far East,2023,No morphological expansion/dilation,0.4106,0.3264,0.0191
+Far East,2023,Stricter MODIS thresholds,0.275,0.2058,0.0278
+Far East,2024,Alternative negative ratio,0.3222,0.3087,0.0143
+Far East,2024,"Main labels, no historical-fire features",0.2816,0.1805,0.0062
+Far East,2024,Main/current labels,0.3405,0.3191,0.0147
+Far East,2024,No morphological expansion/dilation,0.269,0.1988,0.0123
+Far East,2024,Stricter MODIS thresholds,0.1175,0.0768,0.0107
+Far East,2025,Alternative negative ratio,0.3256,0.3671,0.0386
+Far East,2025,"Main labels, no historical-fire features",0.247,0.1688,0.0134
+Far East,2025,Main/current labels,0.3667,0.4176,0.0452
+Far East,2025,No morphological expansion/dilation,0.2391,0.1665,0.0152
+Far East,2025,Stricter MODIS thresholds,0.1438,0.1261,0.0158
+Global,2021,Alternative negative ratio,0.6814,0.6698,0.0033
+Global,2021,"Main labels, no historical-fire features",0.6825,0.5823,0.0032
+Global,2021,Main/current labels,0.6865,0.7042,0.0027
+Global,2021,No morphological expansion/dilation,0.4813,0.3715,0.0056
+Global,2021,Stricter MODIS thresholds,0.3848,0.3088,0.0031
+Global,2022,Alternative negative ratio,0.4147,0.3273,0.0047
+Global,2022,"Main labels, no historical-fire features",0.3722,0.2542,0.002
+Global,2022,Main/current labels,0.4141,0.3537,0.0039
+Global,2022,No morphological expansion/dilation,0.2583,0.1829,0.004
+Global,2022,Stricter MODIS thresholds,0.205,0.1421,0.0021
+Global,2023,Alternative negative ratio,0.4624,0.4934,0.0088
+Global,2023,"Main labels, no historical-fire features",0.454,0.3489,0.0013
+Global,2023,Main/current labels,0.4769,0.5149,0.0074
+Global,2023,No morphological expansion/dilation,0.3061,0.2487,0.0024
+Global,2023,Stricter MODIS thresholds,0.2664,0.2051,0.009
+Global,2024,Alternative negative ratio,0.3834,0.4023,0.0079
+Global,2024,"Main labels, no historical-fire features",0.3795,0.3034,0.0041
+Global,2024,Main/current labels,0.3995,0.4225,0.0092
+Global,2024,No morphological expansion/dilation,0.242,0.1867,0.002
+Global,2024,Stricter MODIS thresholds,0.2002,0.1463,0.0023
+Global,2025,Alternative negative ratio,0.2622,0.4022,0.0051
+Global,2025,"Main labels, no historical-fire features",0.2325,0.1941,0.0031
+Global,2025,Main/current labels,0.2718,0.441,0.0044
+Global,2025,No morphological expansion/dilation,0.163,0.1939,0.0024
+Global,2025,Stricter MODIS thresholds,0.1745,0.1736,0.0064

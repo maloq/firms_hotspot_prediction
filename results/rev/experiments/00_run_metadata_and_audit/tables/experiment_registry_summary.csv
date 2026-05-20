@@ -1,0 +1,37 @@
+Experiment ID,Type,Model,Feature Set,Status,Threshold
+ablation_dynamic_weather_fwi_only,feature_ablation,CatBoost,meteorology plus fire-weather variables,completed,0.4125
+ablation_full,feature_ablation,CatBoost,all features,completed,0.408
+ablation_fwi_only,feature_ablation,FWI-only CatBoost,fire-weather variables only,completed,0.4773
+ablation_no_anthropogenic,feature_ablation,CatBoost,full minus roads/population/night lights,completed,0.4965
+ablation_no_ecoregion,feature_ablation,CatBoost,full minus ecoregion categorical variables,completed_no_op,0.408
+ablation_no_fuel_ecoregion_vegetation,feature_ablation,CatBoost,full minus ecological/fuel variables,completed,0.5008
+ablation_no_gaussian_smoothing,feature_ablation,CatBoost,full minus Gaussian road/light/population rasters,completed,0.4126
+ablation_no_geography,feature_ablation,CatBoost,full minus direct geography/location variables,completed_no_op,0.408
+ablation_no_history,feature_ablation,CatBoost,full minus prior-fire/proximity features,completed,0.4931
+ablation_no_periodic_seasonality,feature_ablation,CatBoost,full minus periodic seasonality encodings,completed_no_op,0.408
+ablation_no_seasonality,feature_ablation,CatBoost,full minus month/day-of-year features,completed,0.4068
+ablation_no_temporal_history,feature_ablation,CatBoost,full minus lagged meteorology,completed,0.4762
+ablation_no_terrain,feature_ablation,CatBoost,full minus topography,completed,0.4937
+ablation_shorter_sequence_30d,feature_ablation,CatBoost,full minus >30-day weather-history windows,completed,0.4428
+ablation_static_only,feature_ablation,CatBoost,static non-weather features,completed,0.4369
+ablation_weather_only,feature_ablation,Weather-only CatBoost,meteorology/history features only,completed,0.3741
+catboost_full,main_model_comparison,CatBoost,all features,completed,0.408
+catboost_fwi_only,main_model_comparison,FWI-only CatBoost,fire-weather variables only,completed,0.4773
+catboost_weather_only,main_model_comparison,Weather-only CatBoost,meteorology/history features only,completed,0.3741
+logistic_regression_full,main_model_comparison,Logistic Regression (linear SGD),full features,completed,1.0
+nn_global_full_ft_transformer,main_model_comparison,FT-Transformer (global full),global full NN features,completed,0.0625
+nn_global_full_lstm_attention,main_model_comparison,LSTM attention (global full),global full NN features,completed,0.2068
+nn_global_full_lstm_gated_moe,main_model_comparison,LSTM gated MoE (global full),global full NN features,completed,0.2482
+nn_global_full_lstm_static_concat,main_model_comparison,LSTM static concat (global full),global full NN features,completed,0.3205
+nn_global_full_minimal_mlp,main_model_comparison,Minimal MLP (global full),global full NN features,completed,0.2914
+nn_global_full_spatial_tsn,main_model_comparison,Spatial climate TSN-MLP (global full),global full NN features,completed,0.4269
+nn_global_full_spatial_tsn_ecmwf,main_model_comparison,Spatial climate TSN-MLP (ECMWF global full),global full NN features,completed,0.2851
+nn_global_full_spatial_tsn_no_tp,main_model_comparison,Spatial climate TSN-MLP no tp (ERA5 global full),global full NN features,completed,0.3871
+nn_global_full_tsn,main_model_comparison,TemporalConvNet / TSN-MLP (global full),global full NN features,completed,0.1911
+poisson_point_process_full,main_model_comparison,Poisson Point-Process GLM,full features,completed,0.3282
+random_forest_full,main_model_comparison,Random Forest,full features,completed,0.2865
+nn_feature_ablation_tsn_dynamic_sequence_only,neural_feature_ablation,TemporalConvNet / TSN-MLP (global full),Dynamic sequence only,completed,0.0658
+nn_feature_ablation_tsn_full,neural_feature_ablation,TemporalConvNet / TSN-MLP (global full),Full neural feature set,completed,0.1911
+nn_feature_ablation_tsn_no_categorical_features,neural_feature_ablation,TemporalConvNet / TSN-MLP (global full),No categorical features,completed,0.3164
+nn_feature_ablation_tsn_no_dynamic_sequence,neural_feature_ablation,TemporalConvNet / TSN-MLP (global full),No dynamic weather sequence,completed,0.3057
+nn_feature_ablation_tsn_no_static_features,neural_feature_ablation,TemporalConvNet / TSN-MLP (global full),No static features,completed,0.2195

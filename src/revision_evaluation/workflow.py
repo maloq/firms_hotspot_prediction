@@ -66,6 +66,9 @@ def probability_overlay_config(
     source_label: str | None = None,
     dense_neural_training_features: Path | None = None,
     dense_neural_model_path: Path | None = None,
+    colormap: str | None = None,
+    color_floor: float | None = None,
+    color_vmax: float | None = None,
 ) -> ProbabilityOverlayConfig:
     return ProbabilityOverlayConfig(
         results_dir=config.output_dir,
@@ -76,8 +79,10 @@ def probability_overlay_config(
         model=_resolve_best_neural_model(config),
         selection_metric=config.probability_overlay_selection_metric,
         min_wildfires=config.probability_overlay_min_wildfires,
+        spatial_tolerance_degrees=config.probability_overlay_spatial_tolerance_degrees,
         window_days=config.probability_overlay_window_days,
         top_periods=config.probability_overlay_top_periods,
+        max_period_end=config.probability_overlay_max_period_end,
         allow_overlapping_periods=config.probability_overlay_allow_overlapping_periods,
         regions=config.probability_overlay_regions,
         include_global=config.probability_overlay_include_global,
@@ -95,6 +100,9 @@ def probability_overlay_config(
         prior_correction=config.probability_overlay_prior_correction,
         train_prior=config.probability_overlay_train_prior,
         deploy_prior=config.probability_overlay_deploy_prior,
+        colormap=colormap or config.probability_overlay_colormap,
+        color_floor=config.probability_overlay_color_floor if color_floor is None else color_floor,
+        color_vmax=config.probability_overlay_color_vmax if color_vmax is None else color_vmax,
         verbose_feature_generation=config.probability_overlay_verbose_feature_generation,
         country_shapes=config.probability_overlay_country_shapes,
         output_dir=output_dir or config.probability_overlay_output_dir,
@@ -134,6 +142,9 @@ def probability_overlay_configs(config: EvaluationConfig) -> list[ProbabilityOve
                 source_label=label,
                 dense_neural_training_features=run_training_features,
                 dense_neural_model_path=Path(model_path) if model_path else None,
+                colormap=str(run["colormap"]) if run.get("colormap") else None,
+                color_floor=float(run["color_floor"]) if run.get("color_floor") is not None else None,
+                color_vmax=float(run["color_vmax"]) if run.get("color_vmax") is not None else None,
             )
         )
     return configs

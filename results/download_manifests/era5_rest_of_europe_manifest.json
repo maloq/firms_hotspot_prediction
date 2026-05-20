@@ -1,0 +1,85 @@
+{
+  "dataset": "derived-era5-single-levels-daily-statistics",
+  "area_north_west_south_east": [
+    75.0,
+    -25.0,
+    35.0,
+    1.0
+  ],
+  "executed": true,
+  "task_count": 9,
+  "tasks": [
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2017,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2017.nc",
+      "reason": "domain too narrow: lat 35..75, lon 10..180"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2018,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2018.nc",
+      "reason": "domain too narrow: lat 35..75, lon 10..180"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2019,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2019.nc",
+      "reason": "domain too narrow: lat 35..75, lon 10..180"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2020,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2020.nc",
+      "reason": "domain too narrow: lat 40..82, lon 19..191"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2021,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2021.nc",
+      "reason": "domain too narrow: lat 40..82, lon 19..191"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2022,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2022.nc",
+      "reason": "domain too narrow: lat 40..82, lon 19..191"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2023,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2023.nc",
+      "reason": "domain too narrow: lat 40..82, lon 19..191"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2024,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2024.nc",
+      "reason": "domain too narrow: lat 40..82, lon 19..191"
+    },
+    {
+      "variable": "stl1",
+      "cds_variable": "soil_temperature_level_1",
+      "daily_statistic": "daily_mean",
+      "year": 2025,
+      "output_path": "/home/ids/vmorozov/era5_rest_of_europe/soil_temperature_level_1/soil_temperature_level_1_2025.nc",
+      "reason": "domain too narrow: lat 40..82, lon 19..191"
+    }
+  ]
+}

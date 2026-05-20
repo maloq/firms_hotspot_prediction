@@ -161,8 +161,10 @@ class EvaluationConfig:
     probability_overlay_source_runs: list[dict[str, Any]] = field(default_factory=list)
     probability_overlay_selection_metric: str = "average_precision"
     probability_overlay_min_wildfires: int = 7
+    probability_overlay_spatial_tolerance_degrees: float = 0.0
     probability_overlay_window_days: int = 3
     probability_overlay_top_periods: int = 1
+    probability_overlay_max_period_end: str | None = None
     probability_overlay_allow_overlapping_periods: bool = False
     probability_overlay_regions: list[str] | None = None
     probability_overlay_include_global: bool = True
@@ -182,6 +184,9 @@ class EvaluationConfig:
     probability_overlay_prior_correction: bool = True
     probability_overlay_train_prior: float = 0.15
     probability_overlay_deploy_prior: float = 0.001
+    probability_overlay_colormap: str = "YlOrRd"
+    probability_overlay_color_floor: float | None = None
+    probability_overlay_color_vmax: float | None = None
     probability_overlay_verbose_feature_generation: bool = False
     probability_overlay_country_shapes: Path = Path("data/countries")
     probability_overlay_output_dir: Path | None = None

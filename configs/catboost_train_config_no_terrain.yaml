@@ -79,7 +79,7 @@ catboost_train:
   features:
     selected_features_path: null
     selected_feature_filter: true
-    ignored: ["datetime", "day", "latitude", "longitude", "year", "lon_rounded", "soft_label", "negative_stratum", "sampling_probability", "sample_weight", "nearest_positive_distance_cells", "nearest_positive_delta_days"]
+    ignored: ["datetime", "day", "latitude", "longitude", "year", "lon_rounded", "soft_label", "negative_stratum", "sampling_probability", "sample_weight", "nearest_positive_distance_cells", "nearest_positive_delta_days", "landseamask", "distance_to_coast_km", "distance_to_coast_dilated_km"]
     drop_features:
       - "anor"
       - "elevation_gradient_max_0.1deg"

@@ -1,0 +1,7 @@
+Window,Features,PR-AUC Drop,Drop Error,F1 Drop
+120-day climate window,30,0.0255,0.002284,0.0023
+14-day climate window,30,0.0069,0.000494,0.0008
+21-day climate window,6,0.0056,0.001174,-0.0015
+30-day climate window,30,0.0324,0.001158,0.0144
+7-day climate window,30,0.008,0.000625,0.0007
+90-day climate window,36,0.0334,0.001408,0.0064

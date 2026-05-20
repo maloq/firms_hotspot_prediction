@@ -710,10 +710,18 @@ def best_neural_experiment_id(output_dir: Path, requested: str | None) -> str:
 
 
 def neural_prediction_path(output_dir: Path, experiment_id: str) -> Path:
-    path = output_dir / "shared_artifacts" / "predictions" / f"{experiment_id}_test_legacy_predictions.parquet"
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing neural prediction metadata parquet: {path}")
-    return path
+    filename = f"{experiment_id}_test_legacy_predictions.parquet"
+    candidates = [
+        output_dir / "shared_artifacts" / "predictions" / filename,
+        output_dir / "predictions" / filename,
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    raise FileNotFoundError(
+        "Missing neural prediction metadata parquet. Checked: "
+        + ", ".join(str(path) for path in candidates)
+    )
 
 
 def paired_ecmwf_neural_experiment_id(output_dir: Path, experiment_id: str) -> str | None:
@@ -724,8 +732,11 @@ def paired_ecmwf_neural_experiment_id(output_dir: Path, experiment_id: str) -> s
         neural_prediction_path(output_dir, candidate)
     except FileNotFoundError:
         return None
-    metrics = output_dir / "shared_artifacts" / "neural_model_metrics" / f"{candidate}_metrics.json"
-    return candidate if metrics.is_file() else None
+    metric_candidates = [
+        output_dir / "shared_artifacts" / "neural_model_metrics" / f"{candidate}_metrics.json",
+        output_dir / "neural_model_metrics" / f"{candidate}_metrics.json",
+    ]
+    return candidate if any(path.is_file() for path in metric_candidates) else None
 
 
 def neural_source_feature_config(

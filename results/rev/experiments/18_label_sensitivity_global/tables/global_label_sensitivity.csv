@@ -1,0 +1,6 @@
+Variant,Positive Rate,F1,F1 Error,PR-AUC,PR-AUC Error
+Alternative negative ratio,0.15416613,0.495,0.001618,0.549,0.007608
+"Main labels, no historical-fire features",0.15416613,0.4828,0.000723,0.4018,0.004477
+Main/current labels,0.15416613,0.5048,0.001792,0.5884,0.007518
+No morphological expansion/dilation,0.09511073,0.3269,0.000253,0.2784,0.004136
+Stricter MODIS thresholds,0.05470883,0.2926,0.002175,0.2515,0.003456

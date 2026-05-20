@@ -144,6 +144,7 @@ land_data_params:
 
   landsea_mask_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask.nc"
   landsea_distance_path: "/home/ids/vmorozov/data/climate_data/land_features/IMERG_land_sea_mask_distances.nc"
+  landsea_mask_threshold: 70
   fire_index_npz_path: "/home/ids/vmorozov/data/climate_data/land_features/fire_index_features.npz"
   wwf_shp_path: "/home/infres/vmorozov/Misc/data/wwf_terr_ecos"
 
@@ -167,7 +168,7 @@ nn_preprocessing:
   add_missing_indicators: true
   scale_static: true
   log_population: true
-  ignored_features: ["datetime", "day", "latitude", "longitude", "year"]
+  ignored_features: ["datetime", "day", "latitude", "longitude", "year", "landseamask", "distance_to_coast_km", "distance_to_coast_dilated_km"]
 
 batch_size: 2048
 epochs: 50

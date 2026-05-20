@@ -68,7 +68,7 @@ catboost_tune:
   features:
     selected_features_path: null
     selected_feature_filter: true
-    ignored: ["datetime", "day", "latitude", "longitude", "year", "lon_rounded"]
+    ignored: ["datetime", "day", "latitude", "longitude", "year", "lon_rounded", "landseamask", "distance_to_coast_km", "distance_to_coast_dilated_km"]
     drop_features: []
     drop_feature_prefixes: []
     drop_feature_groups: []

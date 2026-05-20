@@ -1,0 +1,76 @@
+Year,Model,F1,F1 Error,PR-AUC,PR-AUC Error
+2021,CatBoost,0.6876,0.002267,0.6971,0.0028
+2021,FT-Transformer (global full),0.563,0.00161,0.5084,0.0025
+2021,FWI-only CatBoost,0.5279,0.001387,0.4994,0.0041
+2021,LSTM attention (global full),0.6275,0.001837,0.5972,0.003
+2021,LSTM gated MoE (global full),0.6347,0.001952,0.6374,0.0053
+2021,LSTM static concat (global full),0.6493,0.001927,0.5801,0.0014
+2021,Logistic Regression (linear SGD),0.572,0.00079,0.4022,0.0009
+2021,Minimal MLP (global full),0.6507,0.001131,0.6109,0.0029
+2021,Poisson Point-Process GLM,0.6245,0.001275,0.6039,0.0038
+2021,Random Forest,0.661,0.002079,0.6786,0.0031
+2021,Spatial climate TSN-MLP (ECMWF global full),0.5994,0.001989,0.642,0.0042
+2021,Spatial climate TSN-MLP (global full),0.7484,0.001968,0.8003,0.0035
+2021,Spatial climate TSN-MLP no tp (ERA5 global full),0.7355,0.001445,0.7772,0.0032
+2021,TemporalConvNet / TSN-MLP (global full),0.5588,0.000967,0.5867,0.0023
+2021,Weather-only CatBoost,0.5749,0.000782,0.6346,0.0034
+2022,CatBoost,0.4085,0.001149,0.3399,0.0045
+2022,FT-Transformer (global full),0.3083,0.001062,0.2501,0.0021
+2022,FWI-only CatBoost,0.2172,0.00144,0.1563,0.0011
+2022,LSTM attention (global full),0.3257,0.002678,0.2204,0.0019
+2022,LSTM gated MoE (global full),0.3213,0.001675,0.2583,0.0055
+2022,LSTM static concat (global full),0.3291,0.005713,0.2453,0.0053
+2022,Logistic Regression (linear SGD),0.2553,0.002211,0.1472,0.0014
+2022,Minimal MLP (global full),0.3472,0.000747,0.2543,0.0031
+2022,Poisson Point-Process GLM,0.3007,0.001703,0.268,0.0068
+2022,Random Forest,0.3802,0.002358,0.3711,0.0094
+2022,Spatial climate TSN-MLP (ECMWF global full),0.3023,0.003139,0.2888,0.0059
+2022,Spatial climate TSN-MLP (global full),0.5336,0.004056,0.572,0.0056
+2022,Spatial climate TSN-MLP no tp (ERA5 global full),0.5247,0.002753,0.5484,0.0088
+2022,TemporalConvNet / TSN-MLP (global full),0.2628,0.001156,0.2614,0.0043
+2022,Weather-only CatBoost,0.2443,0.001209,0.1866,0.0021
+2023,CatBoost,0.4786,0.001362,0.5114,0.008
+2023,FT-Transformer (global full),0.3555,0.001716,0.2979,0.0021
+2023,FWI-only CatBoost,0.2624,0.001227,0.1834,0.0028
+2023,LSTM attention (global full),0.3847,0.003125,0.3225,0.0037
+2023,LSTM gated MoE (global full),0.4012,0.000792,0.3767,0.0035
+2023,LSTM static concat (global full),0.4232,0.003194,0.3532,0.0058
+2023,Logistic Regression (linear SGD),0.3229,0.000436,0.1929,0.0003
+2023,Minimal MLP (global full),0.4244,0.002263,0.3786,0.0048
+2023,Poisson Point-Process GLM,0.3683,0.002097,0.3574,0.0066
+2023,Random Forest,0.4386,0.003476,0.4301,0.0031
+2023,Spatial climate TSN-MLP (ECMWF global full),0.3803,0.000663,0.3976,0.0072
+2023,Spatial climate TSN-MLP (global full),0.5732,0.00104,0.6486,0.0047
+2023,Spatial climate TSN-MLP no tp (ERA5 global full),0.5518,0.001802,0.6103,0.0044
+2023,TemporalConvNet / TSN-MLP (global full),0.3217,0.001586,0.3468,0.0082
+2023,Weather-only CatBoost,0.314,0.001181,0.3095,0.0043
+2024,CatBoost,0.4023,0.001295,0.4244,0.0087
+2024,FT-Transformer (global full),0.366,0.003789,0.2843,0.0048
+2024,FWI-only CatBoost,0.3157,0.001316,0.2463,0.0022
+2024,LSTM attention (global full),0.3886,0.002745,0.3294,0.0038
+2024,LSTM gated MoE (global full),0.4009,0.002511,0.3469,0.0047
+2024,LSTM static concat (global full),0.4118,0.003792,0.3436,0.0043
+2024,Logistic Regression (linear SGD),0.3575,0.001473,0.2202,0.0011
+2024,Minimal MLP (global full),0.4311,0.001141,0.3565,0.004
+2024,Poisson Point-Process GLM,0.4099,0.003285,0.3444,0.005
+2024,Random Forest,0.4171,0.002598,0.3229,0.003
+2024,Spatial climate TSN-MLP (ECMWF global full),0.3801,0.000794,0.3365,0.0025
+2024,Spatial climate TSN-MLP (global full),0.6137,0.005154,0.6382,0.005
+2024,Spatial climate TSN-MLP no tp (ERA5 global full),0.6184,0.002526,0.6369,0.0058
+2024,TemporalConvNet / TSN-MLP (global full),0.341,0.001894,0.3201,0.0063
+2024,Weather-only CatBoost,0.3857,0.001296,0.3843,0.0052
+2025,CatBoost,0.2754,0.001018,0.4286,0.0059
+2025,FT-Transformer (global full),0.2928,0.001975,0.3202,0.005
+2025,FWI-only CatBoost,0.1939,0.000981,0.1866,0.0031
+2025,LSTM attention (global full),0.3223,0.002555,0.3307,0.0051
+2025,LSTM gated MoE (global full),0.3279,0.002773,0.3529,0.0096
+2025,LSTM static concat (global full),0.374,0.00468,0.3504,0.009
+2025,Logistic Regression (linear SGD),0.2307,0.00127,0.13,0.0009
+2025,Minimal MLP (global full),0.3524,0.004307,0.3527,0.0102
+2025,Poisson Point-Process GLM,0.3032,0.001053,0.2505,0.0029
+2025,Random Forest,0.3782,0.002095,0.414,0.0098
+2025,Spatial climate TSN-MLP (ECMWF global full),0.3157,0.001551,0.3094,0.0013
+2025,Spatial climate TSN-MLP (global full),0.0434,0.005137,0.0868,0.0017
+2025,Spatial climate TSN-MLP no tp (ERA5 global full),0.0408,0.004453,0.0778,0.0014
+2025,TemporalConvNet / TSN-MLP (global full),0.2451,0.002042,0.4086,0.0041
+2025,Weather-only CatBoost,0.2526,0.001707,0.2647,0.0092

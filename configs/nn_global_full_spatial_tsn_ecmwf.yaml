@@ -7,7 +7,7 @@ nn_metrics_path: "outputs/nn_global_full_spatial_tsn_ecmwf/metrics.json"
 
 batch_size: 4096
 epochs: 15
-num_workers: 6
+num_workers: 0
 selection_metric: val_ap
 compute_train_metrics: true
 
@@ -56,7 +56,7 @@ nn_model:
         T_max: 15
         eta_min: 0.00002
   trainer:
-    enable_progress_bar: true
+    enable_progress_bar: false
     early_stopping:
       patience: 6
       min_delta: 0.0005

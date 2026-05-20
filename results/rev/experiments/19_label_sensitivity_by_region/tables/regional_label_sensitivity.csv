@@ -1,0 +1,21 @@
+Region,Variant,F1,F1 Error,PR-AUC,PR-AUC Error
+Central Asia,Alternative negative ratio,0.2174,0.001735,0.2076,0.0069
+Central Asia,"Main labels, no historical-fire features",0.2151,0.002265,0.1149,0.001
+Central Asia,Main/current labels,0.224,0.001721,0.2228,0.0083
+Central Asia,No morphological expansion/dilation,0.1437,0.001579,0.118,0.0038
+Central Asia,Stricter MODIS thresholds,0.1188,0.002985,0.0833,0.0033
+Eastern Siberia,Alternative negative ratio,0.5642,0.001138,0.6185,0.003
+Eastern Siberia,"Main labels, no historical-fire features",0.5641,0.001082,0.4865,0.0038
+Eastern Siberia,Main/current labels,0.5685,0.00102,0.6562,0.0032
+Eastern Siberia,No morphological expansion/dilation,0.3887,0.001458,0.3328,0.0034
+Eastern Siberia,Stricter MODIS thresholds,0.3165,0.001159,0.2847,0.0026
+Europe,Alternative negative ratio,0.3275,0.001444,0.2784,0.0047
+Europe,"Main labels, no historical-fire features",0.3114,0.002473,0.1818,0.0017
+Europe,Main/current labels,0.3418,0.001402,0.2807,0.0064
+Europe,No morphological expansion/dilation,0.2011,0.002253,0.17,0.0066
+Europe,Stricter MODIS thresholds,0.2062,0.009011,0.1408,0.0068
+Far East,Alternative negative ratio,0.4128,0.003129,0.3984,0.0094
+Far East,"Main labels, no historical-fire features",0.3801,0.004466,0.2633,0.0015
+Far East,Main/current labels,0.433,0.004809,0.4278,0.0118
+Far East,No morphological expansion/dilation,0.3262,0.004371,0.2487,0.0133
+Far East,Stricter MODIS thresholds,0.1881,0.008521,0.1424,0.0074

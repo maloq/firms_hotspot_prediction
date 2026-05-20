@@ -1,0 +1,31 @@
+Rank,Model,Feature,Type,PR-AUC Drop,F1 Drop
+1,Spatial climate TSN-MLP (global full),t2m spatial sequence,dynamic_spatial_channel,0.5233,0.4722
+2,Spatial climate TSN-MLP (global full),d2m spatial sequence,dynamic_spatial_channel,0.2417,0.1955
+3,Spatial climate TSN-MLP (global full),tp spatial sequence,dynamic_spatial_channel,0.1881,0.1516
+4,Spatial climate TSN-MLP (global full),stl1 spatial sequence,dynamic_spatial_channel,0.065,0.0655
+5,Spatial climate TSN-MLP (global full),ecoregion_name,categorical,0.0237,0.0193
+6,Spatial climate TSN-MLP (global full),tvl,categorical,0.0082,0.0064
+7,Spatial climate TSN-MLP (global full),tvh,categorical,0.0071,0.0028
+8,Spatial climate TSN-MLP (global full),coord_lon_cos,static,0.006,0.0087
+9,Spatial climate TSN-MLP (global full),road_density_gaussian_5km,static,0.0055,0.0036
+10,Spatial climate TSN-MLP (global full),slt_soil_type_stream_oper_daily_mean,categorical,0.0054,0.0024
+11,Spatial climate TSN-MLP (global full),road_density_gaussian_25km,static,0.0053,0.0029
+12,Spatial climate TSN-MLP (global full),month,static,0.0053,0.0048
+13,Spatial climate TSN-MLP (global full),light_density_gaussian_5km,static,0.0051,0.0024
+14,Spatial climate TSN-MLP (global full),landseamask,static,0.0046,0.0038
+15,Spatial climate TSN-MLP (global full),population,static,0.0042,0.0042
+16,Spatial climate TSN-MLP (global full),road_density_gaussian_10km,static,0.0035,0.0019
+17,Spatial climate TSN-MLP (global full),fire_index_fdsrte_median,static,0.003,0.0018
+18,Spatial climate TSN-MLP (global full),sdfor,static,0.0029,0.0026
+19,Spatial climate TSN-MLP (global full),light_density_gaussian_10km,static,0.0028,0.0017
+20,Spatial climate TSN-MLP (global full),fire_index_fdsrte_mean,static,0.0025,0.0027
+21,Spatial climate TSN-MLP (global full),distance_to_light_source_meters,static,0.0025,0.0025
+22,Spatial climate TSN-MLP (global full),elevation_mean_0.1deg,static,0.0022,0.0036
+23,Spatial climate TSN-MLP (global full),elevation_min_0.1deg,static,0.0022,0.0041
+24,Spatial climate TSN-MLP (global full),fire_index_fwinx_max,static,0.0021,0.0033
+25,Spatial climate TSN-MLP (global full),fire_index_fbupinx_median_trend,static,0.002,0.0019
+26,Spatial climate TSN-MLP (global full),slt,categorical,0.002,0.0026
+27,Spatial climate TSN-MLP (global full),isor,static,0.0019,0.0018
+28,Spatial climate TSN-MLP (global full),distance_to_road_meters,static,0.0019,0.0042
+29,Spatial climate TSN-MLP (global full),fire_index_fbupinx_mean_trend,static,0.0018,0.0009
+30,Spatial climate TSN-MLP (global full),distance_to_coast_km,static,0.0018,0.0022
