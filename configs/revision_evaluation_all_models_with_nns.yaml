@@ -1,9 +1,9 @@
 # Complete revision evaluation config with neural nets imported into the
 # organized experiment tables and direct latitude/longitude features disabled.
 
-output_dir: results/revision_experiments_complete_with_nns_no_latlon
+output_dir: /home/ids/vmorozov/revision_eval_storage/results/revision_experiments_complete_with_nns_no_latlon
 python:
-overwrite_output_dir: true
+overwrite_output_dir: false
 seed: 17
 
 run_main_tabular: true
@@ -61,7 +61,7 @@ regions_file: configs/regions_example.yaml
 era5_dir: /home/ids/vmorozov/era5
 era5_feature_root: /home/ids/vmorozov/data/climate_data/climate_features/ERA5
 ecmwf_feature_root: /home/ids/vmorozov/data/climate_data/climate_features/ECMWF
-era5_source_cache_dir: data/saved_features/revision_evaluation/era5_source_comparison
+era5_source_cache_dir: /home/ids/vmorozov/revision_eval_storage/cache/era5_source_comparison
 
 catboost_iterations: 450
 sensitivity_catboost_iterations: 260

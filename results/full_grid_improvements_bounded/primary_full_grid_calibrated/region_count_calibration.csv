@@ -1,0 +1,33 @@
+model_name,model_type,region,region_display,expected_fire_positive_grid_cells,observed_fire_positive_grid_cells,expected_observed_count_ratio
+Logistic Regression (linear SGD),linear_sgd,global,Global,991473.722202626,357.0,2777.2373170941905
+Logistic Regression (linear SGD),linear_sgd,eastern_siberia,Eastern Siberia,810235.9375614217,243.0,3334.304269800089
+Logistic Regression (linear SGD),linear_sgd,far_east,Far East,49370.91072811685,29.0,1702.4451975212708
+Logistic Regression (linear SGD),linear_sgd,central_asia,Central Asia,35207.55271198321,15.0,2347.1701807988807
+Poisson Point-Process GLM,poisson_glm,global,Global,75.1632943280396,357.0,0.2105414406947887
+Poisson Point-Process GLM,poisson_glm,eastern_siberia,Eastern Siberia,54.70058028939805,243.0,0.2251052686806504
+Poisson Point-Process GLM,poisson_glm,far_east,Far East,3.6984167000720976,29.0,0.1275316103473137
+Poisson Point-Process GLM,poisson_glm,central_asia,Central Asia,4.0317583347657,15.0,0.26878388898438
+CatBoost,CatBoost,global,Global,68.4978894716056,357.0,0.1918708388560381
+CatBoost,CatBoost,eastern_siberia,Eastern Siberia,56.59204674513356,243.0,0.2328890812556936
+CatBoost,CatBoost,far_east,Far East,1.7140549626438788,29.0,0.0591053435394441
+CatBoost,CatBoost,central_asia,Central Asia,3.07398358692197,15.0,0.2049322391281313
+CatBoost deployment-weighted,CatBoost,global,Global,69.98570111840546,357.0,0.1960383784829284
+CatBoost deployment-weighted,CatBoost,eastern_siberia,Eastern Siberia,52.650777165649146,243.0,0.2166698648792145
+CatBoost deployment-weighted,CatBoost,far_east,Far East,2.8791385724829834,29.0,0.0992806404304477
+CatBoost deployment-weighted,CatBoost,central_asia,Central Asia,2.8093218112450904,15.0,0.1872881207496727
+Weather-only CatBoost,CatBoost,global,Global,69.05766867353267,357.0,0.1934388478250215
+Weather-only CatBoost,CatBoost,eastern_siberia,Eastern Siberia,52.38736652883431,243.0,0.21558587048903
+Weather-only CatBoost,CatBoost,far_east,Far East,2.8269488143484884,29.0,0.0974809935982237
+Weather-only CatBoost,CatBoost,central_asia,Central Asia,2.8605680567235927,15.0,0.1907045371149061
+FWI-only CatBoost,CatBoost,global,Global,69.9999999999999,357.0,0.1960784313725487
+FWI-only CatBoost,CatBoost,eastern_siberia,Eastern Siberia,53.51086592970459,243.0,0.2202093248135991
+FWI-only CatBoost,CatBoost,far_east,Far East,3.021731396755182,29.0,0.1041976343708683
+FWI-only CatBoost,CatBoost,central_asia,Central Asia,3.0785800009891826,15.0,0.2052386667326121
+Random Forest,random_forest,global,Global,70.32875697176418,357.0,0.1969993192486391
+Random Forest,random_forest,eastern_siberia,Eastern Siberia,59.86783793739871,243.0,0.2463697034460852
+Random Forest,random_forest,far_east,Far East,1.9549576896283465,29.0,0.0674123341251154
+Random Forest,random_forest,central_asia,Central Asia,2.8513936593698617,15.0,0.1900929106246574
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,global,Global,121.06520705344346,357.0,0.33911822704045785
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,eastern_siberia,Eastern Siberia,87.19659667247046,243.0,0.3588337311624299
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,far_east,Far East,2.419628060652836,29.0,0.08343545036733917
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,central_asia,Central Asia,10.926039829867772,15.0,0.7284026553245181

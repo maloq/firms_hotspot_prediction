@@ -1,10 +1,11 @@
-# Revision Experiment Outputs
+# Revision Experiments Complete
 
-Generated revision experiment outputs live here when they are produced locally.
-Git tracks the real PNG plots and CSV tables from this tree, but ignores bulky
-intermediate artifacts and duplicate `artifacts/linked_files` symlink paths.
-Those linked artifact paths are deeply nested and can exceed Windows path
-limits during checkout or sync.
+This directory has been reorganized into a clean experiment library.
 
-Keep durable summaries in tracked documentation outside this directory, and
-store bulky generated artifacts outside Git when they need to be shared.
+- `experiments/`: reader-facing experiment folders with descriptions, analysis, narrow CSV tables, plots, and per-experiment artifacts when those outputs exist.
+- `shared_artifacts/`: reusable raw sources, configs, logs, models, predictions, target caches, neural data, and original mixed plot files.
+- `experiments/04_primary_full_grid_calibrated/`: calibrated full-grid prediction study with prevalence, contrast, risk concentration, count correction, and spatial-scale tables when available.
+- `experiments/05_legacy_sampled_case_control/`: old undersampled-negative diagnostics retained for backwards comparison.
+All remaining CSV files are compact presentation tables; wide raw tables were archived as JSONL.GZ plus schema JSON files under `shared_artifacts/`.
+
+Start with [`experiments/index.md`](experiments/index.md).

@@ -67,7 +67,12 @@ def _complete_downloaded_years(
     expected_tiles: set[tuple[int, int]],
 ) -> dict[int, list[Path]]:
     files_by_year: dict[int, list[Path]] = {}
-    for (year, h, v), path in _available_black_marble_sources(source_dir).items():
+    try:
+        sources = _available_black_marble_sources(source_dir)
+    except FileNotFoundError as exc:
+        print(str(exc))
+        return {}
+    for (year, h, v), path in sources.items():
         if (h, v) in expected_tiles:
             files_by_year.setdefault(int(year), []).append(path)
     complete: dict[int, list[Path]] = {}

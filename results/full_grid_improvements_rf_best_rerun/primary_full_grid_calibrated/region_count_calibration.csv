@@ -1,0 +1,5 @@
+model_name,model_type,region,region_display,expected_fire_positive_grid_cells,observed_fire_positive_grid_cells,expected_observed_count_ratio
+Random Forest,random_forest,global,Global,109.04679585834285,357.0,0.3054532096872349
+Random Forest,random_forest,eastern_siberia,Eastern Siberia,95.59108196208221,243.0,0.3933789381155647
+Random Forest,random_forest,far_east,Far East,1.9872961814777639,29.0,0.06852745453371599
+Random Forest,random_forest,central_asia,Central Asia,4.38720767159289,15.0,0.29248051143952597

@@ -1,0 +1,199 @@
+{
+  "started_at": "2026-05-31T22:36:36.602652",
+  "ended_at": "2026-05-31T23:34:51.518765",
+  "elapsed_seconds": 3494.916113,
+  "command": "config-driven revision_evaluation.tabular",
+  "cwd": "/home/infres/vmorozov/Misc",
+  "python": "3.12.13 | packaged by conda-forge | (main, Mar  5 2026, 16:50:00) [GCC 14.3.0]",
+  "platform": "Linux-6.17.0-29-generic-x86_64-with-glibc2.39",
+  "seed": 17,
+  "args": {
+    "features_path": "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet",
+    "feature_config": "configs/features_config_30d.yaml",
+    "target_config": "configs/target_config.yaml",
+    "catboost_config": "configs/catboost_train_config.yaml",
+    "regions_file": "configs/regions_example.yaml",
+    "output_dir": "results/full_grid_improvements_bounded",
+    "era5_dir": "/home/ids/vmorozov/era5",
+    "seed": 17,
+    "catboost_iterations": 80,
+    "catboost_depth": 5,
+    "catboost_learning_rate": 0.03,
+    "catboost_task_type": "GPU",
+    "catboost_verbose": 50,
+    "rf_max_train_rows": 30000,
+    "linear_epochs": 1,
+    "point_process_max_train_rows": 50000,
+    "point_process_alpha": 0.0001,
+    "point_process_max_iter": 80,
+    "prediction_batch_size": 100000,
+    "permutation_sample_size": 10000,
+    "permutation_trials": 1,
+    "random_error_trials": 2,
+    "random_error_sample_size": 20000,
+    "shap_sample_size": 1000,
+    "skip_shap": true,
+    "run_legacy_sampled_evaluation": true,
+    "run_full_grid_evaluation": true,
+    "full_grid_is_primary": true,
+    "fail_on_full_grid_error": false,
+    "calibration_start_date": "2021-05-01",
+    "calibration_end_date": "2021-05-31",
+    "test_start_date": "2022-05-01",
+    "test_end_date": "2022-05-31",
+    "deployment_grid_resolution": 0.1,
+    "deployment_grid_universe": "land_or_burnable",
+    "deployment_grid_chunk_by": [
+      "country",
+      "month"
+    ],
+    "deployment_grid_countries": [
+      "Russian_Federation"
+    ],
+    "deployment_grid_coordinate_bounds": [
+      50.0,
+      80.0,
+      70.0,
+      140.0
+    ],
+    "deployment_grid_clip_to_feature_bounds": true,
+    "full_grid_mode": "full_grid",
+    "weighted_grid_sample": false,
+    "weighted_grid_sample_fraction": null,
+    "weighted_grid_sample_strata": [
+      "country",
+      "month"
+    ],
+    "calibration_method": "prior_offset_month",
+    "n_reliability_bins": 20,
+    "reliability_binning": "equal_count",
+    "full_grid_selection_metric": "average_precision",
+    "full_grid_selection_direction": null,
+    "full_grid_selection_region": "global",
+    "full_grid_selection_split": "test",
+    "save_full_grid_predictions": true,
+    "save_calibrated_predictions": true,
+    "max_grid_rows_per_chunk": 200000,
+    "cache_full_grid_features": true,
+    "use_lat_lon_features": false,
+    "use_ecoregion_features": true,
+    "use_historical_fire_features": true
+  },
+  "split": {
+    "train": "2001-2018",
+    "validation": "2019-2020",
+    "test": "2021-2025",
+    "thresholding": "Validation F1-max threshold applied unchanged to test."
+  },
+  "package_availability": {
+    "catboost": {
+      "available": true,
+      "version": "1.2.10"
+    },
+    "xgboost": {
+      "available": false,
+      "version": null
+    },
+    "lightgbm": {
+      "available": false,
+      "version": null
+    },
+    "sklearn": {
+      "available": true,
+      "version": "1.8.0"
+    },
+    "torch": {
+      "available": true,
+      "version": "2.11.0+cu128"
+    },
+    "shap": {
+      "available": false,
+      "version": null
+    },
+    "pandas": {
+      "available": true,
+      "version": "3.0.2"
+    },
+    "numpy": {
+      "available": true,
+      "version": "2.4.4"
+    },
+    "yaml": {
+      "available": true,
+      "version": "6.0.3"
+    },
+    "pyarrow": {
+      "available": true,
+      "version": "24.0.0"
+    },
+    "geopandas": {
+      "available": true,
+      "version": "1.1.3"
+    },
+    "xarray": {
+      "available": true,
+      "version": "2026.4.0"
+    },
+    "netCDF4": {
+      "available": true,
+      "version": "1.7.4"
+    }
+  },
+  "outputs": {
+    "registry": "results/full_grid_improvements_bounded/experiment_registry.csv",
+    "metrics_long": "results/full_grid_improvements_bounded/metrics_long.csv",
+    "metrics_wide": "results/full_grid_improvements_bounded/metrics_wide.csv",
+    "report": "results/full_grid_improvements_bounded/report.md",
+    "plots": "results/full_grid_improvements_bounded/plots",
+    "configs_used": [
+      "results/full_grid_improvements_bounded/configs_used/features_config_30d.yaml",
+      "results/full_grid_improvements_bounded/configs_used/target_config.yaml",
+      "results/full_grid_improvements_bounded/configs_used/catboost_train_config.yaml",
+      "results/full_grid_improvements_bounded/configs_used/regions_example.yaml"
+    ]
+  },
+  "failures": [
+    {
+      "experiment": "Neural embedding/fusion ablations",
+      "reason": "No prepared NN `.npz` dataset was present in the expected metadata directory.",
+      "affects_main_claims": "No; CatBoost/data-fusion ablations cover the primary reviewer request.",
+      "suggested_next_action": "Run `make_nn_train_data.py` for the reviewer split, then train/evaluate the listed NN variants."
+    },
+    {
+      "experiment": "No morphological expansion / no dilation",
+      "reason": "Current feature parquet was already built from expanded targets; no no-dilation target cache was found.",
+      "affects_main_claims": "Potentially relevant to target-construction sensitivity; reported as a limitation.",
+      "suggested_next_action": "Add a target_config flag to bypass `expand_positive_points`, rebuild target caches, and rerun CatBoost on the rebuilt feature matrix."
+    },
+    {
+      "experiment": "Stricter MODIS confidence/brightness thresholds",
+      "reason": "Requires target and feature regeneration; no stricter-threshold cache was present.",
+      "affects_main_claims": "Limited; main performance and feature ablation claims are still based on the stated target config.",
+      "suggested_next_action": "Create a stricter target_config and rebuild per-country feature parquet files."
+    },
+    {
+      "experiment": "Lead-time sensitivity",
+      "reason": "No lead-time-specific features or forecast-initialization metadata are present in the saved training matrix.",
+      "affects_main_claims": "No direct effect on retrospective ignition discrimination; affects operational lead-time claims.",
+      "suggested_next_action": "Generate feature matrices by forecast lead time from forecast/hindcast inputs."
+    },
+    {
+      "experiment": "ERA5 -> ERA5",
+      "reason": "Raw ERA5 files are readable at /home/ids/vmorozov/era5, but no precomputed ERA5-derived feature parquet with the same schema/date/grid rows as the ECMWF feature table was found. Building it requires a full climate-feature regeneration pass, not a lightweight in-run adapter.",
+      "affects_main_claims": "No for model/ablation claims; yes for the requested weather-source comparison.",
+      "suggested_next_action": "Generate an ERA5-derived feature parquet on the same target rows and common feature subset, then rerun this runner with an ERA5 features path."
+    },
+    {
+      "experiment": "ERA5 -> SEAS5/ECMWF",
+      "reason": "Raw ERA5 files are readable at /home/ids/vmorozov/era5, but no precomputed ERA5-derived feature parquet with the same schema/date/grid rows as the ECMWF feature table was found. Building it requires a full climate-feature regeneration pass, not a lightweight in-run adapter.",
+      "affects_main_claims": "No for model/ablation claims; yes for the requested weather-source comparison.",
+      "suggested_next_action": "Generate an ERA5-derived feature parquet on the same target rows and common feature subset, then rerun this runner with an ERA5 features path."
+    },
+    {
+      "experiment": "ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF",
+      "reason": "Raw ERA5 files are readable at /home/ids/vmorozov/era5, but no precomputed ERA5-derived feature parquet with the same schema/date/grid rows as the ECMWF feature table was found. Building it requires a full climate-feature regeneration pass, not a lightweight in-run adapter.",
+      "affects_main_claims": "No for model/ablation claims; yes for the requested weather-source comparison.",
+      "suggested_next_action": "Generate an ERA5-derived feature parquet on the same target rows and common feature subset, then rerun this runner with an ERA5 features path."
+    }
+  ]
+}

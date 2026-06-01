@@ -228,7 +228,11 @@ def generate_grid_cells_for_geometry(
 def _positive_label_frame(raw: pd.DataFrame, resolution: float) -> pd.DataFrame:
     if raw.empty:
         return pd.DataFrame(columns=["datetime", "lat_rounded", "lon_rounded", "country", "is_fire"])
-    rounding_precision = int(-np.log10(resolution)) if resolution > 0 else int(-np.log10(SPATIAL_COARSENESS))
+    rounding_precision = (
+        max(0, int(np.ceil(-np.log10(resolution))))
+        if resolution > 0
+        else int(-np.log10(SPATIAL_COARSENESS))
+    )
     data = raw.copy()
     data["lat_rounded"] = data["latitude"].round(rounding_precision)
     data["lon_rounded"] = data["longitude"].round(rounding_precision)
@@ -514,6 +518,26 @@ def _iter_cell_date_row_blocks(
         yield f"_part{part_idx:04d}", _cross_cells_dates(part_cells, dates, labels, country, resolution=resolution)
 
 
+def _month_date_batches(
+    dates: pd.DatetimeIndex,
+    months_per_chunk: int,
+) -> Iterable[tuple[str, pd.DatetimeIndex]]:
+    grouped = [
+        (period, pd.DatetimeIndex(values))
+        for period, values in dates.to_series().groupby(dates.to_period("M"))
+    ]
+    chunk_size = max(1, int(months_per_chunk))
+    for start in range(0, len(grouped), chunk_size):
+        batch = grouped[start : start + chunk_size]
+        periods = [period for period, _ in batch]
+        if len(periods) == 1:
+            label = str(periods[0])
+        else:
+            label = f"{periods[0]}_to_{periods[-1]}"
+        date_values = np.concatenate([month_dates.to_numpy() for _, month_dates in batch])
+        yield label, pd.DatetimeIndex(date_values)
+
+
 def iter_deployment_grid_chunks(
     *,
     config: Any,
@@ -553,6 +577,8 @@ def iter_deployment_grid_chunks(
     weighted = bool(getattr(config, "weighted_grid_sample", False)) or str(
         getattr(config, "full_grid_mode", "full_grid")
     ).lower() == "weighted_grid_sample"
+    months_per_chunk = getattr(config, "deployment_grid_months_per_chunk", 1)
+    months_per_chunk = max(1, int(months_per_chunk)) if months_per_chunk not in {None, ""} else 1
 
     for country in countries:
         cells = generate_grid_cells_for_geometry(geometries[country], country=country, resolution=resolution)
@@ -566,7 +592,7 @@ def iter_deployment_grid_chunks(
                 len(cells),
             )
         country_dates = pd.date_range(start_date, end_date, freq="D")
-        for period, dates in country_dates.to_series().groupby(country_dates.to_period("M")):
+        for period, dates in _month_date_batches(country_dates, months_per_chunk):
             if weighted and getattr(config, "weighted_grid_sample_fraction", None) is not None:
                 rows = _sample_cross_cells_dates(
                     cells,

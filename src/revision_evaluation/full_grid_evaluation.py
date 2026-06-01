@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable
 import numpy as np
 import pandas as pd
 
+from src.feature_generation.calendar_features import add_calendar_context_features
 from src.feature_generation.make_features import make_features_from_target_df
 
 from .calibration import (
@@ -29,6 +30,7 @@ from .probability_metrics import (
     expected_observed_count_ratio,
     make_reliability_bins,
     max_weighted_f1,
+    reliability_summary,
     weighted_average_precision,
     weighted_brier_score,
     weighted_log_loss,
@@ -81,6 +83,76 @@ def _upsert_csv(path: Path, rows: pd.DataFrame, key_cols: list[str]) -> None:
     else:
         combined = rows
     combined.to_csv(path, index=False)
+
+
+def _selection_direction(metric_name: str, requested: str | None = None) -> str:
+    requested_key = str(requested or "").strip().lower()
+    if requested_key in {"min", "max"}:
+        return requested_key
+    name = str(metric_name).lower()
+    smaller_is_better = (
+        "loss",
+        "logloss",
+        "brier",
+        "error",
+        "ece",
+        "mce",
+        "rmse",
+        "mae",
+    )
+    return "min" if any(token in name for token in smaller_is_better) else "max"
+
+
+def write_full_grid_model_selection(output_dir: Path, config: Any) -> pd.DataFrame:
+    out = primary_dir(output_dir)
+    comparison_path = out / "model_comparison.csv"
+    if not comparison_path.exists():
+        return pd.DataFrame()
+    comparison = pd.read_csv(comparison_path)
+    metric_name = str(getattr(config, "full_grid_selection_metric", "average_precision") or "average_precision")
+    direction = _selection_direction(metric_name, getattr(config, "full_grid_selection_direction", None))
+    region = str(getattr(config, "full_grid_selection_region", "global") or "global")
+    split = str(getattr(config, "full_grid_selection_split", "test") or "test")
+    rows = comparison.copy()
+    if "region" in rows.columns:
+        rows = rows[rows["region"].astype(str).eq(region)]
+    if "split" in rows.columns:
+        rows = rows[rows["split"].astype(str).eq(split)]
+    if rows.empty or metric_name not in rows.columns:
+        return pd.DataFrame()
+    rows["_selection_metric_value"] = pd.to_numeric(rows[metric_name], errors="coerce")
+    rows = rows.dropna(subset=["_selection_metric_value"]).copy()
+    if rows.empty:
+        return pd.DataFrame()
+    rows = rows.sort_values(
+        "_selection_metric_value",
+        ascending=direction == "min",
+        na_position="last",
+        kind="mergesort",
+    ).reset_index(drop=True)
+    rows.insert(0, "selection_rank", np.arange(1, len(rows) + 1))
+    rows.insert(1, "selection_metric", metric_name)
+    rows.insert(2, "selection_direction", direction)
+    rows.insert(3, "selection_target", f"primary_full_grid_calibrated:{region}:{split}")
+    rows = rows.rename(columns={"_selection_metric_value": "selection_metric_value"})
+    rows.to_csv(out / "model_selection.csv", index=False)
+
+    best = rows.iloc[0].to_dict()
+    payload = {
+        "selection_target": best.get("selection_target"),
+        "selection_metric": metric_name,
+        "selection_direction": direction,
+        "model_name": best.get("model_name"),
+        "model_type": best.get("model_type"),
+        "feature_set": best.get("feature_set"),
+        "metric_value": best.get("selection_metric_value"),
+        "source_table": str(comparison_path),
+    }
+    (out / "best_model.json").write_text(
+        json.dumps(payload, indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    return rows
 
 
 def _stable_seed(value: str, offset: int = 0) -> int:
@@ -154,6 +226,21 @@ def _binary_metric_values(
         **f1,
         **count,
     }
+
+
+def _reliability_values(
+    y_true: np.ndarray | pd.Series,
+    score: np.ndarray | pd.Series,
+    sample_weight: np.ndarray | pd.Series | None,
+    config: Any | None,
+) -> dict[str, float | None]:
+    return reliability_summary(
+        y_true,
+        score,
+        sample_weight,
+        n_bins=int(getattr(config, "n_reliability_bins", 20) if config is not None else 20),
+        strategy=str(getattr(config, "reliability_binning", "equal_count") if config is not None else "equal_count"),
+    )
 
 
 def _bootstrap_index_samples(
@@ -261,7 +348,7 @@ def _make_features_for_chunk(
     feature_columns: list[str],
     test_mode: bool = True,
 ) -> pd.DataFrame:
-    rows = chunk_rows.copy()
+    rows = add_calendar_context_features(chunk_rows.copy())
     if "acq_date" not in rows.columns and "datetime" in rows.columns:
         rows["acq_date"] = pd.to_datetime(rows["datetime"]).dt.normalize()
     if all(col in rows.columns for col in feature_columns):
@@ -372,7 +459,7 @@ def _features_for_chunk(
     cache_path = _feature_cache_path(output_dir, split_name, country, period)
     if cache_enabled and cache_path.exists():
         logging.info("Loading cached deployment features from %s", cache_path)
-        cached = pd.read_parquet(cache_path)
+        cached = add_calendar_context_features(pd.read_parquet(cache_path))
         if _feature_cache_matches_chunk(
             cached,
             chunk_rows,
@@ -532,6 +619,7 @@ def _metric_row(
     average_precision = weighted_average_precision(y, p, w)
     roc_auc = weighted_roc_auc(y, p, w)
     brier = weighted_brier_score(y, p, w)
+    reliability = _reliability_values(y, p, w, error_config)
     row = {
         "Model": model_name,
         "model": model_name,
@@ -560,6 +648,7 @@ def _metric_row(
         "weighted_brier_score": brier,
         "Brier": brier,
         "weighted_logloss": weighted_log_loss(y, p, w),
+        **reliability,
         "daily_expected_observed_count_mae": daily_expected_observed_mae(frame),
         **f1,
         **slope,
@@ -1142,6 +1231,9 @@ def _write_metric_tables(
         "weighted_brier_score_error",
         "weighted_logloss",
         "weighted_logloss_error",
+        "reliability_ece",
+        "reliability_mce",
+        "reliability_rmse",
         "calibration_intercept",
         "calibration_slope",
         "expected_observed_count_ratio",
@@ -1172,6 +1264,9 @@ def _write_metric_tables(
         "threshold_at_max_f1",
         "weighted_brier_score",
         "weighted_logloss",
+        "reliability_ece",
+        "reliability_mce",
+        "reliability_rmse",
         "calibration_intercept",
         "calibration_slope",
         "expected_observed_count_ratio",
@@ -1238,6 +1333,7 @@ def _write_metric_tables(
 
     spatial = _spatial_scale_table(test_predictions, model_name=model_name, model_type=model_type, config=config)
     _upsert_csv(out / "spatial_scale_evaluation.csv", spatial, ["model_name", "scale"])
+    write_full_grid_model_selection(output_dir, config)
 
     global_row = comparison[comparison["region"].eq("global")].iloc[0].to_dict()
     return global_row

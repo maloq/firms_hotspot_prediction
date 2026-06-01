@@ -117,6 +117,7 @@ def _download_file(
     output_path: Path,
     headers: dict[str, str],
     retries: int,
+    timeout: int,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists() and output_path.stat().st_size > 0:
@@ -129,7 +130,7 @@ def _download_file(
         try:
             print(f"Downloading {output_path.name} (attempt {attempt}/{retries})", flush=True)
             request = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(request, timeout=120) as response, partial_path.open("wb") as handle:
+            with urllib.request.urlopen(request, timeout=timeout) as response, partial_path.open("wb") as handle:
                 final_url = response.geturl()
                 if "urs.earthdata.nasa.gov" in final_url:
                     raise PermissionError(
@@ -196,6 +197,7 @@ def download_black_marble_vnp46a4(
     token: str | None,
     retries: int,
     workers: int,
+    download_timeout: int,
     delete_old_dir: Path | None,
 ) -> dict:
     tiles = _tile_range_for_bbox(*bbox)
@@ -234,7 +236,7 @@ def download_black_marble_vnp46a4(
 
     def _run_job(job: tuple[int, int, int, str, str, Path]) -> dict:
         year, h, v, url, _name, path = job
-        _download_file(url, path, headers, retries)
+        _download_file(url, path, headers, retries, download_timeout)
         return {"year": year, "h": h, "v": v, "path": str(path)}
 
     downloaded: list[dict] = []
@@ -310,6 +312,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--token", default=os.environ.get("LAADS_TOKEN") or os.environ.get("EARTHDATA_TOKEN"))
     parser.add_argument("--retries", type=int, default=5)
+    parser.add_argument("--download-timeout", type=int, default=600)
     parser.add_argument(
         "--workers",
         type=int,
@@ -343,6 +346,7 @@ def main() -> int:
             token=args.token,
             retries=args.retries,
             workers=max(1, int(args.workers)),
+            download_timeout=max(1, int(args.download_timeout)),
             delete_old_dir=args.delete_old_dir,
         )
     except PermissionError as exc:

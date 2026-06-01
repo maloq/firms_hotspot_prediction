@@ -1,0 +1,2 @@
+model_name,model_type,table_type,expected_fire_positive_grid_cells,observed_fire_positive_grid_cells,country,expected_observed_count_ratio
+Random Forest,random_forest,country,109.04679585834185,357.0,Russian_Federation,0.30545320968723205

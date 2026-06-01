@@ -1,0 +1,9 @@
+model_name,model_type,table_type,expected_fire_positive_grid_cells,observed_fire_positive_grid_cells,country,expected_observed_count_ratio
+Logistic Regression (linear SGD),linear_sgd,country,991473.7222010208,357.0,Russian_Federation,2777.237317089694
+Poisson Point-Process GLM,poisson_glm,country,75.16329260152727,357.0,Russian_Federation,0.2105414358586198
+CatBoost,CatBoost,country,68.4978894716056,357.0,Russian_Federation,0.1918708388560381
+CatBoost deployment-weighted,CatBoost,country,69.98570111840546,357.0,Russian_Federation,0.1960383784829284
+Weather-only CatBoost,CatBoost,country,69.05766867353267,357.0,Russian_Federation,0.1934388478250215
+FWI-only CatBoost,CatBoost,country,69.9999999999999,357.0,Russian_Federation,0.1960784313725487
+Random Forest,random_forest,country,70.32875695562406,357.0,Russian_Federation,0.1969993192034287
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,country,121.06520705344346,357.0,Russian_Federation,0.33911822704045785

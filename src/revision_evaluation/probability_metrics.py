@@ -284,6 +284,46 @@ def make_reliability_bins(
     return pd.DataFrame(rows)
 
 
+def reliability_summary(
+    y_true,
+    y_prob,
+    sample_weight=None,
+    n_bins: int = 20,
+    strategy: str = "equal_count",
+) -> dict[str, float | None]:
+    bins = make_reliability_bins(
+        y_true,
+        y_prob,
+        sample_weight=sample_weight,
+        n_bins=n_bins,
+        strategy=strategy,
+    )
+    if bins.empty:
+        return {
+            "reliability_ece": None,
+            "reliability_mce": None,
+            "reliability_rmse": None,
+        }
+    weights = pd.to_numeric(bins["n_weighted"], errors="coerce").to_numpy(dtype=float)
+    predicted = pd.to_numeric(bins["mean_predicted_probability"], errors="coerce").to_numpy(dtype=float)
+    observed = pd.to_numeric(bins["observed_prevalence"], errors="coerce").to_numpy(dtype=float)
+    finite = np.isfinite(weights) & np.isfinite(predicted) & np.isfinite(observed) & (weights > 0)
+    if not finite.any():
+        return {
+            "reliability_ece": None,
+            "reliability_mce": None,
+            "reliability_rmse": None,
+        }
+    weights = weights[finite]
+    abs_error = np.abs(predicted[finite] - observed[finite])
+    total_weight = float(weights.sum())
+    return {
+        "reliability_ece": float(np.sum(weights * abs_error) / total_weight),
+        "reliability_mce": float(abs_error.max()),
+        "reliability_rmse": float(np.sqrt(np.sum(weights * abs_error**2) / total_weight)),
+    }
+
+
 def daily_expected_observed_mae(
     frame: pd.DataFrame,
     *,

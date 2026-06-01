@@ -1,0 +1,5 @@
+# Lead-Time Sensitivity
+
+| experiment            | status  | reason                                                                                                        | precision | recall | f1 | f1_error | average_precision | average_precision_error |
+| --------------------- | ------- | ------------------------------------------------------------------------------------------------------------- | --------- | ------ | -- | -------- | ----------------- | ----------------------- |
+| Lead-time sensitivity | blocked | The saved training matrix contains 30-day historical aggregates and no explicit forecast lead-time dimension. |           |        |    |          |                   |                         |

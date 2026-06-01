@@ -249,6 +249,12 @@ def generate_prediction_features(
         use_road_features=bool(road_params.get("use_road_features", False)),
         night_light_feature_map_path=night_light_params.get("feature_map_path"),
         use_night_light_features=bool(night_light_params.get("use_night_light_features", False)),
+        night_light_legacy_viirs_feature_map_path=night_light_params.get(
+            "legacy_viirs_feature_map_path"
+        ),
+        night_light_legacy_viirs_feature_prefix=night_light_params.get(
+            "legacy_viirs_feature_prefix", "viirs_"
+        ),
         night_light_annual_source_dir=night_light_params.get("annual_source_dir"),
         night_light_recent_feature_name=night_light_params.get(
             "recent_feature_name", "night_light_radiance_recent"

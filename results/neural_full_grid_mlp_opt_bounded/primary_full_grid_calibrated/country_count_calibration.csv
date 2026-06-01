@@ -1,0 +1,4 @@
+model_name,model_type,table_type,expected_fire_positive_grid_cells,observed_fire_positive_grid_cells,country,expected_observed_count_ratio
+Minimal MLP (global full),Neural,country,83.37338833868036,357.0,Russian_Federation,0.2335389029094688
+Minimal MLP full-grid optimized,Neural,country,69.16163940738052,357.0,Russian_Federation,0.1937300823736149
+Minimal MLP full-grid rank optimized,Neural,country,77.42515953256208,357.0,Russian_Federation,0.2168771975702019

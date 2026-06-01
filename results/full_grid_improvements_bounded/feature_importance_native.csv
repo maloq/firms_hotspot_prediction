@@ -1,0 +1,269 @@
+feature,group,importance,normalized_importance,rank
+night_light_radiance_2024,Anthropogenic,10.644939459340028,0.10644939459340032,1
+past_fire_count_r2_last_year,Historical fire/proximity/density,7.6654538420949105,0.07665453842094913,2
+fire_index_ffmcode_median,Fire-weather / FWI,6.082483673015112,0.060824836730151134,3
+fire_index_fwinx_median,Fire-weather / FWI,5.074385177937639,0.0507438517793764,4
+fire_index_fdsrte_median,Fire-weather / FWI,4.946988365501658,0.049469883655016596,5
+t2m_max_90,Weather / meteorology history,4.661463721303283,0.04661463721303285,6
+tp_min_30,Weather / meteorology history,4.364030481170435,0.04364030481170436,7
+viirs_light_density_gaussian_5km,Anthropogenic,4.318522323196615,0.04318522323196616,8
+light_density_gaussian_5km,Anthropogenic,4.027460547113989,0.0402746054711399,9
+fire_index_fwinx_mean,Fire-weather / FWI,2.824216041135314,0.028242160411353148,10
+lai_hv,Vegetation/fuel/ecoregion,2.7405578680743714,0.02740557868074372,11
+night_light_black_marble_quality_filtered,Anthropogenic,2.5472374883622937,0.025472374883622945,12
+t2m_diff_90,Weather / meteorology history,2.2584797659969302,0.02258479765996931,13
+t2m_ewm_7,Weather / meteorology history,2.1118977352087485,0.02111897735208749,14
+t2m_max_30,Weather / meteorology history,1.875525974419671,0.018755259744196714,15
+past_fire_count_r2_last_month,Historical fire/proximity/density,1.8193959206660877,0.018193959206660882,16
+t2m_diff_120,Weather / meteorology history,1.6933299708295961,0.016933299708295966,17
+stl1_trend_slope_90,Weather / meteorology history,1.6693260287261877,0.016693260287261882,18
+viirs_light_density_gaussian_10km,Anthropogenic,1.5059312180875246,0.01505931218087525,19
+viirs_light_density_gaussian_25km,Anthropogenic,1.3069118039586367,0.01306911803958637,20
+t2m_min_14,Weather / meteorology history,1.2607176675619756,0.01260717667561976,21
+stl1_std_30,Weather / meteorology history,1.242173984586053,0.012421739845860534,22
+tp_max_7,Weather / meteorology history,1.1082012788588633,0.011082012788588636,23
+month,Seasonality,1.078192805992623,0.010781928059926232,24
+t2m_diff_30,Weather / meteorology history,1.063990094655774,0.010639900946557744,25
+stl1_median_120,Weather / meteorology history,1.027878351013026,0.010278783510130264,26
+stl1_std_120,Weather / meteorology history,1.0088033238940326,0.010088033238940329,27
+stl1_max_7,Weather / meteorology history,0.96979836739712,0.009697983673971202,28
+road_density_gaussian_5km,Anthropogenic,0.9258966717662803,0.009258966717662806,29
+t2m_mean_7,Weather / meteorology history,0.8779028391707191,0.008779028391707194,30
+tp_mean_30,Weather / meteorology history,0.7911292960201258,0.00791129296020126,31
+viirs_distance_to_light_source_meters,Anthropogenic,0.788042807661019,0.007880428076610192,32
+stl1_max_90,Weather / meteorology history,0.7798102445686291,0.007798102445686294,33
+tp_max_30,Weather / meteorology history,0.7321759582202443,0.007321759582202445,34
+night_light_black_marble_recent,Anthropogenic,0.6775925060670134,0.006775925060670136,35
+stl1_mean_7,Weather / meteorology history,0.6605362784589575,0.0066053627845895765,36
+d2m_lag_120,Weather / meteorology history,0.5591019481426813,0.005591019481426815,37
+stl1_min_120,Weather / meteorology history,0.5122430376095368,0.00512243037609537,38
+fire_index_drtcode_max,Fire-weather / FWI,0.4401468788464934,0.004401468788464935,39
+night_light_black_marble_quality_recent,Anthropogenic,0.42920764003975764,0.004292076400397578,40
+t2m_pct_change_120,Weather / meteorology history,0.40499498592065186,0.00404994985920652,41
+d2m_mean_7,Weather / meteorology history,0.38774466712785893,0.0038774466712785905,42
+d2m_mean_30,Weather / meteorology history,0.3819569422841477,0.0038195694228414785,43
+fire_index_drtcode_median_trend,Fire-weather / FWI,0.3730629726931261,0.003730629726931262,44
+t2m_trend_slope_90,Weather / meteorology history,0.3485430847315603,0.0034854308473156043,45
+tp_ewm_14,Weather / meteorology history,0.3204217104818756,0.003204217104818757,46
+stl1_mean_14,Weather / meteorology history,0.31344328673075206,0.0031344328673075213,47
+t2m_max_120,Weather / meteorology history,0.29010011968423527,0.0029010011968423535,48
+tp_median_120,Weather / meteorology history,0.28811524801739785,0.0028811524801739792,49
+fire_index_drtcode_max_trend,Fire-weather / FWI,0.2858751275855759,0.00285875127585576,50
+stl1_min_90,Weather / meteorology history,0.2850984870527875,0.002850984870527876,51
+tp_max_14,Weather / meteorology history,0.28397017236205224,0.0028397017236205233,52
+fire_index_ffmcode_max,Fire-weather / FWI,0.281632482126817,0.002816324821268171,53
+d2m_max_7,Weather / meteorology history,0.27290051900187984,0.0027290051900187994,54
+stl1_mean_90,Weather / meteorology history,0.2720834530617689,0.0027208345306176896,55
+stl1_min_14,Weather / meteorology history,0.26570600318661897,0.0026570600318661904,56
+stl1_std_90,Weather / meteorology history,0.26528510580260456,0.0026528510580260465,57
+stl1_ewm_14,Weather / meteorology history,0.2616084944614138,0.002616084944614139,58
+t2m_pct_change_90,Weather / meteorology history,0.24602637208004816,0.002460263720800482,59
+d2m_ewm_7,Weather / meteorology history,0.2050313851792644,0.0020503138517926445,60
+d2m_max_30,Weather / meteorology history,0.19913052621451383,0.001991305262145139,61
+d2m_median_7,Weather / meteorology history,0.19529700192168412,0.0019529700192168417,62
+t2m_max_14,Weather / meteorology history,0.18710144340838852,0.0018710144340838859,63
+stl1_ewm_7,Weather / meteorology history,0.17687386159342183,0.0017687386159342187,64
+past_fire_count_r1_last_year,Historical fire/proximity/density,0.17600937570446626,0.0017600937570446632,65
+d2m_std_90,Weather / meteorology history,0.15981681514704127,0.001598168151470413,66
+tp_ewm_30,Weather / meteorology history,0.15688355665037992,0.0015688355665037996,67
+t2m_min_30,Weather / meteorology history,0.13656749141616953,0.0013656749141616957,68
+d2m_max_14,Weather / meteorology history,0.1263482192846885,0.0012634821928468854,69
+t2m_pct_change_30,Weather / meteorology history,0.11752654732968089,0.0011752654732968093,70
+d2m_median_30,Weather / meteorology history,0.11281629608379559,0.0011281629608379563,71
+t2m_median_90,Weather / meteorology history,0.11168562444114731,0.0011168562444114733,72
+fire_index_fbupinx_std,Fire-weather / FWI,0.10203806233710924,0.0010203806233710928,73
+fire_index_drtcode_median,Fire-weather / FWI,0.09951320250999725,0.0009951320250999728,74
+lai_lv,Vegetation/fuel/ecoregion,0.09576002465125599,0.0009576002465125602,75
+past_fire_count_r1_last_month,Historical fire/proximity/density,0.09522663639547718,0.0009522663639547721,76
+tp_std_14,Weather / meteorology history,0.09271867476823131,0.0009271867476823134,77
+stl1_trend_intercept_90,Weather / meteorology history,0.08837892316269375,0.0008837892316269377,78
+stl1_trend_slope_21,Weather / meteorology history,0.08211132370041861,0.0008211132370041864,79
+d2m_max_120,Weather / meteorology history,0.08107941266395866,0.0008107941266395868,80
+t2m_diff_7,Weather / meteorology history,0.06626721222795114,0.0006626721222795115,81
+tp_std_7,Weather / meteorology history,0.06117903315808211,0.0006117903315808213,82
+t2m_diff_14,Weather / meteorology history,0.05980875964932504,0.0005980875964932506,83
+tp_min_7,Weather / meteorology history,0.0572040011033572,0.0005720400110335722,84
+d2m_trend_intercept_90,Weather / meteorology history,0.05697796823434818,0.0005697796823434819,85
+t2m_min_7,Weather / meteorology history,0.0,0.0,86
+t2m_mean_14,Weather / meteorology history,0.0,0.0,87
+t2m_std_14,Weather / meteorology history,0.0,0.0,88
+t2m_median_30,Weather / meteorology history,0.0,0.0,89
+t2m_std_30,Weather / meteorology history,0.0,0.0,90
+t2m_mean_30,Weather / meteorology history,0.0,0.0,91
+t2m_median_14,Weather / meteorology history,0.0,0.0,92
+fire_index_fbupinx_min,Fire-weather / FWI,0.0,0.0,93
+t2m_min_90,Weather / meteorology history,0.0,0.0,94
+t2m_std_90,Weather / meteorology history,0.0,0.0,95
+t2m_mean_90,Weather / meteorology history,0.0,0.0,96
+fire_index_fwinx_mean_trend,Fire-weather / FWI,0.0,0.0,97
+fire_index_fwinx_median_trend,Fire-weather / FWI,0.0,0.0,98
+fire_index_fwinx_max_trend,Fire-weather / FWI,0.0,0.0,99
+fire_index_fwinx_max,Fire-weather / FWI,0.0,0.0,100
+fire_index_fwinx_std,Fire-weather / FWI,0.0,0.0,101
+fire_index_fwinx_min,Fire-weather / FWI,0.0,0.0,102
+fire_index_ffmcode_max_trend,Fire-weather / FWI,0.0,0.0,103
+fire_index_ffmcode_mean,Fire-weather / FWI,0.0,0.0,104
+fire_index_ffmcode_mean_trend,Fire-weather / FWI,0.0,0.0,105
+fire_index_fdsrte_mean_trend,Fire-weather / FWI,0.0,0.0,106
+fire_index_fdsrte_median_trend,Fire-weather / FWI,0.0,0.0,107
+fire_index_fdsrte_max,Fire-weather / FWI,0.0,0.0,108
+d2m_mean_14,Weather / meteorology history,0.0,0.0,109
+d2m_min_7,Weather / meteorology history,0.0,0.0,110
+isor,Terrain/topography,0.0,0.0,111
+z,Terrain/topography,0.0,0.0,112
+anor,Terrain/topography,0.0,0.0,113
+slt,Vegetation/fuel/ecoregion,0.0,0.0,114
+d2m_median_14,Weather / meteorology history,0.0,0.0,115
+d2m_min_14,Weather / meteorology history,0.0,0.0,116
+d2m_std_30,Weather / meteorology history,0.0,0.0,117
+d2m_mean_90,Weather / meteorology history,0.0,0.0,118
+d2m_min_90,Weather / meteorology history,0.0,0.0,119
+t2m_median_7,Weather / meteorology history,0.0,0.0,120
+fire_index_fdsrte_min,Fire-weather / FWI,0.0,0.0,121
+fire_index_fdsrte_std,Fire-weather / FWI,0.0,0.0,122
+fire_index_fdsrte_mean,Fire-weather / FWI,0.0,0.0,123
+fire_index_fdsrte_max_trend,Fire-weather / FWI,0.0,0.0,124
+fire_index_ffmcode_min,Fire-weather / FWI,0.0,0.0,125
+fire_index_ffmcode_median_trend,Fire-weather / FWI,0.0,0.0,126
+past_fire_count_r0_last_year,Historical fire/proximity/density,0.0,0.0,127
+fire_index_ffmcode_std,Fire-weather / FWI,0.0,0.0,128
+t2m_lag_120,Weather / meteorology history,0.0,0.0,129
+t2m_lag_90,Weather / meteorology history,0.0,0.0,130
+t2m_lag_30,Weather / meteorology history,0.0,0.0,131
+t2m_max_7,Weather / meteorology history,0.0,0.0,132
+is_weekend_today_or_yesterday,Seasonality,0.0,0.0,133
+is_holiday_today,Seasonality,0.0,0.0,134
+is_holiday_yesterday,Seasonality,0.0,0.0,135
+t2m_lag_7,Weather / meteorology history,0.0,0.0,136
+t2m_lag_14,Weather / meteorology history,0.0,0.0,137
+slt_soil_type_stream_oper_daily_mean,Vegetation/fuel/ecoregion,0.0,0.0,138
+is_weekend_today,Seasonality,0.0,0.0,139
+is_weekend_yesterday,Seasonality,0.0,0.0,140
+d2m_diff_120,Weather / meteorology history,0.0,0.0,141
+d2m_pct_change_90,Weather / meteorology history,0.0,0.0,142
+d2m_diff_90,Weather / meteorology history,0.0,0.0,143
+d2m_pct_change_30,Weather / meteorology history,0.0,0.0,144
+d2m_diff_30,Weather / meteorology history,0.0,0.0,145
+d2m_pct_change_14,Weather / meteorology history,0.0,0.0,146
+d2m_diff_14,Weather / meteorology history,0.0,0.0,147
+d2m_pct_change_7,Weather / meteorology history,0.0,0.0,148
+d2m_diff_7,Weather / meteorology history,0.0,0.0,149
+d2m_ewm_120,Weather / meteorology history,0.0,0.0,150
+d2m_ewm_90,Weather / meteorology history,0.0,0.0,151
+d2m_ewm_30,Weather / meteorology history,0.0,0.0,152
+d2m_ewm_14,Weather / meteorology history,0.0,0.0,153
+d2m_median_120,Weather / meteorology history,0.0,0.0,154
+d2m_std_120,Weather / meteorology history,0.0,0.0,155
+d2m_min_120,Weather / meteorology history,0.0,0.0,156
+d2m_std_14,Weather / meteorology history,0.0,0.0,157
+d2m_min_30,Weather / meteorology history,0.0,0.0,158
+d2m_mean_120,Weather / meteorology history,0.0,0.0,159
+d2m_median_90,Weather / meteorology history,0.0,0.0,160
+d2m_max_90,Weather / meteorology history,0.0,0.0,161
+tp_median_30,Weather / meteorology history,0.0,0.0,162
+tp_std_120,Weather / meteorology history,0.0,0.0,163
+tp_max_90,Weather / meteorology history,0.0,0.0,164
+tp_mean_7,Weather / meteorology history,0.0,0.0,165
+tp_mean_90,Weather / meteorology history,0.0,0.0,166
+tp_min_90,Weather / meteorology history,0.0,0.0,167
+tp_std_90,Weather / meteorology history,0.0,0.0,168
+tp_median_90,Weather / meteorology history,0.0,0.0,169
+tp_mean_120,Weather / meteorology history,0.0,0.0,170
+d2m_trend_slope_90,Weather / meteorology history,0.0,0.0,171
+d2m_trend_intercept_21,Weather / meteorology history,0.0,0.0,172
+stl1_median_7,Weather / meteorology history,0.0,0.0,173
+stl1_min_7,Weather / meteorology history,0.0,0.0,174
+stl1_std_7,Weather / meteorology history,0.0,0.0,175
+tp_ewm_120,Weather / meteorology history,0.0,0.0,176
+tp_ewm_90,Weather / meteorology history,0.0,0.0,177
+tp_ewm_7,Weather / meteorology history,0.0,0.0,178
+tp_max_120,Weather / meteorology history,0.0,0.0,179
+tp_min_120,Weather / meteorology history,0.0,0.0,180
+stl1_median_30,Weather / meteorology history,0.0,0.0,181
+stl1_max_30,Weather / meteorology history,0.0,0.0,182
+stl1_min_30,Weather / meteorology history,0.0,0.0,183
+stl1_mean_30,Weather / meteorology history,0.0,0.0,184
+stl1_median_14,Weather / meteorology history,0.0,0.0,185
+stl1_median_90,Weather / meteorology history,0.0,0.0,186
+stl1_max_14,Weather / meteorology history,0.0,0.0,187
+stl1_std_14,Weather / meteorology history,0.0,0.0,188
+stl1_mean_120,Weather / meteorology history,0.0,0.0,189
+stl1_max_120,Weather / meteorology history,0.0,0.0,190
+stl1_ewm_90,Weather / meteorology history,0.0,0.0,191
+stl1_ewm_30,Weather / meteorology history,0.0,0.0,192
+stl1_ewm_120,Weather / meteorology history,0.0,0.0,193
+stl1_trend_intercept_21,Weather / meteorology history,0.0,0.0,194
+elevation_point_stddev,Terrain/topography,0.0,0.0,195
+elevation_point_max,Terrain/topography,0.0,0.0,196
+elevation_point_min,Terrain/topography,0.0,0.0,197
+d2m_trend_slope_21,Weather / meteorology history,0.0,0.0,198
+tp_mean_14,Weather / meteorology history,0.0,0.0,199
+tp_median_7,Weather / meteorology history,0.0,0.0,200
+tp_min_14,Weather / meteorology history,0.0,0.0,201
+tp_median_14,Weather / meteorology history,0.0,0.0,202
+tp_std_30,Weather / meteorology history,0.0,0.0,203
+d2m_pct_change_120,Weather / meteorology history,0.0,0.0,204
+elevation_gradient_mean_0.1deg,Terrain/topography,0.0,0.0,205
+elevation_gradient_max_0.1deg,Terrain/topography,0.0,0.0,206
+elevation_gradient_min_0.1deg,Terrain/topography,0.0,0.0,207
+elevation_std_0.1deg,Terrain/topography,0.0,0.0,208
+elevation_mean_0.1deg,Terrain/topography,0.0,0.0,209
+elevation_max_0.1deg,Terrain/topography,0.0,0.0,210
+elevation_min_0.1deg,Terrain/topography,0.0,0.0,211
+elevation_gradient_std_0.1deg,Terrain/topography,0.0,0.0,212
+elevation_gradient_mean_0.2deg,Terrain/topography,0.0,0.0,213
+elevation_gradient_std_0.2deg,Terrain/topography,0.0,0.0,214
+road_presence_1km,Anthropogenic,0.0,0.0,215
+distance_to_road_meters,Anthropogenic,0.0,0.0,216
+elevation_std_0.2deg,Terrain/topography,0.0,0.0,217
+elevation_gradient_min_0.2deg,Terrain/topography,0.0,0.0,218
+elevation_max_0.2deg,Terrain/topography,0.0,0.0,219
+elevation_min_0.2deg,Terrain/topography,0.0,0.0,220
+t2m_median_120,Weather / meteorology history,0.0,0.0,221
+t2m_min_120,Weather / meteorology history,0.0,0.0,222
+t2m_std_120,Weather / meteorology history,0.0,0.0,223
+t2m_mean_120,Weather / meteorology history,0.0,0.0,224
+t2m_ewm_90,Weather / meteorology history,0.0,0.0,225
+t2m_ewm_30,Weather / meteorology history,0.0,0.0,226
+past_fire_count_r0_last_month,Historical fire/proximity/density,0.0,0.0,227
+t2m_ewm_14,Weather / meteorology history,0.0,0.0,228
+t2m_pct_change_7,Weather / meteorology history,0.0,0.0,229
+t2m_ewm_120,Weather / meteorology history,0.0,0.0,230
+t2m_pct_change_14,Weather / meteorology history,0.0,0.0,231
+t2m_trend_slope_21,Weather / meteorology history,0.0,0.0,232
+t2m_trend_intercept_21,Weather / meteorology history,0.0,0.0,233
+t2m_trend_intercept_90,Weather / meteorology history,0.0,0.0,234
+elevation_gradient_max_0.2deg,Terrain/topography,0.0,0.0,235
+elevation_mean_0.2deg,Terrain/topography,0.0,0.0,236
+d2m_lag_14,Weather / meteorology history,0.0,0.0,237
+d2m_lag_7,Weather / meteorology history,0.0,0.0,238
+d2m_std_7,Weather / meteorology history,0.0,0.0,239
+d2m_lag_30,Weather / meteorology history,0.0,0.0,240
+road_density_gaussian_25km,Anthropogenic,0.0,0.0,241
+night_light_radiance_recent,Anthropogenic,0.0,0.0,242
+night_light_presence_1km,Anthropogenic,0.0,0.0,243
+d2m_lag_90,Weather / meteorology history,0.0,0.0,244
+light_density_gaussian_10km,Anthropogenic,0.0,0.0,245
+light_density_gaussian_25km,Anthropogenic,0.0,0.0,246
+viirs_night_light_radiance_2024,Anthropogenic,0.0,0.0,247
+distance_to_light_source_meters,Anthropogenic,0.0,0.0,248
+viirs_night_light_presence_1km,Anthropogenic,0.0,0.0,249
+is_holiday_today_or_yesterday,Seasonality,0.0,0.0,250
+fire_index_drtcode_mean,Fire-weather / FWI,0.0,0.0,251
+road_density_gaussian_10km,Anthropogenic,0.0,0.0,252
+fire_index_drtcode_mean_trend,Fire-weather / FWI,0.0,0.0,253
+fire_index_drtcode_min,Fire-weather / FWI,0.0,0.0,254
+fire_index_drtcode_std,Fire-weather / FWI,0.0,0.0,255
+fire_index_fbupinx_max,Fire-weather / FWI,0.0,0.0,256
+fire_index_fbupinx_max_trend,Fire-weather / FWI,0.0,0.0,257
+fire_index_fbupinx_mean,Fire-weather / FWI,0.0,0.0,258
+fire_index_fbupinx_mean_trend,Fire-weather / FWI,0.0,0.0,259
+fire_index_fbupinx_median,Fire-weather / FWI,0.0,0.0,260
+fire_index_fbupinx_median_trend,Fire-weather / FWI,0.0,0.0,261
+lsm,Other,0.0,0.0,262
+slor,Terrain/topography,0.0,0.0,263
+sdfor,Terrain/topography,0.0,0.0,264
+sdor,Terrain/topography,0.0,0.0,265
+tvh,Vegetation/fuel/ecoregion,0.0,0.0,266
+tvl,Vegetation/fuel/ecoregion,0.0,0.0,267
+t2m_std_7,Weather / meteorology history,0.0,0.0,268

@@ -2339,7 +2339,6 @@ class Builder:
                 [
                     ("region_display", "Region"),
                     ("feature_source", "Feature Source"),
-                    ("period_rank", "Rank"),
                     ("model_name", "Model"),
                     ("period_start", "Period Start"),
                     ("period_end", "Period End"),
@@ -2358,7 +2357,6 @@ class Builder:
                     [
                         ("region_display", "Region"),
                         ("feature_source", "Feature Source"),
-                        ("model_name", "Model"),
                         ("period_start", "Period Start"),
                         ("period_end", "Period End"),
                         ("observed_positive_locations", "Fire Locations"),
@@ -2385,6 +2383,206 @@ class Builder:
                 top_metric_sentence(selected, "model_name", "average_precision", prefix="Highest selected-period PR-AUC"),
             ],
         )
+
+    def build_fire_period_timelines(self) -> None:
+        timeline = SHARED / "fire_period_timelines"
+        selected_path = timeline / "tables" / "selected_fire_periods.csv"
+        metrics_path = timeline / "tables" / "period_probability_metrics.csv"
+        if not timeline.exists():
+            return
+        if selected_path.exists():
+            selected = pd.read_csv(selected_path)
+            metrics = pd.read_csv(metrics_path) if metrics_path.exists() else pd.DataFrame()
+        else:
+            selected_frames: list[pd.DataFrame] = []
+            metric_frames: list[pd.DataFrame] = []
+            for path in sorted(timeline.glob("*/tables/selected_fire_periods.csv")):
+                frame = pd.read_csv(path)
+                frame.insert(0, "feature_source", path.parents[1].name)
+                selected_frames.append(frame)
+            for path in sorted(timeline.glob("*/tables/period_probability_metrics.csv")):
+                frame = pd.read_csv(path)
+                frame.insert(0, "feature_source", path.parents[1].name)
+                metric_frames.append(frame)
+            if not selected_frames:
+                return
+            selected = pd.concat(selected_frames, ignore_index=True)
+            metrics = pd.concat(metric_frames, ignore_index=True) if metric_frames else pd.DataFrame()
+        exp = Experiment(
+            "33_fire_period_timeline_plots",
+            "Fire Period Timeline Plots",
+            "Selects centered non-winter 28-day prediction periods, plots forecast-vs-MODIS temporal strips, and saves matching probability overlay maps.",
+            [],
+            [],
+            artifact_globs=["fire_period_timelines/**/*"],
+            notes=[
+                "The period selection metric, model, regions, and source runs are controlled by the suite YAML config.",
+                "The selector prefers windows whose observed activity peaks near the middle instead of at the start.",
+                "The area bubble panel is a fire-positive grid-cell area proxy, not an independent burned-area product.",
+                "If prediction files do not contain lead-time metadata, the forecast panel uses one row for the selected model/source.",
+            ],
+        )
+        d = self.exp_dir(exp)
+        for stale in [d / "plots", d / "tables", d / "artifacts"]:
+            if stale.exists():
+                shutil.rmtree(stale)
+        d = self.start(exp)
+        self.write_table(
+            d,
+            "selected_fire_periods.csv",
+            select_table(
+                selected,
+                [
+                    ("region_display", "Region"),
+                    ("feature_source", "Feature Source"),
+                    ("model_name", "Model"),
+                    ("period_start", "Period Start"),
+                    ("period_end", "Period End"),
+                    ("average_precision", "PR-AUC"),
+                    ("first_quarter_fire_fraction", "First-Quarter Fire Fraction"),
+                    ("middle_half_fire_fraction", "Middle-Half Fire Fraction"),
+                ],
+                sort_by=["Region", "Feature Source", "Period Start"],
+            ),
+        )
+        if not metrics.empty:
+            self.write_table(
+                d,
+                "period_metric_summary.csv",
+                select_table(
+                    metrics.sort_values("average_precision", ascending=False).head(50),
+                    [
+                        ("region_display", "Region"),
+                        ("feature_source", "Feature Source"),
+                        ("period_start", "Period Start"),
+                        ("period_end", "Period End"),
+                        ("observed_positive_locations", "Fire Locations"),
+                        ("average_precision", "PR-AUC"),
+                        ("first_quarter_fire_fraction", "First-Quarter Fire Fraction"),
+                        ("middle_half_fire_fraction", "Middle-Half Fire Fraction"),
+                    ],
+                ),
+            )
+        for suffix, subdir in [("*.png", "png"), ("*.pdf", "pdf")]:
+            plot_sources = list((timeline / "plots" / subdir).glob(suffix))
+            plot_sources.extend(timeline.glob(f"*/plots/{subdir}/{suffix}"))
+            for src in sorted(plot_sources):
+                mkdir(d / "plots" / subdir)
+                if src.parent.parent.parent.parent == timeline:
+                    dst_name = f"{src.parent.parent.parent.name}_{src.name}"
+                else:
+                    dst_name = src.name
+                shutil.copy2(src, d / "plots" / subdir / dst_name)
+        timeline_count = sum(1 for _ in timeline.rglob("*fire_period_timeline_*"))
+        overlay_count = sum(1 for _ in timeline.rglob("*probability_overlay_*"))
+        self.write_analysis(
+            d,
+            [
+                f"Generated {timeline_count} timeline plot files and {overlay_count} matching overlay plot files from {len(selected)} selected rows.",
+                top_metric_sentence(selected, "model_name", "average_precision", prefix="Highest selected 28-day PR-AUC"),
+            ],
+        )
+
+    def build_prediction_diagnostics(self) -> None:
+        diagnostics = SHARED / "prediction_diagnostics"
+        timeseries_path = diagnostics / "tables" / "timeseries_counts.csv"
+        spatial_summary_path = diagnostics / "tables" / "spatial_error_summary.csv"
+        if not timeseries_path.exists() and not spatial_summary_path.exists():
+            return
+
+        timeseries = pd.read_csv(timeseries_path) if timeseries_path.exists() else pd.DataFrame()
+        spatial_summary = pd.read_csv(spatial_summary_path) if spatial_summary_path.exists() else pd.DataFrame()
+        exp = Experiment(
+            "32_prediction_timeseries_error_maps",
+            "Prediction Time-Series And Risk Error Maps",
+            (
+                "Compares saved test-set predicted fire-positive grid-cell days with observed labels over time, "
+                "then maps calibrated risk residuals averaged over test years and for each individual test year."
+            ),
+            [],
+            [],
+            artifact_globs=["prediction_diagnostics/**/*"],
+            notes=[
+                "The prediction source and model are controlled by the suite YAML config.",
+                "Risk maps use predicted risk minus Gaussian-smoothed observed event rate; positive values are overprediction.",
+                "Diagnostic maps use true land-grid prediction chunks when configured and do not interpolate or fill sparse sampled rows.",
+            ],
+        )
+        d = self.start(exp)
+
+        if not timeseries.empty:
+            summary = (
+                timeseries.groupby(["model_name", "region"], observed=True, dropna=False)
+                .agg(
+                    periods=("period_start", "nunique"),
+                    expected=("expected_fire_positive_grid_cells", "sum"),
+                    observed=("observed_fire_positive_grid_cells", "sum"),
+                    bias=("error_fire_positive_grid_cells", "sum"),
+                    mean_abs_error=("absolute_error_fire_positive_grid_cells", "mean"),
+                    max_abs_error=("absolute_error_fire_positive_grid_cells", "max"),
+                )
+                .reset_index()
+            )
+            self.write_table(
+                d,
+                "timeseries_region_summary.csv",
+                select_table(
+                    summary,
+                    [
+                        ("model_name", "Model"),
+                        ("region", "Region"),
+                        ("periods", "Periods"),
+                        ("expected", "Expected"),
+                        ("observed", "Observed"),
+                        ("bias", "Bias"),
+                        ("mean_abs_error", "Mean Abs Error"),
+                        ("max_abs_error", "Max Abs Error"),
+                    ],
+                    sort_by=["Region", "Model"],
+                ),
+            )
+
+        if not spatial_summary.empty:
+            self.write_table(
+                d,
+                "spatial_error_summary.csv",
+                select_table(
+                    spatial_summary,
+                    [
+                        ("model_name", "Model"),
+                        ("region", "Region"),
+                        ("period", "Period"),
+                        ("cells", "Cells"),
+                        ("mean_predicted_risk", "Mean Pred Risk"),
+                        ("mean_smoothed_observed_risk", "Mean Obs Risk"),
+                        ("mean_risk_error", "Risk Bias"),
+                        ("mean_abs_risk_error", "Mean Abs Risk Err"),
+                    ],
+                    sort_by=["Region", "Period"],
+                ),
+            )
+
+        for suffix, subdir in [("*.png", "png"), ("*.pdf", "pdf")]:
+            for src in sorted((diagnostics / "plots" / subdir).glob(suffix)):
+                mkdir(d / "plots" / subdir)
+                shutil.copy2(src, d / "plots" / subdir / src.name)
+        plot_count = sum(1 for _ in diagnostics.rglob("*.png")) + sum(1 for _ in diagnostics.rglob("*.pdf"))
+        lines = [f"Generated {plot_count} prediction diagnostic plot files."]
+        if not timeseries.empty:
+            worst = timeseries.copy()
+            worst["absolute_error_fire_positive_grid_cells"] = pd.to_numeric(
+                worst["absolute_error_fire_positive_grid_cells"],
+                errors="coerce",
+            )
+            worst = worst.dropna(subset=["absolute_error_fire_positive_grid_cells"])
+            if not worst.empty:
+                row = worst.sort_values("absolute_error_fire_positive_grid_cells", ascending=False).iloc[0]
+                lines.append(
+                    "Largest period absolute error: "
+                    f"{row['model_name']} / {row['region']} / {row['period_start']} "
+                    f"= {row['absolute_error_fire_positive_grid_cells']:.4f}."
+                )
+        self.write_analysis(d, lines)
 
     def write_index(self) -> None:
         index = pd.DataFrame(self.index_rows)
@@ -2476,6 +2674,8 @@ def organize_results(root: Path = ROOT) -> None:
     builder.build_importance()
     builder.build_failures()
     builder.build_probability_overlays()
+    builder.build_prediction_diagnostics()
+    builder.build_fire_period_timelines()
     builder.write_index()
 
     write_root_readme()

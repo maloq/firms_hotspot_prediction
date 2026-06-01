@@ -9,6 +9,8 @@ grid-cell days overlaid on predicted probabilities.
 from __future__ import annotations
 
 import contextlib
+import copy
+import hashlib
 import importlib.util
 import json
 import math
@@ -196,6 +198,7 @@ DISCRIMINATION_METRICS = {
     "spatial_tolerant_roc_auc",
 }
 _DENSE_NEURAL_CACHE: dict[tuple[str, ...], "DenseNeuralPredictor"] = {}
+_CLIMATE_FRAGMENTS_CACHE: dict[tuple[str, str], list[object]] = {}
 
 
 @dataclass(frozen=True)
@@ -355,6 +358,10 @@ def find_all_prediction_files(results_dir: Path, source: str) -> list[Path]:
 
 def prediction_stem(path: Path) -> str:
     stem = path.stem
+    if stem in {"test_predictions", "test_legacy_predictions"} and path.parent.name.endswith("sampled_predictions"):
+        parent_stem = path.parent.parent.name
+        if parent_stem:
+            return parent_stem
     for suffix in ("_test_predictions", "_test_legacy_predictions"):
         if stem.endswith(suffix):
             return stem[: -len(suffix)]
@@ -385,6 +392,7 @@ def pretty_model_name(path: Path) -> str:
         "nn_global_full_lstm_gated_moe": "LSTM gated MoE (global full)",
         "nn_global_full_lstm_static_concat": "LSTM static concat (global full)",
         "nn_global_full_spatial_tsn": "Spatial climate TSN-MLP (global full)",
+        "nn_global_full_spatial_tsn_no_tp": "Spatial climate TSN-MLP no tp (global full)",
         "nn_global_full_spatial_tsn_ecmwf": "Spatial climate TSN-MLP (ECMWF global full)",
         "nn_global_full_minimal_mlp": "Minimal MLP (global full)",
         "nn_global_full_tsn": "TemporalConvNet / TSN-MLP (global full)",
@@ -481,7 +489,14 @@ def neural_data_paths(path: Path) -> list[Path]:
             if data_path:
                 candidates.append(Path(data_path))
     stem = prediction_stem(path)
-    if stem in {"nn_global_full_spatial_tsn", "nn_global_full_spatial_tsn_no_tp"}:
+    if stem == "nn_global_full_spatial_tsn":
+        candidates.extend(
+            [
+                Path("data/saved_features/nn_train_data_daily_spatial_3x3/prepared_data.npz"),
+                Path("/home/ids/vmorozov/data/saved_features/nn_train_data_daily_spatial_3x3/prepared_data.npz"),
+            ]
+        )
+    if stem == "nn_global_full_spatial_tsn_no_tp":
         candidates.extend(
             [
                 Path("data/saved_features/nn_train_data_daily_spatial_3x3_no_tp/prepared_data.npz"),
@@ -635,6 +650,14 @@ class DenseNeuralPredictor:
     dynamic_metadata: dict[str, object] = field(default_factory=dict)
     feature_config: dict[str, object] = field(default_factory=dict)
     masked_dynamic_variables: tuple[str, ...] = field(default_factory=tuple)
+    daily_dynamic_cache_dir: Path | None = None
+    daily_dynamic_cache_policy: str = "none"
+    daily_dynamic_block_cache_dir: Path | None = None
+    daily_dynamic_use_block_cache: bool = False
+    daily_dynamic_location_batch_size: int | None = None
+    daily_dynamic_max_time_span_days: int | None = None
+    daily_dynamic_fill_row_batch_size: int | None = None
+    daily_dynamic_max_slab_spatial_cells: int | None = None
 
     def _numeric_matrix(self, frame: pd.DataFrame, columns: list[str]) -> np.ndarray:
         values = []
@@ -663,11 +686,51 @@ class DenseNeuralPredictor:
         out[:, np.asarray(mask_columns, dtype=bool)] = 0.0
         return out
 
+    def _dense_dynamic_cache_path(
+        self,
+        *,
+        climate_data_dir: Path,
+        variable: str,
+        target_pd: pd.DataFrame,
+        n_days: int,
+        patch_size: int,
+        source_token: str | None,
+    ) -> Path | None:
+        if self.daily_dynamic_cache_dir is None:
+            return None
+        hasher = hashlib.blake2b(digest_size=16)
+        hasher.update(str(climate_data_dir.resolve()).encode("utf-8"))
+        if source_token:
+            hasher.update(source_token.encode("utf-8"))
+        hasher.update(variable.encode("utf-8"))
+        hasher.update(str(self.dynamic_mode).encode("utf-8"))
+        hasher.update(str(n_days).encode("utf-8"))
+        hasher.update(str(patch_size).encode("utf-8"))
+
+        cache_pd = target_pd[["acq_date", LAT_COL, LON_COL]].copy()
+        cache_pd["acq_date"] = pd.to_datetime(cache_pd["acq_date"]).astype("datetime64[ns]")
+        row_hashes = pd.util.hash_pandas_object(cache_pd, index=False).to_numpy(dtype=np.uint64)
+        hasher.update(row_hashes.tobytes())
+        return (
+            Path(self.daily_dynamic_cache_dir)
+            / "daily_spatial_patches"
+            / safe_slug(variable)
+            / f"{safe_slug(variable)}_{self.dynamic_mode}_{patch_size}x{patch_size}_{hasher.hexdigest()}.npy"
+        )
+
+    @staticmethod
+    def _save_npy_atomic(path: Path, array: np.ndarray) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        with tmp_path.open("wb") as handle:
+            np.save(handle, array, allow_pickle=False)
+        tmp_path.replace(path)
+
     def _dense_climate_params(self) -> tuple[Path, list[str], int, int]:
         climate_params = self.feature_config.get("climate_data_params", {}) if self.feature_config else {}
         variables = (
-            climate_params.get("climate_variables")
-            or self.dynamic_metadata.get("daily_climate_variables")
+            self.dynamic_metadata.get("daily_climate_variables")
+            or climate_params.get("climate_variables")
             or ["t2m", "d2m", "tp", "stl1"]
         )
         variables = [str(variable) for variable in variables]
@@ -680,8 +743,8 @@ class DenseNeuralPredictor:
         else:
             patch_size = 1
         climate_data_dir = (
-            climate_params.get("climate_data_dir")
-            or self.dynamic_metadata.get("climate_data_dir")
+            self.dynamic_metadata.get("climate_data_dir")
+            or climate_params.get("climate_data_dir")
         )
         if not climate_data_dir:
             raise ValueError(
@@ -731,21 +794,71 @@ class DenseNeuralPredictor:
         expanded_spatial_range = prepared_nn.expanded_spatial_range
         extract_spatial_climate_timeseries = prepared_nn.extract_spatial_climate_timeseries
         extract_spatial_climate_timeseries_fragmented = prepared_nn.extract_spatial_climate_timeseries_fragmented
+        climate_fragments_source_token = prepared_nn.climate_fragments_source_token
 
         target_pd = frame[[DATE_COL, LAT_COL, LON_COL]].copy()
         target_pd = target_pd.rename(columns={DATE_COL: "acq_date"})
         target_pd["acq_date"] = pd.to_datetime(target_pd["acq_date"], errors="coerce")
         target_df_pl = pl.from_pandas(target_pd[["acq_date", LAT_COL, LON_COL]])
 
-        fragments = discover_climate_fragments(str(climate_data_dir), variable)
+        fragment_key = (str(climate_data_dir.resolve()), str(variable))
+        fragments = _CLIMATE_FRAGMENTS_CACHE.get(fragment_key)
+        if fragments is None:
+            fragments = discover_climate_fragments(str(climate_data_dir), variable)
+            _CLIMATE_FRAGMENTS_CACHE[fragment_key] = fragments
+        source_token = climate_fragments_source_token(fragments)
+        cache_policy = str(self.daily_dynamic_cache_policy or "none").lower()
+        read_patch_cache = cache_policy in {"read", "read-write"}
+        write_patch_cache = cache_policy in {"write", "read-write"}
+        cache_path = self._dense_dynamic_cache_path(
+            climate_data_dir=climate_data_dir,
+            variable=variable,
+            target_pd=target_pd,
+            n_days=n_days,
+            patch_size=patch_size,
+            source_token=source_token,
+        )
+        expected_shape = (len(frame), n_days, patch_size, patch_size)
+        if read_patch_cache and cache_path is not None and cache_path.exists():
+            try:
+                cached = np.load(cache_path, allow_pickle=False)
+            except Exception as exc:
+                print(f"Ignoring unreadable dense neural dynamic cache {cache_path}: {exc}", flush=True)
+                cached = None
+            if cached is not None and cached.shape == expected_shape:
+                print(f"  loaded dense neural {variable} patch cache: {cache_path}", flush=True)
+                return cached.astype(np.float32, copy=False)
+            if cached is not None:
+                print(
+                    f"Ignoring stale dense neural dynamic cache {cache_path}: "
+                    f"expected {expected_shape}, got {cached.shape}",
+                    flush=True,
+                )
+
+        block_cache_dir = (
+            self.daily_dynamic_block_cache_dir
+            if self.daily_dynamic_use_block_cache and self.daily_dynamic_block_cache_dir is not None
+            else None
+        )
+        block_source_token = source_token if block_cache_dir is not None else None
         if len(fragments) > 1:
-            return extract_spatial_climate_timeseries_fragmented(
+            raw = extract_spatial_climate_timeseries_fragmented(
                 fragments,
                 variable,
                 target_df_pl,
                 n_days=n_days,
                 patch_size=patch_size,
+                location_batch_size=self.daily_dynamic_location_batch_size,
+                max_time_span_days=self.daily_dynamic_max_time_span_days,
+                fill_row_batch_size=self.daily_dynamic_fill_row_batch_size,
+                max_slab_spatial_cells=self.daily_dynamic_max_slab_spatial_cells,
+                block_cache_dir=block_cache_dir,
+                block_cache_source_token=block_source_token,
             )
+            if write_patch_cache and cache_path is not None:
+                self._save_npy_atomic(cache_path, raw.astype(np.float32, copy=False))
+                print(f"  wrote dense neural {variable} patch cache: {cache_path}", flush=True)
+            return raw
 
         fragment = fragments[0]
         radius = patch_size // 2
@@ -764,13 +877,23 @@ class DenseNeuralPredictor:
             test_mode=False,
         )
         try:
-            return extract_spatial_climate_timeseries(
+            raw = extract_spatial_climate_timeseries(
                 ds,
                 variable,
                 target_df_pl,
                 n_days=n_days,
                 patch_size=patch_size,
+                location_batch_size=self.daily_dynamic_location_batch_size,
+                max_time_span_days=self.daily_dynamic_max_time_span_days,
+                fill_row_batch_size=self.daily_dynamic_fill_row_batch_size,
+                max_slab_spatial_cells=self.daily_dynamic_max_slab_spatial_cells,
+                block_cache_dir=block_cache_dir,
+                block_cache_source_token=block_source_token,
             )
+            if write_patch_cache and cache_path is not None:
+                self._save_npy_atomic(cache_path, raw.astype(np.float32, copy=False))
+                print(f"  wrote dense neural {variable} patch cache: {cache_path}", flush=True)
+            return raw
         finally:
             ds.close()
 
@@ -1119,6 +1242,14 @@ def load_dense_neural_predictor(
     feature_config_path: Path | None = None,
     feature_config: dict[str, object] | None = None,
     masked_dynamic_variables: Sequence[str] | None = None,
+    daily_dynamic_cache_dir: Path | None = None,
+    daily_dynamic_cache_policy: str = "none",
+    daily_dynamic_block_cache_dir: Path | None = None,
+    daily_dynamic_use_block_cache: bool = False,
+    daily_dynamic_location_batch_size: int | None = None,
+    daily_dynamic_max_time_span_days: int | None = None,
+    daily_dynamic_fill_row_batch_size: int | None = None,
+    daily_dynamic_max_slab_spatial_cells: int | None = None,
 ) -> DenseNeuralPredictor:
     import torch
     from src.neural_net.models.lightning import SequenceStaticLightningModule
@@ -1144,6 +1275,14 @@ def load_dense_neural_predictor(
         ",".join(masked_dynamic_variables),
         str(batch_size),
         device,
+        str(daily_dynamic_cache_dir.resolve()) if daily_dynamic_cache_dir is not None else "",
+        str(daily_dynamic_cache_policy),
+        str(daily_dynamic_block_cache_dir.resolve()) if daily_dynamic_block_cache_dir is not None else "",
+        str(bool(daily_dynamic_use_block_cache)),
+        str(daily_dynamic_location_batch_size),
+        str(daily_dynamic_max_time_span_days),
+        str(daily_dynamic_fill_row_batch_size),
+        str(daily_dynamic_max_slab_spatial_cells),
     )
     if cache_key in _DENSE_NEURAL_CACHE:
         return _DENSE_NEURAL_CACHE[cache_key]
@@ -1271,6 +1410,14 @@ def load_dense_neural_predictor(
         dynamic_metadata={key: value for key, value in dynamic_metadata.items() if value is not None},
         feature_config=dict(feature_config or {}),
         masked_dynamic_variables=masked_dynamic_variables,
+        daily_dynamic_cache_dir=daily_dynamic_cache_dir,
+        daily_dynamic_cache_policy=str(daily_dynamic_cache_policy or "none"),
+        daily_dynamic_block_cache_dir=daily_dynamic_block_cache_dir,
+        daily_dynamic_use_block_cache=bool(daily_dynamic_use_block_cache),
+        daily_dynamic_location_batch_size=daily_dynamic_location_batch_size,
+        daily_dynamic_max_time_span_days=daily_dynamic_max_time_span_days,
+        daily_dynamic_fill_row_batch_size=daily_dynamic_fill_row_batch_size,
+        daily_dynamic_max_slab_spatial_cells=daily_dynamic_max_slab_spatial_cells,
     )
     _DENSE_NEURAL_CACHE[cache_key] = predictor
     return predictor
@@ -1934,6 +2081,48 @@ def dense_period_neural_predictions(
     countries = prediction_countries(feature_config)
 
     daily_frames: list[pd.DataFrame] = []
+
+    def make_dense_features(target_grid: pd.DataFrame, log_path: Path) -> pd.DataFrame:
+        def _make_features(config_payload: dict[str, object]) -> pd.DataFrame:
+            return make_features_from_target_df(
+                config_payload,
+                target_grid,
+                test_mode=True,
+                use_cached_files=True,
+                cache_dir=str(output_dir / "artifacts" / "dense_feature_cache"),
+            )
+
+        if verbose_feature_generation:
+            try:
+                return _make_features(feature_config)
+            except FileNotFoundError as exc:
+                if "Black Marble cache" not in str(exc):
+                    raise
+                print(f"  night-light features unavailable for dense grid; retrying without them: {exc}")
+        else:
+            try:
+                with log_path.open("w", encoding="utf-8") as log_handle:
+                    with contextlib.redirect_stdout(log_handle):
+                        return _make_features(feature_config)
+            except FileNotFoundError as exc:
+                if "Black Marble cache" not in str(exc):
+                    raise
+                with log_path.open("a", encoding="utf-8") as log_handle:
+                    log_handle.write(
+                        "\nNight-light features unavailable for dense grid; retrying without them.\n"
+                        f"{exc}\n"
+                    )
+
+        retry_config = copy.deepcopy(feature_config)
+        night_light_params = retry_config.setdefault("night_light_data_params", {})
+        if isinstance(night_light_params, dict):
+            night_light_params["use_night_light_features"] = False
+        if verbose_feature_generation:
+            return _make_features(retry_config)
+        with log_path.open("a", encoding="utf-8") as log_handle:
+            with contextlib.redirect_stdout(log_handle):
+                return _make_features(retry_config)
+
     for date in pd.date_range(period_start, period_start + pd.Timedelta(days=window_days - 1), freq="D"):
         start = time.perf_counter()
         target_grid = region_grid_frame(
@@ -1958,24 +2147,8 @@ def dense_period_neural_predictions(
             / f"neural_{safe_slug(region.name)}_{date:%Y%m%d}.log"
         )
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        if verbose_feature_generation:
-            features = make_features_from_target_df(
-                feature_config,
-                target_grid,
-                test_mode=True,
-                use_cached_files=True,
-                cache_dir=str(output_dir / "artifacts" / "dense_feature_cache"),
-            )
-        else:
-            with log_path.open("w", encoding="utf-8") as log_handle:
-                with contextlib.redirect_stdout(log_handle):
-                    features = make_features_from_target_df(
-                        feature_config,
-                        target_grid,
-                        test_mode=True,
-                        use_cached_files=True,
-                        cache_dir=str(output_dir / "artifacts" / "dense_feature_cache"),
-                    )
+        features = make_dense_features(target_grid, log_path)
+        if not verbose_feature_generation:
             print(f"  feature-generation log: {log_path}")
         if features.empty:
             continue
@@ -2080,11 +2253,27 @@ def interpolated_prediction_surface(
 
 
 def probability_colormap(name: str):
-    cmap = plt.get_cmap(name).copy()
+    normalized = safe_slug(name).lower().replace("_", "-")
+    if normalized in {"fire-risk", "risk-fire"}:
+        cmap = mcolors.LinearSegmentedColormap.from_list(
+            "fire_risk",
+            [
+                (0.00, "#fffdf2"),
+                (0.08, "#fff1a8"),
+                (0.22, "#fdbb63"),
+                (0.46, "#f06b3a"),
+                (0.72, "#c51b29"),
+                (1.00, "#4d004b"),
+            ],
+            N=256,
+        )
+    else:
+        cmap = plt.get_cmap(name).copy()
     transparent = (1.0, 1.0, 1.0, 0.0)
     prediction_base = cmap(0.0)
     cmap.set_bad(transparent)
     cmap.set_under(prediction_base)
+    cmap.set_over(cmap(1.0))
     return cmap
 
 
@@ -2092,7 +2281,7 @@ def color_scale(values: np.ndarray, *, color_floor: float | None, color_vmax: fl
     finite = values[np.isfinite(values)]
     positive = finite[finite > 0]
     if color_vmax is None:
-        vmax = float(np.nanpercentile(positive, 99.5)) if len(positive) else 1.0
+        vmax = float(np.nanpercentile(positive, 98.0)) if len(positive) else 1.0
     else:
         vmax = float(color_vmax)
     if not math.isfinite(vmax) or vmax <= 0:
@@ -2261,7 +2450,7 @@ def plot_selected_period(
     has_under_color = bool(display_floor > 0 and len(finite_mesh_values) and np.nanmin(finite_mesh_values) < display_floor)
     has_over_color = bool(len(finite_mesh_values) and np.nanmax(finite_mesh_values) > vmax)
     mesh_values = np.ma.masked_invalid(mesh_values)
-    norm = mcolors.Normalize(vmin=display_floor, vmax=vmax, clip=False)
+    norm = mcolors.PowerNorm(gamma=0.45, vmin=display_floor, vmax=vmax, clip=False)
     mesh = ax_map.pcolormesh(
         mesh_lon,
         mesh_lat,

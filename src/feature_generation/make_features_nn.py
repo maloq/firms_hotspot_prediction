@@ -112,6 +112,8 @@ def _target_year_column(target_df: pd.DataFrame) -> pd.Series | None:
 def prepare_night_light_features_wrapper(
     target_df: pd.DataFrame,
     feature_map_path: str,
+    legacy_viirs_feature_map_path: str | None = None,
+    legacy_viirs_feature_prefix: str = "viirs_",
     annual_source_dir: str | None = None,
     recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
     recent_source_glob: str = "*.tif",
@@ -137,6 +139,8 @@ def prepare_night_light_features_wrapper(
     df_lights = get_night_light_features_for_coords(
         coords=coords_array.T,
         feature_map_path=feature_map_path,
+        legacy_viirs_feature_map_path=legacy_viirs_feature_map_path,
+        legacy_viirs_feature_prefix=legacy_viirs_feature_prefix,
         years=years,
         annual_source_dir=annual_source_dir,
         recent_feature_name=recent_feature_name,
@@ -300,6 +304,8 @@ def generate_all_features(
     skip_climate: bool = False,
     use_cached_files: bool = False,
     cache_dir: str = 'data/saved_features/climate_features_cache',
+    night_light_legacy_viirs_feature_map_path: str | None = None,
+    night_light_legacy_viirs_feature_prefix: str = "viirs_",
     night_light_annual_source_dir: str | None = None,
     night_light_recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
     night_light_recent_source_glob: str = "*.tif",
@@ -380,6 +386,8 @@ def generate_all_features(
         df_night_light, night_light_feature_names = prepare_night_light_features_wrapper(
             target_df=df_target.copy(),
             feature_map_path=night_light_feature_map_path,
+            legacy_viirs_feature_map_path=night_light_legacy_viirs_feature_map_path,
+            legacy_viirs_feature_prefix=night_light_legacy_viirs_feature_prefix,
             annual_source_dir=night_light_annual_source_dir,
             recent_feature_name=night_light_recent_feature_name,
             recent_source_glob=night_light_recent_source_glob,
@@ -595,6 +603,12 @@ def make_features_and_save(config_or_path: str | dict, output_file: str, test_mo
         # Night lights
         night_light_feature_map_path=night_light_params_cfg.get("feature_map_path"),
         use_night_light_features=night_light_params_cfg.get("use_night_light_features", False),
+        night_light_legacy_viirs_feature_map_path=night_light_params_cfg.get(
+            "legacy_viirs_feature_map_path"
+        ),
+        night_light_legacy_viirs_feature_prefix=night_light_params_cfg.get(
+            "legacy_viirs_feature_prefix", "viirs_"
+        ),
         night_light_annual_source_dir=night_light_params_cfg.get("annual_source_dir"),
         night_light_recent_feature_name=night_light_params_cfg.get(
             "recent_feature_name", DEFAULT_RECENT_FEATURE_NAME

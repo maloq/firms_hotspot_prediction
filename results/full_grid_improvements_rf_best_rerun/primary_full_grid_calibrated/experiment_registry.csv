@@ -1,0 +1,16 @@
+model_name,model_type,evaluation_type,is_primary,calibration_method,test_universe,test_period,metric_name,metric_value
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,average_precision,0.0003435997360521789
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,roc_auc,0.8453711122397523
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,max_f1,0.0010095911155981827
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,precision_at_max_f1,0.0005081874647092038
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,recall_at_max_f1,0.07563025210084033
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,threshold_at_max_f1,0.00027375764142785014
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_brier_score,9.950065437292292e-05
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_logloss,0.0009924788441299697
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_ece,7.098734375483372e-05
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_mce,0.00030866879779372036
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_rmse,0.00012790813655664168
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_intercept,-0.06952382460607728
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_slope,0.8725664618163254
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,expected_observed_count_ratio,0.3054532096872349
+Random Forest,random_forest,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,daily_expected_observed_count_mae,9.061652140852848

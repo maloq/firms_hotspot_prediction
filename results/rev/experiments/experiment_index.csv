@@ -31,3 +31,4 @@ SHAP Importance,27_shap_importance,Summarizes TreeSHAP mean absolute contributio
 Neural Feature Importance,28_neural_feature_importance,Measures PR-AUC drops after permuting each input of the best global neural architecture.
 Failures And Limitations,30_failures_and_limitations,Contains only true remaining blockers and limitations after attempted rebuilds and reruns.
 Full-Grid Prediction Overlays,29_full_grid_prediction_overlays,Plots full-grid probability surfaces for the configured best neural prediction periods and overlays observed fire-positive grid-cell days.
+Prediction Time-Series And Risk Error Maps,32_prediction_timeseries_error_maps,"Compares saved test-set predicted fire-positive grid-cell days with observed labels over time, then maps calibrated risk residuals averaged over test years and for each individual test year."

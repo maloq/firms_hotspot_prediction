@@ -1,0 +1,7 @@
+model_name,model_type,denominator,support,denominator_count,event_count,event_rate,notes,event_rate_error
+Minimal MLP (global full),Neural,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Minimal MLP (global full),Neural,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+Minimal MLP full-grid optimized,Neural,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Minimal MLP full-grid optimized,Neural,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+Minimal MLP full-grid rank optimized,Neural,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Minimal MLP full-grid rank optimized,Neural,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0

@@ -29,6 +29,11 @@ def run_main_tabular(config: EvaluationConfig) -> None:
         catboost_task_type=config.catboost_task_type,
         catboost_verbose=config.catboost_verbose,
         rf_max_train_rows=config.rf_max_train_rows,
+        rf_n_estimators=config.rf_n_estimators,
+        rf_max_depth=config.rf_max_depth,
+        rf_min_samples_leaf=config.rf_min_samples_leaf,
+        rf_positive_class_weight=config.rf_positive_class_weight,
+        rf_max_features=config.rf_max_features,
         linear_epochs=config.linear_epochs,
         point_process_max_train_rows=config.point_process_max_train_rows,
         point_process_alpha=config.point_process_alpha,
@@ -61,6 +66,10 @@ def run_main_tabular(config: EvaluationConfig) -> None:
         calibration_method=config.calibration_method,
         n_reliability_bins=config.n_reliability_bins,
         reliability_binning=config.reliability_binning,
+        full_grid_selection_metric=config.full_grid_selection_metric,
+        full_grid_selection_direction=config.full_grid_selection_direction,
+        full_grid_selection_region=config.full_grid_selection_region,
+        full_grid_selection_split=config.full_grid_selection_split,
         save_full_grid_predictions=config.save_full_grid_predictions,
         save_calibrated_predictions=config.save_calibrated_predictions,
         max_grid_rows_per_chunk=config.max_grid_rows_per_chunk,
@@ -68,6 +77,7 @@ def run_main_tabular(config: EvaluationConfig) -> None:
         use_lat_lon_features=config.use_lat_lon_features,
         use_ecoregion_features=config.use_ecoregion_features,
         use_historical_fire_features=config.use_historical_fire_features,
+        tabular_model_subset=config.tabular_model_subset,
     )
     run(args, command="config-driven revision_evaluation.tabular")
 
@@ -82,6 +92,12 @@ def run_new_nn_models(config: EvaluationConfig) -> None:
     from .neural_training import run_from_evaluation_config
 
     run_from_evaluation_config(config)
+
+
+def run_neural_full_grid_evaluation(config: EvaluationConfig) -> None:
+    from .neural_full_grid import run_neural_full_grid_evaluation
+
+    run_neural_full_grid_evaluation(config)
 
 
 def run_era5_source_comparison(config: EvaluationConfig) -> None:
@@ -161,6 +177,49 @@ def run_representative_model_ablation(config: EvaluationConfig) -> None:
         neural_model=config.input_source_neural_model,
     )
     run(args)
+
+
+def run_prediction_diagnostics(config: EvaluationConfig) -> None:
+    from .prediction_diagnostics import PredictionDiagnosticConfig, run_prediction_diagnostics
+
+    diagnostics_config = PredictionDiagnosticConfig(
+        results_dir=config.output_dir,
+        regions_file=config.regions_file,
+        source=config.prediction_diagnostics_source,
+        model=config.prediction_diagnostics_model,
+        regions=config.prediction_diagnostics_regions,
+        include_global=config.prediction_diagnostics_include_global,
+        time_frequency=config.prediction_diagnostics_time_frequency,
+        output_dir=config.prediction_diagnostics_output_dir,
+        formats=config.prediction_diagnostics_formats,
+        dpi=config.prediction_diagnostics_dpi,
+        grid_resolution=config.prediction_diagnostics_grid_resolution or config.deployment_grid_resolution,
+        plot_interpolation_resolution=config.prediction_diagnostics_plot_interpolation_resolution,
+        country_shapes=config.prediction_diagnostics_country_shapes,
+        error_colormap=config.prediction_diagnostics_error_colormap,
+        ground_truth_smoothing_sigma_cells=config.prediction_diagnostics_ground_truth_smoothing_sigma_cells,
+        recalibrate_on_test=config.prediction_diagnostics_recalibrate_on_test,
+        require_full_grid_predictions=config.prediction_diagnostics_require_full_grid_predictions,
+        generate_full_grid_predictions=config.prediction_diagnostics_generate_full_grid_predictions,
+        feature_config=config.feature_config,
+        target_config=config.target_config,
+        catboost_config=config.catboost_config,
+        full_grid_model_path=config.prediction_diagnostics_full_grid_model_path,
+        full_grid_feature_schema_path=config.prediction_diagnostics_full_grid_feature_schema_path,
+        deployment_grid_countries=config.deployment_grid_countries,
+        deployment_grid_coordinate_bounds=config.deployment_grid_coordinate_bounds,
+        deployment_grid_clip_to_feature_bounds=config.deployment_grid_clip_to_feature_bounds,
+        test_start_date=config.test_start_date,
+        test_end_date=config.test_end_date,
+        max_grid_rows_per_chunk=config.prediction_diagnostics_max_grid_rows_per_chunk
+        if config.prediction_diagnostics_max_grid_rows_per_chunk is not None
+        else config.max_grid_rows_per_chunk,
+        cache_full_grid_features=config.cache_full_grid_features,
+        sample_prediction_days_per_month=config.prediction_diagnostics_sample_prediction_days_per_month,
+        months_per_feature_chunk=config.prediction_diagnostics_months_per_feature_chunk,
+        seed=config.seed,
+    )
+    run_prediction_diagnostics(diagnostics_config)
 
 
 def run_organizer(config: EvaluationConfig) -> None:

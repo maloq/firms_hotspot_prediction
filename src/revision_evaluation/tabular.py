@@ -37,6 +37,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+from src.feature_generation.calendar_features import add_calendar_context_features
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import PoissonRegressor, SGDClassifier
 from sklearn.metrics import (
@@ -65,14 +67,14 @@ try:
         evaluate_model_full_grid_calibrated,
         write_full_grid_failure,
     )
-    from .calibration import logit
+    from .calibration import logit, sigmoid
 except ImportError:  # pragma: no cover - supports direct script execution
     from src.revision_evaluation.artifacts import prune_empty_dirs
     from src.revision_evaluation.full_grid_evaluation import (
         evaluate_model_full_grid_calibrated,
         write_full_grid_failure,
     )
-    from src.revision_evaluation.calibration import logit
+    from src.revision_evaluation.calibration import logit, sigmoid
 
 
 SEED = 42
@@ -206,6 +208,11 @@ def default_args(**overrides: Any) -> SimpleNamespace:
         "catboost_task_type": "GPU",
         "catboost_verbose": 100,
         "rf_max_train_rows": 300_000,
+        "rf_n_estimators": 120,
+        "rf_max_depth": 18,
+        "rf_min_samples_leaf": 20,
+        "rf_positive_class_weight": 4.0,
+        "rf_max_features": None,
         "linear_epochs": 4,
         "point_process_max_train_rows": 500_000,
         "point_process_alpha": 1e-4,
@@ -238,6 +245,10 @@ def default_args(**overrides: Any) -> SimpleNamespace:
         "calibration_method": "platt_month",
         "n_reliability_bins": 20,
         "reliability_binning": "equal_count",
+        "full_grid_selection_metric": "average_precision",
+        "full_grid_selection_direction": None,
+        "full_grid_selection_region": "global",
+        "full_grid_selection_split": "test",
         "save_full_grid_predictions": True,
         "save_calibrated_predictions": True,
         "max_grid_rows_per_chunk": None,
@@ -245,6 +256,7 @@ def default_args(**overrides: Any) -> SimpleNamespace:
         "use_lat_lon_features": True,
         "use_ecoregion_features": True,
         "use_historical_fire_features": True,
+        "tabular_model_subset": None,
     }
     data.update(overrides)
     return SimpleNamespace(**data)
@@ -256,6 +268,18 @@ def split_csv_arg(value: str | Sequence[str] | None) -> list[str]:
     if isinstance(value, str):
         return [item.strip() for item in value.split(",") if item.strip()]
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def selected_tabular_models(value: str | Sequence[str] | None) -> set[str] | None:
+    selected = {item.lower() for item in split_csv_arg(value)}
+    return selected or None
+
+
+def should_run_tabular_model(selected: set[str] | None, *names: str) -> bool:
+    if selected is None:
+        return True
+    aliases = {name.lower() for name in names}
+    return bool(selected & aliases)
 
 
 def setup_logging(output_dir: Path) -> None:
@@ -619,6 +643,7 @@ def load_dataset(path: Path) -> pd.DataFrame:
         raise ValueError("Dataset contains unparseable datetimes.")
     if TARGET_COLUMN not in df.columns:
         raise KeyError(f"Dataset missing required target column {TARGET_COLUMN!r}")
+    df = add_calendar_context_features(df)
     logging.info("Loaded dataset shape=%s in %.1fs", df.shape, time.perf_counter() - start)
     return df
 
@@ -806,7 +831,15 @@ def catboost_categorical_features(
 
 def feature_group(feature: str) -> str:
     name = feature.lower()
-    if name in {"month"} or "dayofyear" in name or name.startswith("doy") or name.endswith("_sin") or name.endswith("_cos"):
+    if (
+        name in {"month"}
+        or "dayofyear" in name
+        or name.startswith("doy")
+        or name.endswith("_sin")
+        or name.endswith("_cos")
+        or name.startswith("is_weekend_")
+        or name.startswith("is_holiday_")
+    ):
         return "seasonality"
     if name.startswith(("t2m_", "d2m_", "tp_", "stl1_", "u10_", "v10_", "msl_", "sd_")):
         return "weather_history"
@@ -1191,11 +1224,14 @@ def catboost_pool(
     X: pd.DataFrame,
     y: np.ndarray | None,
     cat_features: Sequence[str],
+    sample_weight: np.ndarray | pd.Series | None = None,
 ) -> Any:
     cat_features = [c for c in cat_features if c in X.columns]
     if y is None:
         return Pool(X, cat_features=cat_features) if cat_features else Pool(X)
-    return Pool(X, label=y, cat_features=cat_features) if cat_features else Pool(X, label=y)
+    if cat_features:
+        return Pool(X, label=y, cat_features=cat_features, weight=sample_weight)
+    return Pool(X, label=y, weight=sample_weight)
 
 
 def predict_catboost(model: Any, X: pd.DataFrame, cat_features: Sequence[str]) -> np.ndarray:
@@ -1274,7 +1310,7 @@ def make_linear_raw_predict_fn(model: Any, encoder: Any, batch_size: int):
             if hasattr(model, "decision_function"):
                 scores = np.asarray(model.decision_function(X_batch), dtype=float).reshape(-1)
                 raw[slc] = scores.astype(np.float32)
-                prob[slc] = (1.0 / (1.0 + np.exp(-scores))).astype(np.float32)
+                prob[slc] = sigmoid(scores).astype(np.float32)
             else:
                 batch_prob = np.asarray(model.predict_proba(X_batch)[:, 1], dtype=float)
                 prob[slc] = batch_prob.astype(np.float32)
@@ -1313,6 +1349,47 @@ def make_predict_proba_raw_fn(model: Any, encoder: Any, batch_size: int):
     return _predict
 
 
+def catboost_training_sample_weight(
+    df: pd.DataFrame,
+    train_mask: np.ndarray,
+    *,
+    column: str | None,
+    power: float = 1.0,
+    cap_quantile: float | None = None,
+) -> tuple[np.ndarray | None, dict[str, Any]]:
+    if not column:
+        return None, {"sample_weight_column": None, "used_sample_weight": False}
+    if column not in df.columns:
+        raise ExperimentFailure(f"Requested CatBoost sample-weight column is missing: {column}")
+    raw = pd.to_numeric(df.loc[train_mask, column], errors="coerce")
+    y_train = positive_labels(df.loc[train_mask, TARGET_COLUMN])
+    weights = raw.replace([np.inf, -np.inf], np.nan).fillna(1.0).to_numpy(dtype=float)
+    weights = np.where(np.isfinite(weights) & (weights > 0), weights, 1.0)
+    if power != 1.0:
+        weights = np.power(weights, float(power))
+    cap_value = None
+    if cap_quantile is not None:
+        q = min(max(float(cap_quantile), 0.0), 1.0)
+        cap_value = float(np.quantile(weights, q))
+        if math.isfinite(cap_value) and cap_value > 0:
+            weights = np.minimum(weights, cap_value)
+    mean_weight = float(np.mean(weights)) if len(weights) else 1.0
+    if math.isfinite(mean_weight) and mean_weight > 0:
+        weights = weights / mean_weight
+    return weights.astype(np.float32), {
+        "sample_weight_column": column,
+        "used_sample_weight": True,
+        "sample_weight_power": float(power),
+        "sample_weight_cap_quantile": cap_quantile,
+        "sample_weight_cap_value_after_power": cap_value,
+        "sample_weight_min_normalized": float(np.min(weights)) if len(weights) else None,
+        "sample_weight_mean_normalized": float(np.mean(weights)) if len(weights) else None,
+        "sample_weight_max_normalized": float(np.max(weights)) if len(weights) else None,
+        "positive_weight_mean_normalized": float(np.mean(weights[y_train == 1])) if np.any(y_train == 1) else None,
+        "negative_weight_mean_normalized": float(np.mean(weights[y_train == 0])) if np.any(y_train == 0) else None,
+    }
+
+
 def train_catboost_model(
     experiment_id: str,
     feature_columns: list[str],
@@ -1321,6 +1398,9 @@ def train_catboost_model(
     config: dict[str, Any],
     args: Any,
     output_dir: Path,
+    sample_weight_column: str | None = None,
+    sample_weight_power: float = 1.0,
+    sample_weight_cap_quantile: float | None = None,
 ) -> tuple[Any, list[str], dict[str, Any]]:
     validate_no_leakage_features(feature_columns)
     if CatBoostClassifier is None:
@@ -1334,6 +1414,13 @@ def train_catboost_model(
     X_val = normalize_cat_columns(df.loc[masks["validation"], feature_columns], categorical, numerical_cat)
     y_train = positive_labels(df.loc[masks["train"], TARGET_COLUMN])
     y_val = positive_labels(df.loc[masks["validation"], TARGET_COLUMN])
+    train_weight, sample_weight_diagnostics = catboost_training_sample_weight(
+        df,
+        masks["train"],
+        column=sample_weight_column,
+        power=sample_weight_power,
+        cap_quantile=sample_weight_cap_quantile,
+    )
 
     params = {
         "iterations": args.catboost_iterations,
@@ -1356,7 +1443,7 @@ def train_catboost_model(
     logging.info("Training CatBoost %s with %d features", experiment_id, len(feature_columns))
     try:
         model.fit(
-            catboost_pool(X_train, y_train, categorical),
+            catboost_pool(X_train, y_train, categorical, sample_weight=train_weight),
             eval_set=catboost_pool(X_val, y_val, categorical),
             use_best_model=True,
             early_stopping_rounds=100,
@@ -1367,7 +1454,7 @@ def train_catboost_model(
             params.pop("task_type", None)
             model = CatBoostClassifier(**params)
             model.fit(
-                catboost_pool(X_train, y_train, categorical),
+                catboost_pool(X_train, y_train, categorical, sample_weight=train_weight),
                 eval_set=catboost_pool(X_val, y_val, categorical),
                 use_best_model=True,
                 early_stopping_rounds=100,
@@ -1387,6 +1474,7 @@ def train_catboost_model(
         "best_iteration": model.get_best_iteration(),
         "best_score": model.get_best_score(),
         "params": params,
+        "sample_weight": sample_weight_diagnostics,
     }
     return model, categorical, diagnostics
 
@@ -1403,9 +1491,21 @@ def run_catboost_experiment(
     config: dict[str, Any],
     args: Any,
     output_dir: Path,
+    sample_weight_column: str | None = None,
+    sample_weight_power: float = 1.0,
+    sample_weight_cap_quantile: float | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, np.ndarray], Any, list[str]]:
     model, cat_features, diagnostics = train_catboost_model(
-        experiment_id, feature_columns, df, masks, config, args, output_dir
+        experiment_id,
+        feature_columns,
+        df,
+        masks,
+        config,
+        args,
+        output_dir,
+        sample_weight_column=sample_weight_column,
+        sample_weight_power=sample_weight_power,
+        sample_weight_cap_quantile=sample_weight_cap_quantile,
     )
     predictions: dict[str, np.ndarray] = {}
     val_frame = df.loc[masks["validation"]]
@@ -1471,6 +1571,7 @@ def run_catboost_experiment(
         "validation_f1_at_threshold": threshold_info.get("validation_f1"),
         "model_path": diagnostics.get("model_path"),
         "prediction_paths": pred_paths,
+        "sample_weight": diagnostics.get("sample_weight"),
         "notes": "",
     }
     primary_metrics = maybe_run_full_grid_tabular_evaluation(
@@ -1504,7 +1605,7 @@ def predict_linear_batches(
             probs[slc] = model.predict_proba(X_batch)[:, 1].astype(np.float32)
         else:
             scores = model.decision_function(X_batch)
-            probs[slc] = (1.0 / (1.0 + np.exp(-scores))).astype(np.float32)
+            probs[slc] = sigmoid(scores).astype(np.float32)
     return probs
 
 
@@ -1835,11 +1936,18 @@ def run_random_forest_experiment(
 
     encoder = OrdinalTabularEncoder(feature_columns, categorical, standardize=False).fit(train_frame)
     X_fit = encoder.transform(fit_frame)
+    rf_max_depth = getattr(args, "rf_max_depth", 18)
+    if rf_max_depth in (0, "0", "none", "None"):
+        rf_max_depth = None
+    rf_max_features = getattr(args, "rf_max_features", None)
+    if rf_max_features in ("", "none", "None"):
+        rf_max_features = None
     model = RandomForestClassifier(
-        n_estimators=120,
-        max_depth=18,
-        min_samples_leaf=20,
-        class_weight={0: 1.0, 1: 4.0},
+        n_estimators=int(getattr(args, "rf_n_estimators", 120)),
+        max_depth=None if rf_max_depth is None else int(rf_max_depth),
+        min_samples_leaf=int(getattr(args, "rf_min_samples_leaf", 20)),
+        class_weight={0: 1.0, 1: float(getattr(args, "rf_positive_class_weight", 4.0))},
+        max_features=rf_max_features,
         n_jobs=-1,
         random_state=args.seed,
         bootstrap=True,
@@ -1920,6 +2028,11 @@ def run_random_forest_experiment(
         "model_path": model_path,
         "prediction_paths": pred_paths,
         "notes": sample_note,
+        "rf_n_estimators": int(getattr(args, "rf_n_estimators", 120)),
+        "rf_max_depth": rf_max_depth,
+        "rf_min_samples_leaf": int(getattr(args, "rf_min_samples_leaf", 20)),
+        "rf_positive_class_weight": float(getattr(args, "rf_positive_class_weight", 4.0)),
+        "rf_max_features": rf_max_features,
     }
     primary_metrics = maybe_run_full_grid_tabular_evaluation(
         experiment_id=experiment_id,
@@ -2255,6 +2368,7 @@ def plot_pr_curves(
         "catboost_fwi_only",
         "catboost_weather_only",
         "catboost_full",
+        "catboost_deployment_weighted",
         "random_forest_full",
     ]
     available = [exp for exp in desired if exp in prediction_store and "test" in prediction_store[exp]]
@@ -2304,6 +2418,7 @@ def plot_pr_curves(
     metric_ax.legend(fontsize=8)
     fig.tight_layout()
     base = output_dir / "plots/pr_curves_global"
+    base.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(base.with_suffix(".png"), dpi=240, bbox_inches="tight")
     fig.savefig(base.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
@@ -2362,6 +2477,7 @@ def plot_pr_curves(
     fig.suptitle("Regional sampled metric contrast", y=1.02)
     fig.tight_layout()
     base = output_dir / "plots/pr_curves_regions"
+    base.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(base.with_suffix(".png"), dpi=240, bbox_inches="tight")
     fig.savefig(base.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
@@ -3390,64 +3506,82 @@ def run(args: Any, command: str | None = None) -> int:
     )
 
     dataset_stats = dataset_statistics(df, masks, regions, target_config, feature_config, output_dir)
+    model_subset = selected_tabular_models(getattr(args, "tabular_model_subset", None))
+    if model_subset is not None:
+        logging.info("Running tabular model subset: %s", sorted(model_subset))
 
     # Priority 1: main model comparison and CatBoost ablations.
-    try:
-        row, rows, preds = run_linear_logistic_experiment(
-            df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
-        )
-        registry_rows.append(row)
-        metric_rows.extend(rows)
-        prediction_store["logistic_regression_full"] = {
-            **preds,
-            "label": "Logistic Regression (linear SGD)",
-            "short_label": "Logistic Regression (linear SGD)",
-            "threshold": row.get("threshold"),
-        }
-    except Exception as exc:
-        record_failure(
-            failures,
-            registry_rows,
-            "logistic_regression_full",
-            "main_model_comparison",
-            "Logistic Regression",
-            "full features",
-            exc,
-            "Moderate; CatBoost and other baselines still ran.",
-            "Retry with a smaller learning rate or a sampled linear baseline.",
-        )
+    if should_run_tabular_model(model_subset, "logistic_regression_full", "logistic", "linear"):
+        try:
+            row, rows, preds = run_linear_logistic_experiment(
+                df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
+            )
+            registry_rows.append(row)
+            metric_rows.extend(rows)
+            prediction_store["logistic_regression_full"] = {
+                **preds,
+                "label": "Logistic Regression (linear SGD)",
+                "short_label": "Logistic Regression (linear SGD)",
+                "threshold": row.get("threshold"),
+            }
+        except Exception as exc:
+            record_failure(
+                failures,
+                registry_rows,
+                "logistic_regression_full",
+                "main_model_comparison",
+                "Logistic Regression",
+                "full features",
+                exc,
+                "Moderate; CatBoost and other baselines still ran.",
+                "Retry with a smaller learning rate or a sampled linear baseline.",
+            )
 
-    try:
-        row, rows, preds = run_poisson_point_process_experiment(
-            df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
-        )
-        registry_rows.append(row)
-        metric_rows.extend(rows)
-        prediction_store["poisson_point_process_full"] = {
-            **preds,
-            "label": "Poisson Point-Process GLM",
-            "short_label": "Poisson Point-Process GLM",
-            "threshold": row.get("threshold"),
-        }
-    except Exception as exc:
-        record_failure(
-            failures,
-            registry_rows,
-            "poisson_point_process_full",
-            "main_model_comparison",
-            "Poisson Point-Process GLM",
-            "full features",
-            exc,
-            "Low; other discriminative baselines still ran.",
-            "Retry with fewer point-process training rows or stronger L2 regularization.",
-        )
+    if should_run_tabular_model(model_subset, "poisson_point_process_full", "poisson_point_process", "point_process"):
+        try:
+            row, rows, preds = run_poisson_point_process_experiment(
+                df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
+            )
+            registry_rows.append(row)
+            metric_rows.extend(rows)
+            prediction_store["poisson_point_process_full"] = {
+                **preds,
+                "label": "Poisson Point-Process GLM",
+                "short_label": "Poisson Point-Process GLM",
+                "threshold": row.get("threshold"),
+            }
+        except Exception as exc:
+            record_failure(
+                failures,
+                registry_rows,
+                "poisson_point_process_full",
+                "main_model_comparison",
+                "Poisson Point-Process GLM",
+                "full features",
+                exc,
+                "Low; other discriminative baselines still ran.",
+                "Retry with fewer point-process training rows or stronger L2 regularization.",
+            )
 
     catboost_order = [
-        ("catboost_full", "main_model_comparison", "CatBoost", feature_sets["full"]),
-        ("catboost_weather_only", "main_model_comparison", "Weather-only CatBoost", feature_sets["weather_only"]),
-        ("catboost_fwi_only", "main_model_comparison", "FWI-only CatBoost", feature_sets["fwi_only"]),
+        ("catboost_full", "main_model_comparison", "CatBoost", feature_sets["full"], {}),
+        (
+            "catboost_deployment_weighted",
+            "main_model_comparison",
+            "CatBoost deployment-weighted",
+            feature_sets["full"],
+            {
+                "sample_weight_column": "sample_weight",
+                "sample_weight_power": 0.5,
+                "sample_weight_cap_quantile": 0.99,
+            },
+        ),
+        ("catboost_weather_only", "main_model_comparison", "Weather-only CatBoost", feature_sets["weather_only"], {}),
+        ("catboost_fwi_only", "main_model_comparison", "FWI-only CatBoost", feature_sets["fwi_only"], {}),
     ]
-    for experiment_id, experiment_type, model_label, spec in catboost_order:
+    for experiment_id, experiment_type, model_label, spec, fit_options in catboost_order:
+        if not should_run_tabular_model(model_subset, experiment_id, "catboost", "main_catboost"):
+            continue
         try:
             row, rows, preds, model, cat_features = run_catboost_experiment(
                 experiment_id,
@@ -3461,6 +3595,7 @@ def run(args: Any, command: str | None = None) -> int:
                 feature_config,
                 args,
                 output_dir,
+                **fit_options,
             )
             registry_rows.append(row)
             metric_rows.extend(rows)
@@ -3486,34 +3621,35 @@ def run(args: Any, command: str | None = None) -> int:
                 "Inspect CatBoost logs and rerun with CPU task_type or fewer features.",
             )
 
-    try:
-        row, rows, preds = run_random_forest_experiment(
-            df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
-        )
-        registry_rows.append(row)
-        metric_rows.extend(rows)
-        prediction_store["random_forest_full"] = {
-            **preds,
-            "label": "Random Forest",
-            "short_label": "Random Forest",
-            "threshold": row.get("threshold"),
-        }
-    except Exception as exc:
-        record_failure(
-            failures,
-            registry_rows,
-            "random_forest_full",
-            "main_model_comparison",
-            "Random Forest",
-            "full features",
-            exc,
-            "Low; an alternative tree baseline was optional among available libraries.",
-            "Increase memory or reduce rf-max-train-rows.",
-        )
+    if should_run_tabular_model(model_subset, "random_forest_full", "random_forest", "rf"):
+        try:
+            row, rows, preds = run_random_forest_experiment(
+                df, masks, regions, feature_sets["full"]["columns"], feature_config, args, output_dir
+            )
+            registry_rows.append(row)
+            metric_rows.extend(rows)
+            prediction_store["random_forest_full"] = {
+                **preds,
+                "label": "Random Forest",
+                "short_label": "Random Forest",
+                "threshold": row.get("threshold"),
+            }
+        except Exception as exc:
+            record_failure(
+                failures,
+                registry_rows,
+                "random_forest_full",
+                "main_model_comparison",
+                "Random Forest",
+                "full features",
+                exc,
+                "Low; an alternative tree baseline was optional among available libraries.",
+                "Increase memory or reduce rf-max-train-rows.",
+            )
 
     # Add LSTM blocked row to main comparison registry because requested if usable.
     nn_dataset_path = Path("data/saved_features/nn_train_data/prepared_data.npz")
-    if not nn_dataset_path.exists():
+    if model_subset is None and not nn_dataset_path.exists():
         for experiment_id, model_label in [
             ("lstm_mlp_full", "LSTM-MLP"),
             ("minimal_mlp_full", "Minimal MLP"),
@@ -3533,21 +3669,23 @@ def run(args: Any, command: str | None = None) -> int:
 
     # Feature ablations: full/weather/FWI are already run above, so duplicate them
     # into the ablation experiment type by reusing metric rows and registry entries.
-    for src_id, ablation_id in [
-        ("catboost_full", "ablation_full"),
-        ("catboost_weather_only", "ablation_weather_only"),
-        ("catboost_fwi_only", "ablation_fwi_only"),
-    ]:
-        for row in [r for r in registry_rows if r["experiment_id"] == src_id and r["status"] == "completed"]:
-            cloned = dict(row)
-            cloned["experiment_id"] = ablation_id
-            cloned["experiment_type"] = "feature_ablation"
-            registry_rows.append(cloned)
-        for row in [r for r in metric_rows if r["experiment_id"] == src_id]:
-            cloned = dict(row)
-            cloned["experiment_id"] = ablation_id
-            cloned["experiment_type"] = "feature_ablation"
-            metric_rows.append(cloned)
+    run_ablation_suite = should_run_tabular_model(model_subset, "feature_ablation", "ablation", "catboost_ablation")
+    if run_ablation_suite:
+        for src_id, ablation_id in [
+            ("catboost_full", "ablation_full"),
+            ("catboost_weather_only", "ablation_weather_only"),
+            ("catboost_fwi_only", "ablation_fwi_only"),
+        ]:
+            for row in [r for r in registry_rows if r["experiment_id"] == src_id and r["status"] == "completed"]:
+                cloned = dict(row)
+                cloned["experiment_id"] = ablation_id
+                cloned["experiment_type"] = "feature_ablation"
+                registry_rows.append(cloned)
+            for row in [r for r in metric_rows if r["experiment_id"] == src_id]:
+                cloned = dict(row)
+                cloned["experiment_id"] = ablation_id
+                cloned["experiment_type"] = "feature_ablation"
+                metric_rows.append(cloned)
 
     ablation_specs = [
         ("ablation_no_anthropogenic", feature_sets["no_anthropogenic"]),
@@ -3564,7 +3702,7 @@ def run(args: Any, command: str | None = None) -> int:
         ("ablation_static_only", feature_sets["static_only"]),
         ("ablation_dynamic_weather_fwi_only", feature_sets["dynamic_weather_fwi_only"]),
     ]
-    for experiment_id, spec in ablation_specs:
+    for experiment_id, spec in (ablation_specs if run_ablation_suite else []):
         if spec.get("dropped") == []:
             # No matching columns exist; copy full metrics as a documented no-op sensitivity.
             note = f"No columns matched this ablation pattern for `{spec['feature_set']}`."
@@ -3727,7 +3865,7 @@ def run(args: Any, command: str | None = None) -> int:
                     "suggested_next_action": "Install shap if desired or rerun CatBoost-native SHAP with a smaller sample.",
                 }
             )
-    else:
+    elif should_run_tabular_model(model_subset, "catboost_full", "catboost", "main_catboost"):
         failures.append(
             {
                 "experiment": "Feature importance and grouped permutation importance",

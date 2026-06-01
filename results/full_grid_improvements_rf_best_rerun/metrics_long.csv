@@ -1,0 +1,493 @@
+experiment_id,experiment_type,model,feature_set,split,region,region_display,support,positives,threshold,metric,value
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,precision,0.32398272893722846
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,precision,0.2883721516911686
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,precision,0.37563227111785535
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,precision,0.20661896243291591
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,precision,0.10183403873284597
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,precision,0.15137532210702942
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,precision,0.4324664806982813
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,precision,0.5468413902411412
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,precision,0.22162645218945487
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,precision,0.15071811732133586
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,precision,0.17515414478191368
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,precision,0.18820587622421336
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,precision,0.16433440975959812
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,precision,0.16564952048823017
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,precision,0.1318296713980167
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,precision,0.11578581363004173
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,precision,0.21312540610786224
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,precision,0.12558526688169805
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,precision,0.2250384024577573
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,precision,0.0813830908707569
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,precision,0.14741544352265476
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,precision,0.24682413656212782
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,precision,0.3267797017797018
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,precision,0.21693121693121692
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,precision,0.045317976965448176
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,precision,0.12184998517640083
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,precision,0.17844342037890426
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,precision,0.2589676290463692
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,precision,0.19599427753934193
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,precision,0.07127545551982852
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,precision,0.18905982905982907
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,precision,0.3196477973548037
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,precision,0.4108884886687678
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,precision,0.20487668161434977
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,precision,0.12352377912543888
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,precision,0.15035133314082202
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,precision,0.2883721516911686
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,precision,0.37563227111785535
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,precision,0.20661896243291591
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,precision,0.10183403873284597
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,precision,0.15137532210702942
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,recall,0.8225560258100326
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,recall,0.9234559922446177
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,recall,0.9500431765119774
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,recall,0.9390243902439024
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,recall,0.951658010387535
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,recall,0.886938202247191
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,recall,0.9700468270628129
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,recall,0.9763504977512759
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,recall,0.9185185185185185
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,recall,0.964562569213732
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,recall,0.9055489964580874
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,recall,0.9173268332317692
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,recall,0.9436813186813187
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,recall,0.9895833333333334
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,recall,0.9713467048710601
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,recall,0.8717277486910995
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,recall,0.9034502754421572
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,recall,0.8677210639827462
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,recall,0.8798798798798799
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,recall,0.9391727493917275
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,recall,0.9352226720647774
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,recall,0.8168381869936501
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,recall,0.8781709484569398
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,recall,0.9630872483221476
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,recall,0.9679144385026738
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,recall,0.8336713995943205
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,recall,0.9202534988117244
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,recall,0.9696969696969697
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,recall,1.0
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,recall,0.875
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,recall,0.875
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,recall,0.9504003497936764
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,recall,0.9675737762855628
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,recall,0.919496855345912
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,recall,0.9617296222664016
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,recall,0.9065583284968078
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,recall,0.9234559922446177
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,recall,0.9500431765119774
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,recall,0.9390243902439024
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,recall,0.951658010387535
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,recall,0.886938202247191
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,f1,0.46486687840646196
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,f1,0.43949959869853367
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,f1,0.5383925253971562
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,f1,0.3387096774193548
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,f1,0.18398084498339384
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,f1,0.25861274635270026
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,f1,0.5982299563090482
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,f1,0.7010395312131492
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,f1,0.3570914326853852
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,f1,0.2607003891050584
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,f1,0.2935323383084577
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,f1,0.3123314198768933
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,f1,0.2799225832739126
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,f1,0.2837938760268857
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,f1,0.23215202876219826
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,f1,0.20441988950276244
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,f1,0.3448905614433161
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,f1,0.2194146518814761
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,f1,0.3584097859327217
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,f1,0.14978657353511834
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,f1,0.25468577728776187
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,f1,0.3790965906203953
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,f1,0.4763156741597651
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,f1,0.3541024059222702
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,f1,0.08658215737861756
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,f1,0.21262286601138128
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,f1,0.2989235321868165
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,f1,0.40876920421198
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,f1,0.3277511961722488
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,f1,0.13181367690782952
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,f1,0.310936182175991
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,f1,0.47839663259831905
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,f1,0.5768238082696866
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,f1,0.33509053403621364
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,f1,0.21892855122475532
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,f1,0.25792602377807133
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,f1,0.43949959869853367
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,f1,0.5383925253971562
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,f1,0.3387096774193548
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,f1,0.18398084498339384
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,f1,0.25861274635270026
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,average_precision,0.37339008742895324
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,average_precision,0.46415168749338614
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,average_precision,0.5355128063639194
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,average_precision,0.4260834378102696
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,average_precision,0.2600870587929137
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,average_precision,0.283498885068607
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,average_precision,0.6308621977354497
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,average_precision,0.7004297287535156
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,average_precision,0.5743473309362925
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,average_precision,0.322191797882862
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,average_precision,0.26173532032304614
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,average_precision,0.2812119272721224
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,average_precision,0.1985030662435299
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,average_precision,0.3748814170609267
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,average_precision,0.32500254953520263
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,average_precision,0.2422882164421798
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,average_precision,0.3823988311085467
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,average_precision,0.22398966013163446
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,average_precision,0.36372711380984246
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,average_precision,0.26276734816727304
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,average_precision,0.3804164510274716
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,average_precision,0.29503429397356773
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,average_precision,0.3664127744522575
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,average_precision,0.3413670839649015
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,average_precision,0.17657391283201154
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,average_precision,0.2668342628525558
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,average_precision,0.40005150151269786
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,average_precision,0.4826943373694198
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,average_precision,0.4995799047914057
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,average_precision,0.1227326372224926
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,average_precision,0.2878226850424091
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,average_precision,0.5198908112022544
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,average_precision,0.5942075844283871
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,average_precision,0.4487886322387028
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,average_precision,0.3025368110043292
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,average_precision,0.29126028711847585
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,average_precision,0.46415168749338614
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,average_precision,0.5355128063639194
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,average_precision,0.4260834378102696
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,average_precision,0.2600870587929137
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,average_precision,0.283498885068607
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,roc_auc,0.7595761327525558
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,roc_auc,0.8474137431890454
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,roc_auc,0.8219354830798014
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,roc_auc,0.8510371206454017
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,roc_auc,0.8402359986369708
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,roc_auc,0.873528201102226
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,roc_auc,0.8390364842892424
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,roc_auc,0.7831094444782801
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,roc_auc,0.8818437357721164
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,roc_auc,0.8002547398969696
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,roc_auc,0.8535629006790665
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,roc_auc,0.8448258246390734
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,roc_auc,0.8218394223700828
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,roc_auc,0.8704745001769285
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,roc_auc,0.8649929210977552
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,roc_auc,0.8861664424641644
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,roc_auc,0.8396938446500971
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,roc_auc,0.8019762703789541
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,roc_auc,0.7950830872237283
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,roc_auc,0.8622140021999304
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,roc_auc,0.9211034319076458
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,roc_auc,0.7758673604613107
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,roc_auc,0.7236246359456325
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,roc_auc,0.8061963234961891
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,roc_auc,0.888543678484428
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,roc_auc,0.8508104341632642
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,roc_auc,0.888188332854386
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,roc_auc,0.9009435163741384
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,roc_auc,0.9281110470160202
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,roc_auc,0.7653990004749363
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,roc_auc,0.8549009761541461
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,roc_auc,0.8559952465641798
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,roc_auc,0.831821199435075
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,roc_auc,0.8462890428510941
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,roc_auc,0.8405144277048483
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,roc_auc,0.8861312011056213
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,roc_auc,0.8474137431890454
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,roc_auc,0.8219354830798014
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,roc_auc,0.8510371206454017
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,roc_auc,0.8402359986369708
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,roc_auc,0.873528201102226
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,brier_score,0.1439559656069288
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,brier_score,0.10800166629234685
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,brier_score,0.14448179576612918
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,brier_score,0.10554666008151939
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,brier_score,0.08497220035026846
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,brier_score,0.0531135798768479
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,brier_score,0.1447387642897224
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,brier_score,0.18959729576040305
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,brier_score,0.09905720256453723
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,brier_score,0.10781126887981972
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,brier_score,0.06568651639434551
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,brier_score,0.08284972083458088
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,brier_score,0.09330868587913237
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,brier_score,0.09333617291230567
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,brier_score,0.08892030701457156
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,brier_score,0.041425646303449366
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,brier_score,0.09742899254575134
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,brier_score,0.1004053924685638
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,brier_score,0.12605700757699093
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,brier_score,0.08018022250590685
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,brier_score,0.04472524312341113
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,brier_score,0.11805357738642222
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,brier_score,0.17045278306704073
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,brier_score,0.12974904147941763
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,brier_score,0.06562229459492541
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,brier_score,0.04978120637926166
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,brier_score,0.07280136745209653
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,brier_score,0.09721120008725177
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,brier_score,0.07045424838369668
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,brier_score,0.07799600425807655
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,brier_score,0.06363358182167646
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,brier_score,0.11330331498337799
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,brier_score,0.14707056105587846
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,brier_score,0.10666542286145267
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,brier_score,0.09272107094828044
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,brier_score,0.05132524648239127
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,brier_score,0.10800166629234685
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,brier_score,0.14448179576612918
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,brier_score,0.10554666008151939
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,brier_score,0.08497220035026846
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,brier_score,0.0531135798768479
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,precision_error,0.00017762153532833067
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,precision_error,0.0009209653492036439
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,precision_error,0.000578817000688823
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,precision_error,0.0006529303854604066
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,precision_error,0.0010797128281562545
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,precision_error,0.0017966175679230718
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,precision_error,0.000676898578073407
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,precision_error,0.0015742728813867898
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,precision_error,0.007636377651480589
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,precision_error,0.000519264522114378
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,precision_error,0.000598811029712319
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,precision_error,0.0014465255806508522
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,precision_error,0.001078465902886456
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,precision_error,0.004016847154424304
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,precision_error,0.002326461199489376
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,precision_error,0.007743074754014331
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,precision_error,0.001072962695548785
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,precision_error,5.099806229933058e-05
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,precision_error,0.0014456835640346843
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,precision_error,0.002515816631516587
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,precision_error,0.0024613513101865857
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,precision_error,0.002914890010153804
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,precision_error,0.0004537025037812342
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,precision_error,0.002515068804601311
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,precision_error,0.0001228765655403959
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,precision_error,0.002970337508965529
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,precision_error,0.0010428038759750695
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,precision_error,0.00124578412653562
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,precision_error,0.005816791968914048
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,precision_error,0.000626310478723812
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,precision_error,0.0045755450188501474
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,precision_error,0.0034185438391016046
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,precision_error,0.001485759877815304
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,precision_error,0.0007843464399682236
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,precision_error,0.0006256813465645108
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,precision_error,0.001815658807153614
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,precision_error,0.0021713846324922462
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,precision_error,0.00012304124988787
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,precision_error,0.0024990376950906217
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,precision_error,0.0007682517525852787
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,precision_error,0.0010365429806783429
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,recall_error,0.015367956123972541
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,recall_error,0.002752280692260323
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,recall_error,0.0
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,recall_error,0.0028744178097013895
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,recall_error,0.0012986350435014516
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,recall_error,0.001939049674186173
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,recall_error,0.0
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,recall_error,0.0007975488170387339
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,recall_error,0.002618914004394585
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,recall_error,0.0007830639880249485
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,recall_error,0.001669673627358998
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,recall_error,0.0016746164148882308
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,recall_error,0.0029139015708236743
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,recall_error,0.02209708691207961
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,recall_error,0.004052187857802635
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,recall_error,0.04627662180540236
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,recall_error,0.004680759804853564
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,recall_error,0.0066084745905284825
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,recall_error,0.010617218936734944
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,recall_error,0.012043181188092035
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,recall_error,0.020039463434436522
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,recall_error,0.008813652899404993
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,recall_error,0.0007614761804722782
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,recall_error,0.021355573928452786
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,recall_error,0.0037813196854894955
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,recall_error,0.025817286128514937
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,recall_error,0.0027820594669634153
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,recall_error,0.0002895605164563904
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,recall_error,0.0
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,recall_error,0.00697802744591984
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,recall_error,0.004475359374598426
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,recall_error,0.0001994659467380635
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,recall_error,0.0011587693063872901
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,recall_error,0.005336654952351301
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,recall_error,0.0
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,recall_error,0.017459426695964134
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,recall_error,0.005504561384520646
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,recall_error,0.0015951957738006384
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,recall_error,0.008623253429104246
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,recall_error,0.000649317521750765
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,recall_error,0.006463498913953806
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,f1_error,0.0022446674881707674
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,f1_error,0.0013813260897797182
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,f1_error,0.0005944391282392567
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,f1_error,0.001064391014358122
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,f1_error,0.0017374613008586557
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,f1_error,0.0026997993482431068
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,f1_error,0.0006464862144740024
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,f1_error,0.0014991119672585547
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,f1_error,0.009724886238631684
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,f1_error,0.0007483119858149045
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,f1_error,0.0007494808210803433
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,f1_error,0.002090820886062157
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,f1_error,0.0016929546704257592
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,f1_error,0.006803228358798052
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,f1_error,0.0037145311706641313
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,f1_error,0.013345792936540906
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,f1_error,0.0010646259648860327
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,f1_error,0.00013279662493964522
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,f1_error,0.0009483694122903284
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,f1_error,0.004415690549429056
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,f1_error,0.0044154369923788805
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,f1_error,0.00438690622943002
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,f1_error,0.00037089899778991643
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,f1_error,0.004817029007522957
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,f1_error,0.00020941229517314815
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,f1_error,0.005360221209397871
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,f1_error,0.0016095476852267237
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,f1_error,0.0015202918088138761
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,f1_error,0.008162235580342693
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,f1_error,0.0011501509368280656
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,f1_error,0.006490066685299566
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,f1_error,0.003843425727824819
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,f1_error,0.0016691192517372345
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,f1_error,0.0014024370534762459
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,f1_error,0.0009831998844811202
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,f1_error,0.0033817379985859415
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,f1_error,0.0018844488280163082
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,f1_error,0.00012972408747161985
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,f1_error,0.003918871035509801
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,f1_error,0.0012393964443620327
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,f1_error,0.001244630401163333
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,average_precision_error,0.005544592233881205
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,average_precision_error,0.010555132461029224
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,average_precision_error,0.00411466219123793
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,average_precision_error,0.0019065988194777222
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,average_precision_error,0.01363037939614537
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,average_precision_error,0.019773541491489466
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,average_precision_error,0.0037597497293814118
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,average_precision_error,0.005853755004404015
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,average_precision_error,0.08417438634527676
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,average_precision_error,0.012685325567623399
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,average_precision_error,0.008823785025462393
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,average_precision_error,0.006632686331808146
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,average_precision_error,0.0008887356373430286
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,average_precision_error,0.07900414272051756
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,average_precision_error,0.010671562711540942
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,average_precision_error,0.03678046404600848
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,average_precision_error,0.005147610588937145
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,average_precision_error,0.00038891109567997493
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,average_precision_error,0.04787377361794471
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,average_precision_error,0.046271055380251565
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,average_precision_error,0.003395189627110534
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,average_precision_error,0.007396629544966079
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,average_precision_error,0.0022042540200939453
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,average_precision_error,0.013335819199338511
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,average_precision_error,0.026954367965479727
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,average_precision_error,0.005640159296692791
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,average_precision_error,0.0011123780331168025
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,average_precision_error,0.00743280339063487
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,average_precision_error,0.05352729838034172
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,average_precision_error,0.0024740330533495115
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,average_precision_error,0.0015508957248521649
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,average_precision_error,0.005129122926583825
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,average_precision_error,0.0018735238191761136
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,average_precision_error,0.0016147311491369258
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,average_precision_error,0.0032076292933888237
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,average_precision_error,0.02464245514474375
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,average_precision_error,0.0022198118105815684
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,average_precision_error,0.001038295376391098
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,average_precision_error,0.010708104078880674
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,average_precision_error,0.022025374938693686
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,average_precision_error,0.009220511567732239
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,roc_auc_error,0.005168309838746374
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,roc_auc_error,0.004844413430159158
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,roc_auc_error,0.0007063432994939006
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,roc_auc_error,0.0020753626799860938
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,roc_auc_error,0.004427040064879204
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,roc_auc_error,0.0030147268657054224
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,roc_auc_error,0.0004655853043998837
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,roc_auc_error,0.00213243307674798
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,roc_auc_error,0.01577647233753706
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,roc_auc_error,0.0009031691865324905
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,roc_auc_error,5.2973217800995124e-05
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,roc_auc_error,0.004012000846744127
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,roc_auc_error,0.0025873441149091756
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,roc_auc_error,0.028289901078522202
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,roc_auc_error,0.0016764357503157457
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,roc_auc_error,0.015270354825420824
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,roc_auc_error,0.002530374654477069
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,roc_auc_error,0.0030631071267517742
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,roc_auc_error,0.022360939076064575
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,roc_auc_error,0.003590066687234586
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,roc_auc_error,0.0044740643905518875
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,roc_auc_error,0.0007522554988718555
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,roc_auc_error,0.0017067985050050654
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,roc_auc_error,0.011131834065127709
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,roc_auc_error,0.003083474049340276
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,roc_auc_error,0.007725983349846167
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,roc_auc_error,0.0037593441274398945
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,roc_auc_error,0.0015697054815246585
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,roc_auc_error,0.01212454680017271
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,roc_auc_error,0.005607990884210787
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,roc_auc_error,0.0019205891325321167
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,roc_auc_error,0.004892576624717187
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,roc_auc_error,0.0013581585275927901
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,roc_auc_error,0.00034067414135973475
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,roc_auc_error,0.0007994012345366
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,roc_auc_error,0.008154421513413439
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,roc_auc_error,0.0004278966470040791
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,roc_auc_error,0.00026999065303069913
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,roc_auc_error,0.008870166137023187
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,roc_auc_error,0.0017481374672760508
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,roc_auc_error,0.0024485126003245495
+random_forest_full,main_model_comparison,Random Forest,full features,validation,global,Global,147424,28826,0.14228679239749908,brier_score_error,0.0017369571879319462
+random_forest_full,main_model_comparison,Random Forest,full features,test,global,Global,321173,49514,0.14228679239749908,brier_score_error,0.0015612276874116164
+random_forest_full,main_model_comparison,Random Forest,full features,test,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,brier_score_error,0.00022132464028967586
+random_forest_full,main_model_comparison,Random Forest,full features,test,far_east,Far East,10457,1230,0.14228679239749908,brier_score_error,0.00026262684564436916
+random_forest_full,main_model_comparison,Random Forest,full features,test,central_asia,Central Asia,45961,2503,0.14228679239749908,brier_score_error,0.000991726177367725
+random_forest_full,main_model_comparison,Random Forest,full features,test,europe,Europe,52062,2848,0.14228679239749908,brier_score_error,0.0004959261009439843
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,global,Global,87238,24772,0.14228679239749908,brier_score_error,0.0001100938271835653
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,eastern_siberia,Eastern Siberia,44639,19789,0.14228679239749908,brier_score_error,0.0009141701938970356
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,far_east,Far East,2141,270,0.14228679239749908,brier_score_error,0.011356171024207532
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,central_asia,Central Asia,10197,903,0.14228679239749908,brier_score_error,0.0012716756436240628
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021,europe,Europe,11926,847,0.14228679239749908,brier_score_error,0.00029470723069487386
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,global,Global,58312,4923,0.14228679239749908,brier_score_error,0.00119067056224526
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,eastern_siberia,Eastern Siberia,18946,1456,0.14228679239749908,brier_score_error,0.0014536753418190843
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,far_east,Far East,2076,192,0.14228679239749908,brier_score_error,0.00835801197300724
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,central_asia,Central Asia,9862,698,0.14228679239749908,brier_score_error,0.0005278514708456126
+random_forest_full,main_model_comparison,Random Forest,full features,test_2022,europe,Europe,10330,382,0.14228679239749908,brier_score_error,0.001128809926074188
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,global,Global,60888,6898,0.14228679239749908,brier_score_error,0.0009781418820464384
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,eastern_siberia,Eastern Siberia,18853,1391,0.14228679239749908,brier_score_error,0.00014175347510306238
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,far_east,Far East,2267,333,0.14228679239749908,brier_score_error,0.006861169659009435
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,central_asia,Central Asia,9281,411,0.14228679239749908,brier_score_error,0.00027364463785443526
+random_forest_full,main_model_comparison,Random Forest,full features,test_2023,europe,Europe,10456,494,0.14228679239749908,brier_score_error,9.843177743172595e-05
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,global,Global,65063,9134,0.14228679239749908,brier_score_error,0.0011868643716260864
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,eastern_siberia,Eastern Siberia,26660,6189,0.14228679239749908,brier_score_error,0.0004355173680381262
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,far_east,Far East,2229,298,0.14228679239749908,brier_score_error,0.002664493624577153
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,central_asia,Central Asia,9003,187,0.14228679239749908,brier_score_error,0.0008931078363824277
+random_forest_full,main_model_comparison,Random Forest,full features,test_2024,europe,Europe,10472,493,0.14228679239749908,brier_score_error,0.0002928818776382043
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,global,Global,49672,3787,0.14228679239749908,brier_score_error,0.00031423316195351947
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,eastern_siberia,Eastern Siberia,19162,2442,0.14228679239749908,brier_score_error,0.0013965416095086164
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,far_east,Far East,1744,137,0.14228679239749908,brier_score_error,0.0055388491367561596
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,central_asia,Central Asia,7618,304,0.14228679239749908,brier_score_error,0.0002682858269518378
+random_forest_full,main_model_comparison,Random Forest,full features,test_2025,europe,Europe,8878,632,0.14228679239749908,brier_score_error,0.00011728591262073636
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,global,Global,206438,36593,0.14228679239749908,brier_score_error,0.0014002888225191227
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,eastern_siberia,Eastern Siberia,82438,22636,0.14228679239749908,brier_score_error,0.0006463258976829007
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,far_east,Far East,6484,795,0.14228679239749908,brier_score_error,0.00010951472990878415
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,central_asia,Central Asia,29340,2012,0.14228679239749908,brier_score_error,0.00017113520473696384
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2023,europe,Europe,32712,1723,0.14228679239749908,brier_score_error,0.0010116306346755458
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,global,Global,321173,49514,0.14228679239749908,brier_score_error,0.00028639514796510805
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,eastern_siberia,Eastern Siberia,128260,31267,0.14228679239749908,brier_score_error,0.00027159208226703636
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,far_east,Far East,10457,1230,0.14228679239749908,brier_score_error,0.0021304442178531947
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,central_asia,Central Asia,45961,2503,0.14228679239749908,brier_score_error,0.0007137670952821771
+random_forest_full,main_model_comparison,Random Forest,full features,test_2021-2025,europe,Europe,52062,2848,0.14228679239749908,brier_score_error,0.0004126997179567534

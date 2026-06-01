@@ -10,6 +10,8 @@ import yaml
 
 ALL_NN_MODELS = [
     "minimal_mlp",
+    "minimal_mlp_fullgrid_opt",
+    "minimal_mlp_fullgrid_rank_opt",
     "ft_transformer",
     "tsn",
     "spatial_tsn",
@@ -22,6 +24,8 @@ ALL_NN_MODELS = [
 
 NN_LABELS = {
     "minimal_mlp": "Minimal MLP (global full)",
+    "minimal_mlp_fullgrid_opt": "Minimal MLP full-grid optimized",
+    "minimal_mlp_fullgrid_rank_opt": "Minimal MLP full-grid rank optimized",
     "ft_transformer": "FT-Transformer (global full)",
     "tsn": "TemporalConvNet / TSN-MLP (global full)",
     "spatial_tsn": "Spatial climate TSN-MLP (global full)",
@@ -44,10 +48,14 @@ class EvaluationConfig:
     run_sensitivity_experiments: bool = True
     run_new_nn_models: bool = True
     import_nn_metrics: bool = True
+    run_neural_full_grid_evaluation: bool = False
     run_neural_feature_importance: bool = True
     run_era5_source_comparison: bool = False
     run_representative_model_ablation: bool = False
     run_probability_overlays: bool = False
+    run_fire_period_timelines: bool = False
+    run_prediction_diagnostics: bool = False
+    run_fire_weather_index_evaluation: bool = False
     run_organizer: bool = True
 
     run_legacy_sampled_evaluation: bool = True
@@ -76,6 +84,10 @@ class EvaluationConfig:
     calibration_method: str = "platt_month"
     n_reliability_bins: int = 20
     reliability_binning: str = "equal_count"
+    full_grid_selection_metric: str = "average_precision"
+    full_grid_selection_direction: str | None = None
+    full_grid_selection_region: str = "global"
+    full_grid_selection_split: str = "test"
     save_full_grid_predictions: bool = True
     save_calibrated_predictions: bool = True
     max_grid_rows_per_chunk: int | None = None
@@ -103,6 +115,11 @@ class EvaluationConfig:
     catboost_task_type: str = "GPU"
     catboost_verbose: int = 100
     rf_max_train_rows: int = 300_000
+    rf_n_estimators: int = 120
+    rf_max_depth: int | None = 18
+    rf_min_samples_leaf: int = 20
+    rf_positive_class_weight: float = 4.0
+    rf_max_features: str | float | None = None
     linear_epochs: int = 4
     point_process_max_train_rows: int = 500_000
     point_process_alpha: float = 1e-4
@@ -116,6 +133,7 @@ class EvaluationConfig:
     skip_shap: bool = False
     run_label_sensitivity: bool = True
     run_lead_time_sensitivity: bool = True
+    tabular_model_subset: list[str] | None = None
     new_nn_models: list[str] = field(default_factory=lambda: list(ALL_NN_MODELS))
     main_nn_model: str = "tsn"
     run_neural_feature_ablation: bool = True
@@ -135,6 +153,22 @@ class EvaluationConfig:
     neural_importance_sample_size: int = 50_000
     neural_importance_batch_size: int = 8192
     neural_importance_device: str = "auto"
+    neural_full_grid_models: list[str] = field(default_factory=lambda: ["spatial_tsn_no_tp"])
+    neural_full_grid_training_features: Path = Path(
+        "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet"
+    )
+    neural_full_grid_batch_size: int = 8192
+    neural_full_grid_rows_per_prediction_batch: int = 8192
+    neural_full_grid_device: str = "auto"
+    neural_full_grid_masked_climate_variables: list[str] = field(default_factory=list)
+    neural_full_grid_dense_cache_dir: Path | None = None
+    neural_full_grid_dense_cache_policy: str = "none"
+    neural_full_grid_dense_block_cache_dir: Path | None = None
+    neural_full_grid_dense_use_block_cache: bool = False
+    neural_full_grid_dense_location_batch_size: int | None = None
+    neural_full_grid_dense_max_time_span_days: int | None = None
+    neural_full_grid_dense_fill_row_batch_size: int | None = None
+    neural_full_grid_dense_max_slab_spatial_cells: int | None = None
 
     era5_train_start_year: int = 2001
     era5_validation_start_year: int = 2019
@@ -194,6 +228,66 @@ class EvaluationConfig:
     probability_overlay_dpi: int = 320
     probability_overlay_keep_existing_plots: bool = False
 
+    fire_period_timeline_source: str | None = None
+    fire_period_timeline_model: str | None = None
+    fire_period_timeline_selection_metric: str | None = None
+    fire_period_timeline_min_wildfires: int | None = None
+    fire_period_timeline_spatial_tolerance_degrees: float | None = None
+    fire_period_timeline_window_days: int = 28
+    fire_period_timeline_top_periods: int = 1
+    fire_period_timeline_allow_overlapping_periods: bool | None = None
+    fire_period_timeline_regions: list[str] | None = None
+    fire_period_timeline_include_global: bool | None = None
+    fire_period_timeline_allow_partial_periods: bool | None = None
+    fire_period_timeline_excluded_months: list[int] = field(default_factory=lambda: [12, 1, 2])
+    fire_period_timeline_prefer_centered_activity: bool = True
+    fire_period_timeline_center_peak_min_fraction: float = 0.25
+    fire_period_timeline_center_peak_max_fraction: float = 0.75
+    fire_period_timeline_max_start_activity_fraction: float = 0.15
+    fire_period_timeline_min_middle_activity_fraction: float = 0.50
+    fire_period_timeline_output_dir: Path | None = None
+    fire_period_timeline_formats: list[str] = field(default_factory=lambda: ["png", "pdf"])
+    fire_period_timeline_dpi: int = 320
+    fire_period_timeline_lead_column: str | None = None
+    fire_period_timeline_max_lead_days: int = 10
+    fire_period_timeline_burned_area_label: str = "Burnt Area"
+    fire_period_timeline_count_colormap: str = "fire_risk"
+    fire_period_timeline_count_norm_gamma: float = 0.42
+    fire_period_timeline_count_vmax_percentile: float = 95.0
+    fire_period_timeline_generate_overlay_maps: bool = True
+    fire_period_timeline_overlay_surface_source: str | None = None
+    fire_period_timeline_overlay_window_days: int | None = 3
+    fire_period_timeline_overlay_center_on_observed_peak: bool = True
+
+    prediction_diagnostics_source: str = "legacy"
+    prediction_diagnostics_model: str = "best_neural"
+    prediction_diagnostics_regions: list[str] | None = None
+    prediction_diagnostics_include_global: bool = True
+    prediction_diagnostics_time_frequency: str = "month"
+    prediction_diagnostics_output_dir: Path | None = None
+    prediction_diagnostics_formats: list[str] = field(default_factory=lambda: ["png", "pdf"])
+    prediction_diagnostics_dpi: int = 260
+    prediction_diagnostics_grid_resolution: float | None = None
+    prediction_diagnostics_plot_interpolation_resolution: float | None = None
+    prediction_diagnostics_country_shapes: Path = Path("data/countries")
+    prediction_diagnostics_error_colormap: str = "risk_residual"
+    prediction_diagnostics_ground_truth_smoothing_sigma_cells: float = 0.0
+    prediction_diagnostics_recalibrate_on_test: bool = True
+    prediction_diagnostics_require_full_grid_predictions: bool = True
+    prediction_diagnostics_generate_full_grid_predictions: bool = False
+    prediction_diagnostics_full_grid_model_path: Path | None = None
+    prediction_diagnostics_full_grid_feature_schema_path: Path | None = None
+    prediction_diagnostics_sample_prediction_days_per_month: int | None = None
+    prediction_diagnostics_months_per_feature_chunk: int = 6
+    prediction_diagnostics_max_grid_rows_per_chunk: int | None = None
+
+    fire_weather_index_dir: Path = Path("fire_weather_indexes")
+    fire_weather_index_output_dir: Path | None = None
+    fire_weather_index_variables: list[str] | None = None
+    fire_weather_index_save_predictions: bool = False
+    fire_weather_index_run_logistic_regression: bool = True
+    fire_weather_index_logistic_train_year: int = 2022
+
     @classmethod
     def from_yaml(cls, path: Path) -> "EvaluationConfig":
         with path.open("r", encoding="utf-8") as fh:
@@ -219,11 +313,21 @@ class EvaluationConfig:
             "era5_source_cache_dir",
             "input_source_neural_training_features",
             "nn_data_path",
+            "neural_full_grid_training_features",
+            "neural_full_grid_dense_cache_dir",
+            "neural_full_grid_dense_block_cache_dir",
             "probability_overlay_dense_model_path",
             "probability_overlay_dense_neural_model_path",
             "probability_overlay_dense_neural_training_features",
             "probability_overlay_country_shapes",
             "probability_overlay_output_dir",
+            "fire_period_timeline_output_dir",
+            "prediction_diagnostics_output_dir",
+            "prediction_diagnostics_country_shapes",
+            "prediction_diagnostics_full_grid_model_path",
+            "prediction_diagnostics_full_grid_feature_schema_path",
+            "fire_weather_index_dir",
+            "fire_weather_index_output_dir",
         ]:
             if key in data and data[key] is not None:
                 data[key] = Path(data[key])

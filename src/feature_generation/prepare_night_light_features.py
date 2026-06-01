@@ -23,6 +23,7 @@ DEFAULT_BLACK_MARBLE_OBSERVATIONS_FEATURE_NAME = "night_light_black_marble_obser
 DEFAULT_BLACK_MARBLE_FILTERED_FEATURE_NAME = "night_light_black_marble_quality_filtered"
 RECENT_CACHE_COORD_SCALE = 1_000_000
 RECENT_CACHE_KEY_COLUMNS = ["lat_key", "lon_key", "source_year"]
+COORDINATE_COLUMNS = {"lat", "lon", "latitude", "longitude", "lat_rounded", "lon_rounded"}
 ANNUAL_VIIRS_PATTERN = re.compile(
     r"nightlights\.average_viirs\..*?_s_(?P<start_year>\d{4})0101_"
     r"(?P<end_year>\d{4})1231_.*?\.tif$"
@@ -603,8 +604,8 @@ def _sample_black_marble_features(
     cache_path: str | Path | None,
     missing_tile_strategy: str | None = None,
     fallback_radiance_values: np.ndarray | None = None,
-    fallback_quality_value: float = 0.0,
-    fallback_observations_value: float | None = np.nan,
+    fallback_quality_value: float = 255.0,
+    fallback_observations_value: float | None = 0.0,
 ) -> pd.DataFrame:
     if coords.shape[0] != 2:
         raise ValueError("coords must be a 2xN array with latitudes in row 0 and longitudes in row 1")
@@ -756,6 +757,8 @@ def _sample_black_marble_features(
 def get_night_light_features_for_coords(
     coords: np.ndarray,
     feature_map_path: str = "data/land_features/night_lights_black_marble_features_1km",
+    legacy_viirs_feature_map_path: str | Path | None = None,
+    legacy_viirs_feature_prefix: str = "viirs_",
     years: Sequence[object] | None = None,
     annual_source_dir: str | Path | None = None,
     recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
@@ -789,6 +792,19 @@ def get_night_light_features_for_coords(
                 "when annual_source_dir or black_marble_source_dir is configured."
             )
     features = get_road_features_for_coords(coords=coords, npz_path=feature_map_path)
+    if legacy_viirs_feature_map_path is not None:
+        legacy_features = get_road_features_for_coords(
+            coords=coords,
+            npz_path=legacy_viirs_feature_map_path,
+        )
+        legacy_feature_cols = [col for col in legacy_features.columns if col not in COORDINATE_COLUMNS]
+        legacy_features = legacy_features[legacy_feature_cols].rename(
+            columns={col: f"{legacy_viirs_feature_prefix}{col}" for col in legacy_feature_cols}
+        )
+        features = pd.concat(
+            [features.reset_index(drop=True), legacy_features.reset_index(drop=True)],
+            axis=1,
+        )
     if years is None:
         return features
 

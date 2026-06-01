@@ -11,6 +11,7 @@ from src.feature_generation.prepare_night_light_features import (
     _apply_cf_cvg_filter,
     _nearest_available_years,
     _sample_black_marble_features,
+    get_night_light_features_for_coords,
     get_recent_night_light_radiance_for_coords,
 )
 
@@ -97,6 +98,30 @@ def test_cf_cvg_filter_only_zeroes_low_coverage_northern_pixels():
     assert features["night_light_radiance_recent_cf_filtered"].tolist() == [10.0, 0.0, 30.0]
 
 
+def test_legacy_viirs_feature_map_is_prefixed(monkeypatch):
+    def fake_raster_features(coords, npz_path):
+        if npz_path == "black_marble":
+            return pd.DataFrame({"night_light_radiance_2024": [10.0]})
+        return pd.DataFrame(
+            {
+                "night_light_radiance_2024": [5.0],
+                "night_light_presence_1km": [1],
+            }
+        )
+
+    monkeypatch.setattr(night_lights, "get_road_features_for_coords", fake_raster_features)
+
+    features = get_night_light_features_for_coords(
+        coords=np.array([[10.0], [20.0]]),
+        feature_map_path="black_marble",
+        legacy_viirs_feature_map_path="legacy_viirs",
+    )
+
+    assert features["night_light_radiance_2024"].tolist() == [10.0]
+    assert features["viirs_night_light_radiance_2024"].tolist() == [5.0]
+    assert features["viirs_night_light_presence_1km"].tolist() == [1]
+
+
 def test_black_marble_sampling_applies_scale_and_quality_filter(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(night_lights, "BLACK_MARBLE_TILE_SIZE", 10)
     source_dir = tmp_path / "black_marble"
@@ -142,3 +167,44 @@ def test_black_marble_sampling_applies_scale_and_quality_filter(tmp_path: Path, 
     assert features["quality"].tolist() == [0.0, 1.0]
     assert features["observations"].tolist() == [7.0, 9.0]
     assert features["filtered"].tolist() == pytest.approx([12.3, 0.0])
+
+
+def test_black_marble_fallback_does_not_mark_quality_as_good(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(night_lights, "BLACK_MARBLE_TILE_SIZE", 10)
+    source_dir = tmp_path / "black_marble"
+    source_dir.mkdir()
+    cache_path = tmp_path / "black_marble_cache.parquet"
+    pd.DataFrame(
+        {
+            "lat_key": [35_500_000],
+            "lon_key": [6_500_000],
+            "source_year": [2024],
+            "lat": [35.5],
+            "lon": [6.5],
+            "radiance": [1.0],
+            "quality": [0.0],
+            "observations": [1.0],
+        }
+    ).to_parquet(cache_path, index=False)
+
+    features = _sample_black_marble_features(
+        coords=np.array([[35.5], [7.5]]),
+        years=[2024],
+        source_dir=source_dir,
+        radiance_sds="NearNadir_Composite_Snow_Free",
+        quality_sds="NearNadir_Composite_Snow_Free_Quality",
+        observations_sds="NearNadir_Composite_Snow_Free_Num",
+        radiance_feature_name="radiance",
+        quality_feature_name="quality",
+        observations_feature_name="observations",
+        filtered_feature_name="filtered",
+        quality_keep_values=(0,),
+        cache_path=cache_path,
+        missing_tile_strategy="feature_map",
+        fallback_radiance_values=np.array([12.0], dtype=np.float32),
+    )
+
+    assert features["radiance"].tolist() == [12.0]
+    assert features["quality"].tolist() == [255.0]
+    assert features["observations"].tolist() == [0.0]
+    assert features["filtered"].tolist() == [0.0]

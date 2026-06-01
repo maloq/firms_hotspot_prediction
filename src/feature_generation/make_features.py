@@ -2,11 +2,22 @@ import os
 import sys
 import time
 import argparse
+from collections import OrderedDict
+import hashlib
 import yaml
 import pandas as pd
 import numpy as np
 
 sys.path.append(os.getcwd()) 
+
+_UNIQUE_FEATURE_CACHE_MAX_ITEMS = 256
+_UNIQUE_FEATURE_CACHE: OrderedDict[tuple, tuple[pd.DataFrame, list[str]]] = OrderedDict()
+
+
+def _unique_feature_cache_key(label: str, key_cols: list[str], unique_target: pd.DataFrame, extra_parts: tuple = ()) -> tuple:
+    key_hash = pd.util.hash_pandas_object(unique_target[key_cols], index=False).to_numpy(dtype=np.uint64, copy=False)
+    digest = hashlib.blake2b(key_hash.tobytes(), digest_size=16).hexdigest()
+    return (label, tuple(key_cols), len(unique_target), digest, *extra_parts)
 
 from src.target_generation.prepare_target_new import (
     SPATIAL_COARSENESS,
@@ -37,6 +48,10 @@ from src.feature_generation.prepare_night_light_features import (
 )
 from src.feature_generation.prepare_road_features import get_road_features_for_coords
 from src.feature_generation.prepare_fire_index_features import get_fire_index_features
+from src.feature_generation.calendar_features import (
+    CALENDAR_CONTEXT_FEATURE_COLUMNS,
+    add_calendar_context_features,
+)
 
 
 # --- TARGET DATA GENERATION ---
@@ -102,6 +117,7 @@ def _prepare_unique_feature_rows(
     key_cols: list[str],
     feature_func,
     label: str,
+    cache_key_parts: tuple | None = None,
 ):
     """Run an expensive row-aligned feature function once per unique key."""
 
@@ -112,20 +128,37 @@ def _prepare_unique_feature_rows(
             f"{len(target_df)} target rows."
         )
 
-    feature_df, feature_names = feature_func(unique_target)
-    if not feature_names:
-        return feature_df, feature_names
+    cache_key = None
+    feature_block = None
+    feature_names: list[str] = []
+    if cache_key_parts is not None:
+        cache_key = _unique_feature_cache_key(label, key_cols, unique_target, cache_key_parts)
+        cached = _UNIQUE_FEATURE_CACHE.get(cache_key)
+        if cached is not None:
+            feature_block, feature_names = cached
+            _UNIQUE_FEATURE_CACHE.move_to_end(cache_key)
+            print(f"{label}: reused cached unique feature block ({len(unique_target)} rows).")
+
+    if feature_block is None:
+        feature_df, feature_names = feature_func(unique_target)
+        if not feature_names:
+            return feature_df, feature_names
+        feature_block = pd.concat(
+            [
+                unique_target[key_cols].reset_index(drop=True),
+                feature_df[feature_names].reset_index(drop=True),
+            ],
+            axis=1,
+        )
+        if cache_key is not None:
+            _UNIQUE_FEATURE_CACHE[cache_key] = (feature_block, feature_names)
+            _UNIQUE_FEATURE_CACHE.move_to_end(cache_key)
+            while len(_UNIQUE_FEATURE_CACHE) > _UNIQUE_FEATURE_CACHE_MAX_ITEMS:
+                _UNIQUE_FEATURE_CACHE.popitem(last=False)
 
     if len(unique_target) == len(target_df):
-        return feature_df.reset_index(drop=True), feature_names
+        return feature_block[feature_names].reset_index(drop=True), feature_names
 
-    feature_block = pd.concat(
-        [
-            unique_target[key_cols].reset_index(drop=True),
-            feature_df[feature_names].reset_index(drop=True),
-        ],
-        axis=1,
-    )
     aligned = target_df[key_cols].merge(feature_block, on=key_cols, how="left", sort=False)
     return aligned.reset_index(drop=True), feature_names
 
@@ -136,6 +169,7 @@ def prepare_elevation_features_wrapper(target_df: pd.DataFrame, elevation_file: 
         ["lat_rounded", "lon_rounded"],
         lambda unique_df: get_elevation_stats(elevation_file, unique_df, window_sizes),
         "Elevation features",
+        cache_key_parts=(elevation_file, tuple(window_sizes)),
     )
 
 def prepare_road_features_wrapper(target_df: pd.DataFrame, feature_map_path: str):
@@ -153,6 +187,7 @@ def prepare_road_features_wrapper(target_df: pd.DataFrame, feature_map_path: str
         ["lat_rounded", "lon_rounded"],
         _compute,
         "Road features",
+        cache_key_parts=(feature_map_path,),
     )
 
 def _target_year_column(target_df: pd.DataFrame) -> pd.Series | None:
@@ -166,6 +201,8 @@ def _target_year_column(target_df: pd.DataFrame) -> pd.Series | None:
 def prepare_night_light_features_wrapper(
     target_df: pd.DataFrame,
     feature_map_path: str,
+    legacy_viirs_feature_map_path: str | None = None,
+    legacy_viirs_feature_prefix: str = "viirs_",
     annual_source_dir: str | None = None,
     recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
     recent_source_glob: str = "*.tif",
@@ -206,6 +243,8 @@ def prepare_night_light_features_wrapper(
         df_lights = get_night_light_features_for_coords(
             coords=coords_array.T,
             feature_map_path=feature_map_path,
+            legacy_viirs_feature_map_path=legacy_viirs_feature_map_path,
+            legacy_viirs_feature_prefix=legacy_viirs_feature_prefix,
             years=years,
             annual_source_dir=annual_source_dir,
             recent_feature_name=recent_feature_name,
@@ -233,6 +272,25 @@ def prepare_night_light_features_wrapper(
         key_cols,
         _compute,
         "Night-light features",
+        cache_key_parts=(
+            feature_map_path,
+            legacy_viirs_feature_map_path,
+            legacy_viirs_feature_prefix,
+            annual_source_dir,
+            recent_feature_name,
+            recent_source_glob,
+            recent_cache_path,
+            cf_cvg_source_glob,
+            cf_cvg_feature_name,
+            cf_cvg_cache_path,
+            cf_filtered_feature_name,
+            min_cf_cvg,
+            cf_filter_north_lat_min,
+            black_marble_source_dir,
+            black_marble_cache_path,
+            black_marble_missing_tile_fallback,
+            black_marble_fallback_feature_name,
+        ),
     )
 
 def prepare_land_features_wrapper(target_df: pd.DataFrame, land_data_files: list[str]):
@@ -241,6 +299,7 @@ def prepare_land_features_wrapper(target_df: pd.DataFrame, land_data_files: list
         ["lat_rounded", "lon_rounded"],
         lambda unique_df: prepare_land_data(land_data_files=land_data_files, target_df=unique_df, radius_meters=10000),
         "Land features",
+        cache_key_parts=(tuple(land_data_files), 10000),
     )
 
 def prepare_fire_index_features_wrapper(target_df: pd.DataFrame, fire_index_npz_path: str):
@@ -249,6 +308,7 @@ def prepare_fire_index_features_wrapper(target_df: pd.DataFrame, fire_index_npz_
         ["lat_rounded", "lon_rounded", "month"],
         lambda unique_df: get_fire_index_features(fire_index_npz_path, unique_df),
         "Fire index features",
+        cache_key_parts=(fire_index_npz_path,),
     )
 
 def prepare_ecoregion_wrapper(target_df: pd.DataFrame, wwf_shp_path: str):
@@ -257,6 +317,7 @@ def prepare_ecoregion_wrapper(target_df: pd.DataFrame, wwf_shp_path: str):
         ["lat_rounded", "lon_rounded"],
         lambda unique_df: assign_ecoregion(df=unique_df, wwf_shp=wwf_shp_path),
         "Ecoregion features",
+        cache_key_parts=(wwf_shp_path,),
     )
 
 def prepare_landsea_distance_wrapper(
@@ -277,6 +338,7 @@ def prepare_landsea_distance_wrapper(
             **landsea_kwargs,
         ),
         "Land-sea distance features",
+        cache_key_parts=(mask_path, dist_path),
     )
 
 def merge_features(
@@ -400,6 +462,8 @@ def generate_all_features(
     skip_climate: bool = False,
     use_cached_files: bool = False,
     cache_dir: str = 'data/saved_features/climate_features_cache',
+    night_light_legacy_viirs_feature_map_path: str | None = None,
+    night_light_legacy_viirs_feature_prefix: str = "viirs_",
     night_light_annual_source_dir: str | None = None,
     night_light_recent_feature_name: str = DEFAULT_RECENT_FEATURE_NAME,
     night_light_recent_source_glob: str = "*.tif",
@@ -494,6 +558,8 @@ def generate_all_features(
         df_night_light, night_light_feature_names = prepare_night_light_features_wrapper(
             target_df=df_target,
             feature_map_path=night_light_feature_map_path,
+            legacy_viirs_feature_map_path=night_light_legacy_viirs_feature_map_path,
+            legacy_viirs_feature_prefix=night_light_legacy_viirs_feature_prefix,
             annual_source_dir=night_light_annual_source_dir,
             recent_feature_name=night_light_recent_feature_name,
             recent_source_glob=night_light_recent_source_glob,
@@ -722,7 +788,11 @@ def _build_anchor_columns(df_target_processed: pd.DataFrame, extra_anchor_cols: 
         'days_since_fire_',
     )
     for col in df_target_processed.columns:
-        if col in target_metadata_columns or col.startswith(target_derived_prefixes):
+        if (
+            col in target_metadata_columns
+            or col in CALENDAR_CONTEXT_FEATURE_COLUMNS
+            or col.startswith(target_derived_prefixes)
+        ):
             if col not in anchor_columns:
                 anchor_columns.append(col)
     if extra_anchor_cols:
@@ -768,6 +838,7 @@ def make_features_from_target_df(
 
     skip_climate_cfg = config.get('skip_climate', False)
     strict_climate_bounds_cfg = config.get('strict_climate_bounds', True)
+    df_target_processed = add_calendar_context_features(df_target_processed)
     df_target_processed = _add_recent_fire_history_for_prediction(
         df_target_processed,
         config,
@@ -799,6 +870,12 @@ def make_features_from_target_df(
         use_road_features=road_params_cfg.get("use_road_features", False),
         # Night lights
         night_light_feature_map_path=night_light_params_cfg.get("feature_map_path"),
+        night_light_legacy_viirs_feature_map_path=night_light_params_cfg.get(
+            "legacy_viirs_feature_map_path"
+        ),
+        night_light_legacy_viirs_feature_prefix=night_light_params_cfg.get(
+            "legacy_viirs_feature_prefix", "viirs_"
+        ),
         use_night_light_features=night_light_params_cfg.get("use_night_light_features", False),
         night_light_annual_source_dir=night_light_params_cfg.get("annual_source_dir"),
         night_light_recent_feature_name=night_light_params_cfg.get(

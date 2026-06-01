@@ -1,0 +1,46 @@
+model_name,model_type,evaluation_type,is_primary,calibration_method,test_universe,test_period,metric_name,metric_value
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,average_precision,0.0003176972094659
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,roc_auc,0.8444164933190381
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,max_f1,0.0007556059292841
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,precision_at_max_f1,0.0003780028995045
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,recall_at_max_f1,0.7142857142857143
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,threshold_at_max_f1,3.995576676283587e-05
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_brier_score,9.950317113433496e-05
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_logloss,0.0010070283545154
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_ece,7.809034500351574e-05
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_mce,0.0003857043495789
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_rmse,0.0001430965327399
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_intercept,-0.0638389290324267
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_slope,0.8437410074056826
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,expected_observed_count_ratio,0.233538902909587
+Minimal MLP (global full),Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,daily_expected_observed_count_mae,9.736848019993207
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,average_precision,0.0003133221783554
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,roc_auc,0.8356453448776928
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,max_f1,0.0007616456433461
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,precision_at_max_f1,0.0003810998909687
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,recall_at_max_f1,0.5238095238095238
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,threshold_at_max_f1,4.147946589829e-05
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_brier_score,9.950614838226778e-05
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_logloss,0.0010300750438637
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_ece,8.538109863143126e-05
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_mce,0.0003749293103169
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_rmse,0.0001448846754234
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_intercept,-0.0704977829363847
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_slope,0.8413309252814019
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,expected_observed_count_ratio,0.1937300823736149
+Minimal MLP full-grid optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,daily_expected_observed_count_mae,9.934826987234183
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,average_precision,0.00032013290901864155
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,roc_auc,0.8383581208949553
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,max_f1,0.0007970556763316309
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,precision_at_max_f1,0.00039881154160601405
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,recall_at_max_f1,0.5602240896358543
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,threshold_at_max_f1,4.748521850354593e-05
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_brier_score,9.950389886730361e-05
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,weighted_logloss,0.0010223181613241393
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_ece,7.873553575366323e-05
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_mce,0.0004258863901910283
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,reliability_rmse,0.00013956750633319223
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_intercept,-0.0616027244089279
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,calibration_slope,0.834747609374663
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,expected_observed_count_ratio,0.21687719757028992
+Minimal MLP full-grid rank optimized,Neural,primary_full_grid_calibrated,True,prior_offset_month,land_or_burnable,2022-05-01 to 2022-05-31,daily_expected_observed_count_mae,9.792215634294012

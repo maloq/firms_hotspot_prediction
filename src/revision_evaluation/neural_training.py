@@ -17,6 +17,8 @@ DEFAULT_CONFIG = Path("configs/revision_evaluation_all_models_with_nns.yaml")
 
 EXPERIMENTS = {
     "minimal_mlp": Path("configs/nn_global_full_minimal_mlp.yaml"),
+    "minimal_mlp_fullgrid_opt": Path("configs/nn_global_full_minimal_mlp_fullgrid_opt.yaml"),
+    "minimal_mlp_fullgrid_rank_opt": Path("configs/nn_global_full_minimal_mlp_fullgrid_rank_opt.yaml"),
     "ft_transformer": Path("configs/nn_global_full_ft_transformer.yaml"),
     "tsn": Path("configs/nn_global_full_tsn.yaml"),
     "spatial_tsn": Path("configs/nn_global_full_spatial_tsn.yaml"),

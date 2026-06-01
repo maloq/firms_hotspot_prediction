@@ -975,14 +975,26 @@ def _compute_daily_slab(
         longitude=slice(lon_start, lon_stop),
     ).transpose("valid_time", "latitude", "longitude")
 
-    daily = (
-        slab.interp(
-            valid_time=("valid_time", time_rng),
-            kwargs={"fill_value": None, "bounds_error": False},
-        )
-        .compute()
-        .values
+    time_values = time_rng.to_numpy(dtype="datetime64[ns]")
+    slab_times = pd.to_datetime(slab["valid_time"].values).to_numpy(dtype="datetime64[ns]")
+    time_indices = np.searchsorted(slab_times, time_values)
+    exact_time_match = (
+        time_indices.size == time_values.size
+        and np.all(time_indices >= 0)
+        and np.all(time_indices < slab_times.size)
+        and np.array_equal(slab_times[time_indices], time_values)
     )
+    if exact_time_match:
+        daily = slab.isel(valid_time=time_indices).compute().values
+    else:
+        daily = (
+            slab.interp(
+                valid_time=("valid_time", time_rng),
+                kwargs={"fill_value": None, "bounds_error": False},
+            )
+            .compute()
+            .values
+        )
 
     if cache_path is not None:
         _save_block_cache(cache_path, daily)

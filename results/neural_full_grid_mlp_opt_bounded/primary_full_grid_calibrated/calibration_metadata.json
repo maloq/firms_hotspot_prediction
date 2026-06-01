@@ -1,0 +1,62 @@
+{
+  "Minimal MLP (global full)": {
+    "model_name": "Minimal MLP (global full)",
+    "model_type": "Neural",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-05-01",
+    "calibration_end_date": "2021-05-31",
+    "test_start_date": "2022-05-01",
+    "test_end_date": "2022-05-31",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 3587444,
+    "n_rows_weighted": 3587444.0,
+    "unweighted_prevalence": 1.9512499707312505e-05,
+    "weighted_prevalence": 1.9512499707312505e-05,
+    "raw_score_mean": -3.1002023220062256,
+    "prob_raw_mean": 0.16227158904075623,
+    "calibrator_path": "results/neural_full_grid_mlp_opt_bounded/primary_full_grid_calibrated/calibrators/Minimal_MLP_global_full_prior_offset_month.joblib"
+  },
+  "Minimal MLP full-grid optimized": {
+    "model_name": "Minimal MLP full-grid optimized",
+    "model_type": "Neural",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-05-01",
+    "calibration_end_date": "2021-05-31",
+    "test_start_date": "2022-05-01",
+    "test_end_date": "2022-05-31",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 3587444,
+    "n_rows_weighted": 3587444.0,
+    "unweighted_prevalence": 1.9512499707312505e-05,
+    "weighted_prevalence": 1.9512499707312505e-05,
+    "raw_score_mean": -1.7644925117492676,
+    "prob_raw_mean": 0.20378395915031433,
+    "calibrator_path": "results/neural_full_grid_mlp_opt_bounded/primary_full_grid_calibrated/calibrators/Minimal_MLP_full-grid_optimized_prior_offset_month.joblib"
+  },
+  "Minimal MLP full-grid rank optimized": {
+    "model_name": "Minimal MLP full-grid rank optimized",
+    "model_type": "Neural",
+    "calibrator_type": "prior_offset_month",
+    "calibration_start_date": "2021-05-01",
+    "calibration_end_date": "2021-05-31",
+    "test_start_date": "2022-05-01",
+    "test_end_date": "2022-05-31",
+    "feature_columns_used_by_calibrator": [
+      "raw_score",
+      "offset:month"
+    ],
+    "n_rows_unweighted": 3587444,
+    "n_rows_weighted": 3587444.0,
+    "unweighted_prevalence": 1.9512499707312505e-05,
+    "weighted_prevalence": 1.9512499707312505e-05,
+    "raw_score_mean": -3.406430244445801,
+    "prob_raw_mean": 0.1495959758758545,
+    "calibrator_path": "results/neural_full_grid_mlp_opt_bounded/primary_full_grid_calibrated/calibrators/Minimal_MLP_full-grid_rank_optimized_prior_offset_month.joblib"
+  }
+}

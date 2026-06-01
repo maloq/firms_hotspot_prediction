@@ -135,6 +135,110 @@ def compute_class_weight(y_train):
     return cw_dict, sample_w
 
 
+def neural_training_sample_weight(
+    *,
+    y_train: np.ndarray,
+    class_weight_sample: np.ndarray,
+    prepared_sample_weight: np.ndarray | None,
+    config: dict[str, Any] | None,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Build optional deployment-distribution loss weights for NN training."""
+
+    cfg = dict(config or {})
+    base = np.asarray(class_weight_sample, dtype=np.float32).reshape(-1)
+    info: dict[str, Any] = {
+        "enabled": bool(cfg.get("enabled", False)),
+        "used_sample_weight": False,
+        "base_class_weight_mean": float(np.mean(base)) if base.size else None,
+    }
+    if not cfg.get("enabled", False):
+        return base, info
+
+    source = str(cfg.get("source", "sample_weight"))
+    if source != "sample_weight":
+        raise ValueError("training_sample_weight.source must be 'sample_weight'.")
+    if prepared_sample_weight is None:
+        raise ValueError(
+            "training_sample_weight.enabled is true, but prepared_data.npz has no sample_weight array."
+        )
+
+    deploy = np.asarray(prepared_sample_weight, dtype=np.float32).reshape(-1)
+    if deploy.shape[0] != base.shape[0]:
+        raise ValueError(
+            "training_sample_weight row mismatch: "
+            f"sample_weight={deploy.shape[0]}, y_train={base.shape[0]}."
+        )
+
+    invalid = ~np.isfinite(deploy) | (deploy <= 0)
+    if invalid.any():
+        deploy = deploy.copy()
+        deploy[invalid] = 1.0
+
+    raw_min = float(np.min(deploy)) if deploy.size else None
+    raw_max = float(np.max(deploy)) if deploy.size else None
+    raw_mean = float(np.mean(deploy)) if deploy.size else None
+
+    power = float(cfg.get("power", 1.0))
+    if power <= 0.0:
+        raise ValueError("training_sample_weight.power must be positive.")
+    if power != 1.0:
+        deploy = np.power(deploy, power, dtype=np.float32)
+
+    cap_value = cfg.get("cap_value")
+    cap_quantile = cfg.get("cap_quantile")
+    if cap_value is None and cap_quantile is not None:
+        q = float(cap_quantile)
+        if not 0.0 < q <= 1.0:
+            raise ValueError("training_sample_weight.cap_quantile must be in (0, 1].")
+        cap_value = float(np.quantile(deploy, q))
+    if cap_value is not None:
+        cap = float(cap_value)
+        if cap > 0.0 and np.isfinite(cap):
+            deploy = np.minimum(deploy, cap).astype(np.float32)
+
+    if bool(cfg.get("normalize", True)) and deploy.size:
+        mean = float(np.mean(deploy))
+        if np.isfinite(mean) and mean > 0.0:
+            deploy = (deploy / mean).astype(np.float32)
+
+    multiply_class_weights = bool(cfg.get("multiply_class_weights", True))
+    combined = (base * deploy) if multiply_class_weights else deploy
+    combined = np.asarray(combined, dtype=np.float32)
+    combined[~np.isfinite(combined) | (combined <= 0)] = 1.0
+    if bool(cfg.get("normalize_after_multiply", True)) and combined.size:
+        mean = float(np.mean(combined))
+        if np.isfinite(mean) and mean > 0.0:
+            combined = (combined / mean).astype(np.float32)
+
+    y_arr = np.asarray(y_train).reshape(-1)
+    pos = y_arr == 1
+    neg = y_arr == 0
+    info.update(
+        {
+            "enabled": True,
+            "used_sample_weight": True,
+            "source": source,
+            "power": power,
+            "cap_quantile": None if cap_quantile is None else float(cap_quantile),
+            "cap_value": None if cap_value is None else float(cap_value),
+            "normalize": bool(cfg.get("normalize", True)),
+            "multiply_class_weights": multiply_class_weights,
+            "normalize_after_multiply": bool(cfg.get("normalize_after_multiply", True)),
+            "invalid_weight_rows": int(invalid.sum()),
+            "raw_weight_min": raw_min,
+            "raw_weight_max": raw_max,
+            "raw_weight_mean": raw_mean,
+            "deployment_weight_mean": float(np.mean(deploy)) if deploy.size else None,
+            "final_weight_min": float(np.min(combined)) if combined.size else None,
+            "final_weight_max": float(np.max(combined)) if combined.size else None,
+            "final_weight_mean": float(np.mean(combined)) if combined.size else None,
+            "positive_final_weight_mean": float(np.mean(combined[pos])) if pos.any() else None,
+            "negative_final_weight_mean": float(np.mean(combined[neg])) if neg.any() else None,
+        }
+    )
+    return combined, info
+
+
 def plot_loss(history, out_path=None):
     if hasattr(history, "history"):
         hist = history.history
@@ -306,6 +410,8 @@ def train_pipeline(
     lightning_config=None,
     trainer_kwargs=None,
     class_weights=None,
+    prepared_sample_weight_train=None,
+    training_sample_weight_config=None,
     selection_metric: str = "sel_ap",
     compute_train_predictions: bool = True,
     y_loss_train=None,
@@ -345,6 +451,15 @@ def train_pipeline(
         weight_0 = 1
         weight_1 = 1
         print(f"Class weights default: 1:{weight_1/weight_0:.4f}")
+
+    sample_w_train, training_sample_weight_info = neural_training_sample_weight(
+        y_train=y_train,
+        class_weight_sample=sample_w_train,
+        prepared_sample_weight=prepared_sample_weight_train,
+        config=training_sample_weight_config,
+    )
+    if training_sample_weight_info.get("used_sample_weight"):
+        print("[training_sample_weight]", json.dumps(training_sample_weight_info, sort_keys=True))
 
     if y_loss_train is None:
         y_loss_train = y_train
@@ -567,6 +682,7 @@ def train_pipeline(
         "model": best_model,
         "class_weight": cw_dict,
         "sample_w_train": sample_w_train,
+        "training_sample_weight": training_sample_weight_info,
         "checkpoint_path": checkpoint_path,
         "model_architecture": model_name,
         "model_config": model_kwargs,
@@ -780,7 +896,7 @@ def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
             "y_val": y_val,
             "y_test": y_test,
         }
-        for base_name in ("soft_label",):
+        for base_name in ("soft_label", "sample_weight"):
             for split_name, fallback_len in (
                 ("train", len(y_train)),
                 ("val", len(y_val)),
@@ -838,6 +954,7 @@ def load_prepared_training_arrays(data: np.lib.npyio.NpzFile) -> dict[str, Any]:
         }
         optional_specs = {
             "soft_label": (np.float32, None),
+            "sample_weight": (np.float32, None),
             "lat": (np.float32, None),
             "lon": (np.float32, None),
         }
@@ -1136,6 +1253,7 @@ if __name__ == "__main__":
     y_test = prepared_arrays["y_test"]
     soft_label_train = prepared_arrays.get("soft_label_train")
     soft_label_val = prepared_arrays.get("soft_label_val")
+    sample_weight_train = prepared_arrays.get("sample_weight_train")
     lat_train = prepared_arrays.get("lat_train")
     lon_train = prepared_arrays.get("lon_train")
     lat_val = prepared_arrays.get("lat_val")
@@ -1387,6 +1505,7 @@ if __name__ == "__main__":
             y_test = new_splits["y_test"]
             soft_label_train = None
             soft_label_val = None
+            sample_weight_train = None
             lat_train = lon_train = lat_val = lon_val = lat_test = lon_test = None
             print(new_splits["message"])
 
@@ -1519,6 +1638,8 @@ if __name__ == "__main__":
         lightning_config=lightning_params,
         trainer_kwargs=trainer_params,
         class_weights=class_weights_cfg,
+        prepared_sample_weight_train=sample_weight_train,
+        training_sample_weight_config=config.get("training_sample_weight"),
         selection_metric=selection_metric,
         compute_train_predictions=compute_train_metrics,
         y_loss_train=y_loss_train,
@@ -1673,6 +1794,7 @@ if __name__ == "__main__":
             "model_config": results.get("model_config"),
             "input_ablation": input_ablation,
             "loss_training": loss_training_info,
+            "training_sample_weight": results.get("training_sample_weight", {"enabled": False}),
             "spatial_training": {
                 "coordinate_features": spatial_coordinate_info,
                 "static_branch": spatial_branch_info,

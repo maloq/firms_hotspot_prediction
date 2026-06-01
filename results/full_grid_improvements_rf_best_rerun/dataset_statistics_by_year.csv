@@ -1,0 +1,26 @@
+target_variant,split,region,region_display,year,cell_days,positive_samples,negative_samples,positive_rate,unique_grid_cells
+main/current,test,global,Global,2021,87238,24772,62466,0.28395882528256033,50904
+main/current,test,eastern_siberia,Eastern Siberia,2021,44639,19789,24850,0.4433119021483456,20439
+main/current,test,far_east,Far East,2021,2141,270,1871,0.12610929472209248,1763
+main/current,test,central_asia,Central Asia,2021,10197,903,9294,0.08855545748749633,7041
+main/current,test,europe,Europe,2021,11926,847,11079,0.07102129800436022,6705
+main/current,test,global,Global,2022,58312,4923,53389,0.08442516120181094,44726
+main/current,test,eastern_siberia,Eastern Siberia,2022,18946,1456,17490,0.07684999472184102,16022
+main/current,test,far_east,Far East,2022,2076,192,1884,0.09248554913294797,1750
+main/current,test,central_asia,Central Asia,2022,9862,698,9164,0.07077671871831272,6832
+main/current,test,europe,Europe,2022,10330,382,9948,0.036979670861568247,5694
+main/current,test,global,Global,2023,60888,6898,53990,0.11328997503613192,45100
+main/current,test,eastern_siberia,Eastern Siberia,2023,18853,1391,17462,0.07378136105659577,15914
+main/current,test,far_east,Far East,2023,2267,333,1934,0.14689016321129245,1836
+main/current,test,central_asia,Central Asia,2023,9281,411,8870,0.044284021118413966,6319
+main/current,test,europe,Europe,2023,10456,494,9962,0.04724560061208875,5545
+main/current,test,global,Global,2024,65063,9134,55929,0.1403870095138558,46592
+main/current,test,eastern_siberia,Eastern Siberia,2024,26660,6189,20471,0.23214553638409602,19112
+main/current,test,far_east,Far East,2024,2229,298,1931,0.13369223867205024,1808
+main/current,test,central_asia,Central Asia,2024,9003,187,8816,0.020770854159724537,6192
+main/current,test,europe,Europe,2024,10472,493,9979,0.04707792207792208,5711
+main/current,test,global,Global,2025,49672,3787,45885,0.07624013528748591,38926
+main/current,test,eastern_siberia,Eastern Siberia,2025,19162,2442,16720,0.12743972445464982,15435
+main/current,test,far_east,Far East,2025,1744,137,1607,0.07855504587155963,1468
+main/current,test,central_asia,Central Asia,2025,7618,304,7314,0.039905487004463114,5484
+main/current,test,europe,Europe,2025,8878,632,8246,0.07118720432529849,5335

@@ -1,0 +1,20 @@
+{
+  "model_name": "Random Forest",
+  "model_type": "random_forest",
+  "calibrator_type": "prior_offset_month",
+  "calibration_start_date": "2021-05-01",
+  "calibration_end_date": "2021-05-31",
+  "test_start_date": "2022-05-01",
+  "test_end_date": "2022-05-31",
+  "feature_columns_used_by_calibrator": [
+    "raw_score",
+    "offset:month"
+  ],
+  "n_rows_unweighted": 3587444,
+  "n_rows_weighted": 3587444.0,
+  "unweighted_prevalence": 1.9512499707312505e-05,
+  "weighted_prevalence": 1.9512499707312505e-05,
+  "raw_score_mean": -2.4970619678497314,
+  "prob_raw_mean": 0.16850416362285614,
+  "calibrator_path": "results/full_grid_improvements_rf_best_rerun/primary_full_grid_calibrated/calibrators/Random_Forest_prior_offset_month.joblib"
+}

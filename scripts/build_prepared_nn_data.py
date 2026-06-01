@@ -436,6 +436,7 @@ def extract_spatial_climate_timeseries(
     location_batch_size: int | None = None,
     max_time_span_days: int | None = None,
     fill_row_batch_size: int | None = None,
+    max_slab_spatial_cells: int | None = None,
     block_cache_dir: Path | None = None,
     block_cache_source_token: str | None = None,
 ) -> np.ndarray:
@@ -488,8 +489,77 @@ def extract_spatial_climate_timeseries(
     location_batch_size = max(0, int(location_batch_size or 0))
     max_time_span_days = max(0, int(max_time_span_days if max_time_span_days is not None else 180))
     fill_row_batch_size = max(1, int(fill_row_batch_size if fill_row_batch_size is not None else 50_000))
-    max_slab_spatial_cells = max(1, int(250_000))
+    max_slab_spatial_cells = max(1, int(max_slab_spatial_cells if max_slab_spatial_cells is not None else 250_000))
     day_offsets = np.arange(n_days, dtype=np.int64)
+
+    full_lat_start = int(patch_lat_by_location.min())
+    full_lat_stop = int(patch_lat_by_location.max()) + 1
+    full_lon_start = int(patch_lon_by_location.min())
+    full_lon_stop = int(patch_lon_by_location.max()) + 1
+    full_slab_cells = (full_lat_stop - full_lat_start) * (full_lon_stop - full_lon_start)
+    if location_batch_size <= 0 and full_slab_cells <= max_slab_spatial_cells:
+        print(
+            f"{variable} spatial climate full-slab fast path "
+            f"({n_rows:,} rows, {n_locations:,} locations, {full_slab_cells:,} cells)",
+            flush=True,
+        )
+        all_rows = np.arange(n_rows, dtype=np.int64)
+        for time_block_rows in _iter_temporal_row_blocks(all_rows, acq_dates, max_time_span_days):
+            batch_start_day = start_dates[time_block_rows].min()
+            batch_end_day = acq_dates[time_block_rows].max()
+
+            left = int(np.searchsorted(vt_numeric, batch_start_day.astype("datetime64[ns]"), side="left"))
+            right = int(np.searchsorted(vt_numeric, batch_end_day.astype("datetime64[ns]"), side="right"))
+            if right - left <= 0:
+                continue
+
+            cache_path = None
+            if block_cache_dir is not None and block_cache_source_token:
+                from src.feature_generation.prepare_climate_data import _climate_block_cache_path
+
+                cache_path = _climate_block_cache_path(
+                    str(block_cache_dir),
+                    block_cache_source_token,
+                    variable,
+                    batch_start_day,
+                    batch_end_day,
+                    full_lat_start,
+                    full_lat_stop,
+                    full_lon_start,
+                    full_lon_stop,
+                )
+
+            daily = _compute_daily_slab(
+                var_data,
+                left,
+                right,
+                batch_start_day,
+                batch_end_day,
+                full_lat_start,
+                full_lat_stop,
+                full_lon_start,
+                full_lon_stop,
+                cache_path,
+            )
+
+            location_ids = row_to_location[time_block_rows]
+            local_patch_lats = patch_lat_by_location[location_ids] - full_lat_start
+            local_patch_lons = patch_lon_by_location[location_ids] - full_lon_start
+            row_offsets_days = (acq_dates[time_block_rows] - batch_start_day).astype("timedelta64[D]").astype(np.int64)
+
+            for fill_start in range(0, time_block_rows.size, fill_row_batch_size):
+                fill_stop = min(time_block_rows.size, fill_start + fill_row_batch_size)
+                fill_rows = time_block_rows[fill_start:fill_stop]
+                fill_offsets = row_offsets_days[fill_start:fill_stop]
+                fill_patch_lats = local_patch_lats[fill_start:fill_stop]
+                fill_patch_lons = local_patch_lons[fill_start:fill_stop]
+                window_indices = fill_offsets[:, None] - (n_days - 1) + day_offsets[None, :]
+                out[fill_rows] = daily[
+                    window_indices[:, :, None, None],
+                    fill_patch_lats[:, None, :, None],
+                    fill_patch_lons[:, None, None, :],
+                ]
+        return out
 
     progress = tqdm(
         total=n_locations,
@@ -597,6 +667,7 @@ def extract_spatial_climate_timeseries_fragmented(
     location_batch_size: int | None = None,
     max_time_span_days: int | None = None,
     fill_row_batch_size: int | None = None,
+    max_slab_spatial_cells: int | None = None,
     block_cache_dir: Path | None = None,
     block_cache_source_token: str | None = None,
 ) -> np.ndarray:
@@ -644,6 +715,7 @@ def extract_spatial_climate_timeseries_fragmented(
                 location_batch_size=location_batch_size,
                 max_time_span_days=max_time_span_days,
                 fill_row_batch_size=fill_row_batch_size,
+                max_slab_spatial_cells=max_slab_spatial_cells,
                 block_cache_dir=block_cache_dir,
                 block_cache_source_token=fragment_block_token,
             )

@@ -9,22 +9,32 @@ from .stages import (
     run_era5_source_comparison,
     run_representative_model_ablation,
     run_sensitivity_experiments,
+    run_prediction_diagnostics,
     run_main_tabular,
+    run_neural_full_grid_evaluation,
     run_new_nn_models,
     run_organizer,
 )
 from .config import EvaluationConfig, NN_LABELS
 from .neural_metrics import import_neural_metrics
 from .neural_importance import run_neural_feature_importance
+from .fire_period_timelines import FirePeriodTimelineConfig, run_fire_period_timelines
 from .probability_overlays import ProbabilityOverlayConfig, run_probability_overlays, safe_slug
 
 
-def _resolve_best_neural_model(config: EvaluationConfig) -> str:
-    model = str(config.probability_overlay_model or "")
+def _resolve_best_neural_model(
+    config: EvaluationConfig,
+    *,
+    model: str | None = None,
+    selection_metric: str | None = None,
+    best_model_scope: str | None = None,
+) -> str:
+    model = str(model if model is not None else config.probability_overlay_model or "")
     normalized = safe_slug(model).lower()
     if normalized not in {"best_neural", "best_nn", "best_nns"}:
         return model
-    if str(config.probability_overlay_best_model_scope).lower() not in {"global", "global_best", "single"}:
+    scope = best_model_scope if best_model_scope is not None else config.probability_overlay_best_model_scope
+    if str(scope).lower() not in {"global", "global_best", "single"}:
         return model
 
     neural_path = config.output_dir / "embedding_fusion_ablation.csv"
@@ -39,7 +49,7 @@ def _resolve_best_neural_model(config: EvaluationConfig) -> str:
         preferred = table[table["period"].astype(str).eq("2021-2025")].copy()
         if not preferred.empty:
             table = preferred
-    metric = str(config.probability_overlay_selection_metric or "average_precision")
+    metric = str(selection_metric or config.probability_overlay_selection_metric or "average_precision")
     if metric not in table.columns:
         return model
     table[metric] = pd.to_numeric(table[metric], errors="coerce")
@@ -150,6 +160,137 @@ def probability_overlay_configs(config: EvaluationConfig) -> list[ProbabilityOve
     return configs
 
 
+def fire_period_timeline_config(
+    config: EvaluationConfig,
+    *,
+    feature_config: Path | None = None,
+    output_dir: Path | None = None,
+    source_label: str | None = None,
+    dense_neural_training_features: Path | None = None,
+    dense_neural_model_path: Path | None = None,
+    colormap: str | None = None,
+    color_floor: float | None = None,
+    color_vmax: float | None = None,
+) -> FirePeriodTimelineConfig:
+    selection_metric = config.fire_period_timeline_selection_metric or config.probability_overlay_selection_metric
+    model = config.fire_period_timeline_model or config.probability_overlay_model
+    return FirePeriodTimelineConfig(
+        results_dir=config.output_dir,
+        regions_file=config.regions_file,
+        feature_config=feature_config or config.feature_config,
+        target_config=config.target_config,
+        source=config.fire_period_timeline_source or config.probability_overlay_source,
+        model=_resolve_best_neural_model(
+            config,
+            model=model,
+            selection_metric=selection_metric,
+            best_model_scope=config.probability_overlay_best_model_scope,
+        ),
+        selection_metric=selection_metric,
+        min_wildfires=config.fire_period_timeline_min_wildfires
+        if config.fire_period_timeline_min_wildfires is not None
+        else config.probability_overlay_min_wildfires,
+        spatial_tolerance_degrees=config.fire_period_timeline_spatial_tolerance_degrees
+        if config.fire_period_timeline_spatial_tolerance_degrees is not None
+        else config.probability_overlay_spatial_tolerance_degrees,
+        window_days=config.fire_period_timeline_window_days,
+        top_periods=config.fire_period_timeline_top_periods,
+        allow_overlapping_periods=config.fire_period_timeline_allow_overlapping_periods
+        if config.fire_period_timeline_allow_overlapping_periods is not None
+        else config.probability_overlay_allow_overlapping_periods,
+        regions=config.fire_period_timeline_regions
+        if config.fire_period_timeline_regions is not None
+        else config.probability_overlay_regions,
+        include_global=config.fire_period_timeline_include_global
+        if config.fire_period_timeline_include_global is not None
+        else config.probability_overlay_include_global,
+        allow_partial_periods=config.fire_period_timeline_allow_partial_periods
+        if config.fire_period_timeline_allow_partial_periods is not None
+        else config.probability_overlay_allow_partial_periods,
+        excluded_months=config.fire_period_timeline_excluded_months,
+        prefer_centered_activity=config.fire_period_timeline_prefer_centered_activity,
+        center_peak_min_fraction=config.fire_period_timeline_center_peak_min_fraction,
+        center_peak_max_fraction=config.fire_period_timeline_center_peak_max_fraction,
+        max_start_activity_fraction=config.fire_period_timeline_max_start_activity_fraction,
+        min_middle_activity_fraction=config.fire_period_timeline_min_middle_activity_fraction,
+        output_dir=output_dir or config.fire_period_timeline_output_dir,
+        source_label=source_label,
+        formats=config.fire_period_timeline_formats,
+        dpi=config.fire_period_timeline_dpi,
+        lead_column=config.fire_period_timeline_lead_column,
+        max_lead_days=config.fire_period_timeline_max_lead_days,
+        burned_area_label=config.fire_period_timeline_burned_area_label,
+        count_colormap=config.fire_period_timeline_count_colormap,
+        count_norm_gamma=config.fire_period_timeline_count_norm_gamma,
+        count_vmax_percentile=config.fire_period_timeline_count_vmax_percentile,
+        generate_overlay_maps=config.fire_period_timeline_generate_overlay_maps,
+        overlay_surface_source=config.fire_period_timeline_overlay_surface_source
+        or config.probability_overlay_surface_source,
+        overlay_window_days=config.fire_period_timeline_overlay_window_days,
+        overlay_center_on_observed_peak=config.fire_period_timeline_overlay_center_on_observed_peak,
+        overlay_map_summary=config.probability_overlay_map_summary,
+        overlay_dense_model_path=config.probability_overlay_dense_model_path,
+        overlay_dense_neural_model_path=dense_neural_model_path
+        or config.probability_overlay_dense_neural_model_path,
+        overlay_dense_neural_training_features=dense_neural_training_features
+        or config.probability_overlay_dense_neural_training_features,
+        overlay_dense_neural_batch_size=config.probability_overlay_dense_neural_batch_size,
+        overlay_dense_neural_device=config.probability_overlay_dense_neural_device,
+        overlay_overwrite_dense=config.probability_overlay_overwrite_dense,
+        overlay_grid_resolution=config.probability_overlay_grid_resolution,
+        overlay_interpolation_factor=config.probability_overlay_interpolation_factor,
+        overlay_prior_correction=config.probability_overlay_prior_correction,
+        overlay_train_prior=config.probability_overlay_train_prior,
+        overlay_deploy_prior=config.probability_overlay_deploy_prior,
+        overlay_colormap=colormap or config.probability_overlay_colormap,
+        overlay_color_floor=config.probability_overlay_color_floor if color_floor is None else color_floor,
+        overlay_color_vmax=config.probability_overlay_color_vmax if color_vmax is None else color_vmax,
+        overlay_verbose_feature_generation=config.probability_overlay_verbose_feature_generation,
+        overlay_country_shapes=config.probability_overlay_country_shapes,
+    )
+
+
+def fire_period_timeline_configs(config: EvaluationConfig) -> list[FirePeriodTimelineConfig]:
+    runs = list(config.probability_overlay_source_runs or [])
+    if not runs:
+        return [fire_period_timeline_config(config)]
+
+    base_output = config.fire_period_timeline_output_dir or (
+        config.output_dir / "shared_artifacts" / "fire_period_timelines"
+    )
+    configs: list[FirePeriodTimelineConfig] = []
+    for idx, run in enumerate(runs, start=1):
+        if not isinstance(run, dict):
+            raise ValueError("probability_overlay_source_runs entries must be mappings.")
+        label = str(run.get("name") or run.get("source_label") or f"source_{idx}")
+        run_output = (
+            Path(run["fire_period_timeline_output_dir"])
+            if run.get("fire_period_timeline_output_dir")
+            else base_output / safe_slug(label)
+        )
+        run_feature_config = Path(run.get("feature_config") or config.feature_config)
+        run_training_features = Path(
+            run.get("dense_neural_training_features")
+            or run.get("training_features")
+            or config.probability_overlay_dense_neural_training_features
+        )
+        model_path = run.get("dense_neural_model_path") or run.get("model_path")
+        configs.append(
+            fire_period_timeline_config(
+                config,
+                feature_config=run_feature_config,
+                output_dir=run_output,
+                source_label=label,
+                dense_neural_training_features=run_training_features,
+                dense_neural_model_path=Path(model_path) if model_path else None,
+                colormap=str(run["colormap"]) if run.get("colormap") else None,
+                color_floor=float(run["color_floor"]) if run.get("color_floor") is not None else None,
+                color_vmax=float(run["color_vmax"]) if run.get("color_vmax") is not None else None,
+            )
+        )
+    return configs
+
+
 def run_evaluation(config: EvaluationConfig) -> None:
     prepare_output_dir(config)
 
@@ -161,6 +302,8 @@ def run_evaluation(config: EvaluationConfig) -> None:
         run_new_nn_models(config)
     if config.import_nn_metrics:
         import_neural_metrics(config)
+    if config.run_neural_full_grid_evaluation:
+        run_neural_full_grid_evaluation(config)
     if config.run_neural_feature_importance:
         run_neural_feature_importance(config)
     if config.run_era5_source_comparison:
@@ -170,5 +313,14 @@ def run_evaluation(config: EvaluationConfig) -> None:
     if config.run_probability_overlays:
         for overlay_config in probability_overlay_configs(config):
             run_probability_overlays(overlay_config)
+    if config.run_fire_period_timelines:
+        for timeline_config in fire_period_timeline_configs(config):
+            run_fire_period_timelines(timeline_config)
+    if config.run_prediction_diagnostics:
+        run_prediction_diagnostics(config)
+    if config.run_fire_weather_index_evaluation:
+        from .fire_weather_index_evaluation import run_fire_weather_index_evaluation
+
+        run_fire_weather_index_evaluation(config)
     if config.run_organizer:
         run_organizer(config)

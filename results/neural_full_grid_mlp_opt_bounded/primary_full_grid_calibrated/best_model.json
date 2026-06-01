@@ -1,0 +1,10 @@
+{
+  "selection_target": "primary_full_grid_calibrated:global:test",
+  "selection_metric": "average_precision",
+  "selection_direction": "max",
+  "model_name": "Minimal MLP full-grid rank optimized",
+  "model_type": "Neural",
+  "feature_set": "daily spatial neural dense full-grid",
+  "metric_value": 0.0003201329090186,
+  "source_table": "results/neural_full_grid_mlp_opt_bounded/primary_full_grid_calibrated/model_comparison.csv"
+}

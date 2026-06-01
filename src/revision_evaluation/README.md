@@ -11,6 +11,9 @@ This package is split by workflow responsibility rather than by reviewer request
 - `neural_training.py` and `neural_metrics.py`: train neural models, run best-architecture input-branch ablations, and import their metrics into cross-model tables.
 - `era5_source_comparison.py`: builds the ERA5-available source-comparison matrix and metrics.
 - `probability_overlays.py`: creates full-grid prediction overlay plots from suite config.
+- `fire_period_timelines.py`: selects centered non-winter 28-day periods and writes forecast/MODIS timeline strips plus matching overlay maps.
+- `prediction_diagnostics.py`: creates regional prediction-vs-observed time series and smoothed risk-residual maps from saved or streamed full-grid test predictions.
+- `fire_weather_index_evaluation.py`: evaluates Fire Weather Index GRIB variables as deployment-grid risk-ranking baselines using available FWI dates, with an optional FWI-only logistic regression trained on a selected year.
 - `experiment_library.py`: converts raw run outputs into the reader-facing `experiments/*` tree.
 
 ## Shared Infrastructure

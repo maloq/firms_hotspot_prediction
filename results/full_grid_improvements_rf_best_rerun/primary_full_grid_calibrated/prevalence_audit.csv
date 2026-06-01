@@ -1,0 +1,3 @@
+model_name,model_type,denominator,support,denominator_count,event_count,event_rate,notes,event_rate_error
+Random Forest,random_forest,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Random Forest,random_forest,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0

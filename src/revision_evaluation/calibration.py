@@ -151,7 +151,14 @@ class PriorOffsetCalibrator:
         return cols
 
     @staticmethod
-    def _offset_for_expected_count(raw_score: np.ndarray, y: np.ndarray, weight: np.ndarray) -> float:
+    def _offset_for_expected_count(
+        raw_score: np.ndarray,
+        y: np.ndarray,
+        weight: np.ndarray,
+        *,
+        max_iter: int = 40,
+        rel_tol: float = 1e-6,
+    ) -> float:
         observed = float(np.sum(y * weight))
         if observed <= 0:
             prevalence = EPS
@@ -162,9 +169,15 @@ class PriorOffsetCalibrator:
         target = prevalence * float(np.sum(weight)) if observed <= 0 else observed
 
         lo, hi = -80.0, 80.0
-        for _ in range(100):
+        # The full-grid calibration set can be hundreds of millions of rows.
+        # Forty bisection steps on [-80, 80] gives sub-micro-logit precision
+        # while avoiding dozens of redundant full-array sigmoid passes.
+        tolerance = max(1e-9, abs(target) * float(rel_tol))
+        for _ in range(max(1, int(max_iter))):
             mid = (lo + hi) / 2.0
             expected = float(np.sum(sigmoid(raw_score + mid) * weight))
+            if abs(expected - target) <= tolerance:
+                return float(mid)
             if expected > target:
                 hi = mid
             else:

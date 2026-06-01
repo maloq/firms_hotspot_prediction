@@ -1,0 +1,17 @@
+model_name,model_type,denominator,support,denominator_count,event_count,event_rate,notes,event_rate_error
+Logistic Regression (linear SGD),linear_sgd,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Logistic Regression (linear SGD),linear_sgd,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+Poisson Point-Process GLM,poisson_glm,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Poisson Point-Process GLM,poisson_glm,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+CatBoost,CatBoost,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+CatBoost,CatBoost,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+CatBoost deployment-weighted,CatBoost,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+CatBoost deployment-weighted,CatBoost,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+Weather-only CatBoost,CatBoost,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Weather-only CatBoost,CatBoost,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+FWI-only CatBoost,CatBoost,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+FWI-only CatBoost,CatBoost,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+Random Forest,random_forest,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Random Forest,random_forest,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,deployment_weighted_grid_cell_days,3587444,3587444.0,357.0,9.951374850729378e-05,Uses eval_weight to represent the configured deployment grid or weighted-grid sample.,0.0
+Spatial climate TSN-MLP no tp (ERA5 global full),Neural,evaluated_rows_unweighted,3587444,3587444.0,357.0,9.951374850729378e-05,"Unweighted rows actually scored after chunking, sampling, and feature generation.",0.0

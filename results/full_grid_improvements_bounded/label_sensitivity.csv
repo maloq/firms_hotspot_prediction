@@ -1,0 +1,6 @@
+experiment,status,precision,recall,f1,f1_error,average_precision,average_precision_error,interpretation
+Main target labeling,completed,0.3866930421881538,0.8211818879508825,0.5257917264745057,0.004048385807888288,0.54627891056253,0.003915456891489145,"Main MODIS target with configured thresholds, high-latitude relaxation, stationary-point filtering, positive expansion, sampled negatives, and land mask."
+No historical-fire features with main target,completed_no_op,0.3866930421881538,0.8211818879508825,0.5257917264745057,0.004048385807888288,0.54627891056253,0.003915456891489145,"No historical-fire/proximity/density columns were present in the saved feature matrix, so this sensitivity is equivalent to the main model."
+No morphological expansion / no dilation,blocked,,,,,,,Requires rebuilding target caches with expansion disabled; no no-dilation cache exists in the current workspace.
+Stricter MODIS confidence/brightness threshold,blocked,,,,,,,Requires rebuilding target caches with modified target_config thresholds.
+Different negative sampling ratio,blocked,,,,,,,Requires regenerating per-country targets/features with a different samples_per_area_per_year.

@@ -1,0 +1,13 @@
+model_name,model_type,region,region_display,expected_fire_positive_grid_cells,observed_fire_positive_grid_cells,expected_observed_count_ratio
+Minimal MLP (global full),Neural,global,Global,83.37338833872256,357.0,0.233538902909587
+Minimal MLP (global full),Neural,eastern_siberia,Eastern Siberia,70.03634447394772,243.0,0.2882154093578095
+Minimal MLP (global full),Neural,far_east,Far East,2.6013307362228835,29.0,0.0897010598697546
+Minimal MLP (global full),Neural,central_asia,Central Asia,3.490240900906821,15.0,0.2326827267271214
+Minimal MLP full-grid optimized,Neural,global,Global,69.16163940738052,357.0,0.1937300823736149
+Minimal MLP full-grid optimized,Neural,eastern_siberia,Eastern Siberia,53.95041113746831,243.0,0.2220181528290876
+Minimal MLP full-grid optimized,Neural,far_east,Far East,3.6549167220739225,29.0,0.1260316111059973
+Minimal MLP full-grid optimized,Neural,central_asia,Central Asia,3.457352787247067,15.0,0.2304901858164711
+Minimal MLP full-grid rank optimized,Neural,global,Global,77.4251595325935,357.0,0.21687719757028992
+Minimal MLP full-grid rank optimized,Neural,eastern_siberia,Eastern Siberia,65.30114010801731,243.0,0.2687289716379313
+Minimal MLP full-grid rank optimized,Neural,far_east,Far East,3.21114999475809,29.0,0.11072931016407207
+Minimal MLP full-grid rank optimized,Neural,central_asia,Central Asia,3.0861886489416936,15.0,0.20574590992944625
