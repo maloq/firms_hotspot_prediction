@@ -24,6 +24,13 @@ class DummyPredictor:
         return np.linspace(0.1, 0.9, len(frame), dtype=np.float32)
 
 
+class AutoBatchPredictor(DummyPredictor):
+    def resolve_tensor_batch_rows(self, rows_per_prediction_batch, *, max_tensor_batch_bytes=None) -> int:
+        assert rows_per_prediction_batch in {None, "auto"}
+        assert max_tensor_batch_bytes == 12345
+        return 3
+
+
 def test_dense_neural_feature_columns_keep_coordinates_and_dedupe() -> None:
     assert dense_neural_feature_columns(DummyPredictor()) == [
         "datetime",
@@ -49,6 +56,20 @@ def test_dense_neural_predict_fn_chunks_rows() -> None:
     assert result["raw_score"].shape == (5,)
 
 
+def test_dense_neural_predict_fn_uses_predictor_auto_batch_size() -> None:
+    predictor = AutoBatchPredictor()
+    frame = pd.DataFrame({"datetime": pd.date_range("2024-01-01", periods=7)})
+
+    result = make_dense_neural_raw_predict_fn(
+        predictor,
+        rows_per_prediction_batch=None,
+        max_tensor_batch_bytes=12345,
+    )(frame)
+
+    assert predictor.batch_lengths == [3, 3, 1]
+    assert result["prob_raw"].shape == (7,)
+
+
 def test_dense_neural_feature_columns_skip_dynamic_columns_for_daily_spatial() -> None:
     predictor = DummyPredictor()
     predictor.dynamic_mode = "daily_spatial"
@@ -66,6 +87,12 @@ def test_dense_neural_feature_columns_skip_dynamic_columns_for_daily_spatial() -
 def test_neural_prediction_path_for_spatial_no_tp() -> None:
     assert str(neural_prediction_path("spatial_tsn_no_tp")) == (
         "outputs/nn_global_full_spatial_tsn_no_tp/legacy_sampled_predictions/test_predictions.parquet"
+    )
+
+
+def test_neural_prediction_path_for_embedding_fusion_alias() -> None:
+    assert str(neural_prediction_path("spatial_tsn_embedding_fusion")) == (
+        "outputs/nn_global_full_spatial_tsn_embedding_fusion/legacy_sampled_predictions/test_predictions.parquet"
     )
 
 

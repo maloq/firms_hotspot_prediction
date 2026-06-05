@@ -1,5 +1,5 @@
 Region,Feature Source,Model,Period Start,Period End,PR-AUC,First-Quarter Fire Fraction,Middle-Half Fire Fraction
-Eastern Siberia,ECMWF,Spatial climate TSN-MLP no tp (global full),2021-09-02,2021-09-29,0.8494,0.126,0.8549
-Eastern Siberia,ERA5,Spatial climate TSN-MLP no tp (global full),2021-09-02,2021-09-29,0.8494,0.126,0.8549
-Global,ECMWF,Spatial climate TSN-MLP no tp (global full),2021-07-22,2021-08-18,0.8288,0.1428,0.8182
-Global,ERA5,Spatial climate TSN-MLP no tp (global full),2021-07-22,2021-08-18,0.8288,0.1428,0.8182
+Eastern Siberia,ECMWF,Spatial climate TSN-MLP (ECMWF global full),2021-09-02,2021-09-29,0.7506,0.126,0.8549
+Eastern Siberia,ERA5,Spatial climate TSN-MLP no tp (ERA5 global full),2021-09-02,2021-09-29,0.8494,0.126,0.8549
+Global,ECMWF,Spatial climate TSN-MLP (ECMWF global full),2021-07-22,2021-08-18,0.7135,0.1428,0.8182
+Global,ERA5,Spatial climate TSN-MLP no tp (ERA5 global full),2021-07-22,2021-08-18,0.8288,0.1428,0.8182

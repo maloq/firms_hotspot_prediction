@@ -1,0 +1,11 @@
+Model,Region,Period,Cells,Mean Pred Risk,Mean Obs Risk,Risk Bias,Mean Abs Risk Err
+CatBoost,eastern_siberia,2022,24031,0.0002,0.0001,0.0001,0.0003
+CatBoost,eastern_siberia,2022-2025 mean,24031,0.0002,0.0002,-0.0,0.0004
+CatBoost,eastern_siberia,2023,24031,0.0002,0.0001,0.0001,0.0003
+CatBoost,eastern_siberia,2024,24031,0.0002,0.0005,-0.0002,0.0006
+CatBoost,eastern_siberia,2025,24031,0.0003,0.0002,0.0,0.0005
+CatBoost,far_east,2022,2572,0.0002,0.0001,0.0,0.0003
+CatBoost,far_east,2022-2025 mean,2572,0.0002,0.0002,0.0,0.0003
+CatBoost,far_east,2023,2572,0.0002,0.0002,-0.0,0.0004
+CatBoost,far_east,2024,2572,0.0002,0.0002,0.0,0.0004
+CatBoost,far_east,2025,2572,0.0002,0.0001,0.0001,0.0003

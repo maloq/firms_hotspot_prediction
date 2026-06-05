@@ -60,11 +60,15 @@ class SequenceStaticLightningModule(pl.LightningModule):
         self._train_ap_last: float | None = None
 
     @staticmethod
+    def _metric_numpy(tensor: torch.Tensor):
+        return tensor.detach().float().cpu().numpy()
+
+    @staticmethod
     def _best_f1_from_scores(targets: torch.Tensor, probs: torch.Tensor) -> float:
         try:
             precision, recall, thresholds = precision_recall_curve(
-                targets.cpu().numpy(),
-                probs.cpu().numpy(),
+                SequenceStaticLightningModule._metric_numpy(targets),
+                SequenceStaticLightningModule._metric_numpy(probs),
             )
             if thresholds.size == 0:
                 return 0.0
@@ -121,7 +125,12 @@ class SequenceStaticLightningModule(pl.LightningModule):
         probs = torch.cat([out[0] for out in self.training_outputs], dim=0)
         targets = torch.cat([out[1] for out in self.training_outputs], dim=0)
         try:
-            train_ap = float(average_precision_score(targets.cpu().numpy(), probs.cpu().numpy()))
+            train_ap = float(
+                average_precision_score(
+                    self._metric_numpy(targets),
+                    self._metric_numpy(probs),
+                )
+            )
         except Exception:
             train_ap = float('nan')
         self._train_ap_last = train_ap
@@ -143,7 +152,12 @@ class SequenceStaticLightningModule(pl.LightningModule):
             return
         probs = torch.cat([out[0] for out in self.validation_outputs], dim=0)
         targets = torch.cat([out[1] for out in self.validation_outputs], dim=0)
-        val_ap = float(average_precision_score(targets.cpu().numpy(), probs.cpu().numpy()))
+        val_ap = float(
+            average_precision_score(
+                self._metric_numpy(targets),
+                self._metric_numpy(probs),
+            )
+        )
         self.log("val_ap", val_ap, prog_bar=True, sync_dist=True)
         val_f1 = self._best_f1_from_scores(targets, probs)
         self.log("val_f1", val_f1, prog_bar=True, sync_dist=True)
@@ -168,7 +182,10 @@ class SequenceStaticLightningModule(pl.LightningModule):
             return
         probs = torch.cat([out[0] for out in self.test_outputs], dim=0)
         targets = torch.cat([out[1] for out in self.test_outputs], dim=0)
-        test_ap = average_precision_score(targets.cpu().numpy(), probs.cpu().numpy())
+        test_ap = average_precision_score(
+            self._metric_numpy(targets),
+            self._metric_numpy(probs),
+        )
         self.log("test_ap", test_ap, prog_bar=True, sync_dist=True)
 
     def configure_optimizers(self):

@@ -1,91 +1,121 @@
 Region,Period,Variant,F1,PR-AUC,PR-AUC Error
-Central Asia,2021-2023,FT-Transformer (global full),0.2432,0.2944,0.0121
+Central Asia,2021-2023,FT-Transformer (global full),0.2357,0.2962,0.0058
 Central Asia,2021-2023,LSTM attention (global full),0.2481,0.2634,0.0082
+Central Asia,2021-2023,LSTM embedding fusion (global full),0.2679,0.2397,0.0059
 Central Asia,2021-2023,LSTM gated MoE (global full),0.2427,0.298,0.006
 Central Asia,2021-2023,LSTM static concat (global full),0.2802,0.3217,0.0117
-Central Asia,2021-2023,Minimal MLP (global full),0.2841,0.284,0.0118
+Central Asia,2021-2023,Minimal MLP (global full),0.2858,0.2819,0.0118
+Central Asia,2021-2023,Spatial climate TSN embedding fusion (global full),0.3433,0.3999,0.0106
 Central Asia,2021-2023,Spatial climate TSN-MLP (ECMWF global full),0.2269,0.3528,0.0114
 Central Asia,2021-2023,Spatial climate TSN-MLP (global full),0.3689,0.4714,0.0169
 Central Asia,2021-2023,Spatial climate TSN-MLP no tp (ERA5 global full),0.3605,0.459,0.0133
 Central Asia,2021-2023,TemporalConvNet / TSN-MLP (global full),0.1897,0.2909,0.008
-Central Asia,2021-2025,FT-Transformer (global full),0.2079,0.2634,0.0058
+Central Asia,2021-2023,TemporalConvNet embedding fusion (global full),0.2244,0.3453,0.0138
+Central Asia,2021-2025,FT-Transformer (global full),0.2025,0.2673,0.0021
 Central Asia,2021-2025,LSTM attention (global full),0.2123,0.2473,0.0082
+Central Asia,2021-2025,LSTM embedding fusion (global full),0.231,0.2112,0.0086
 Central Asia,2021-2025,LSTM gated MoE (global full),0.2122,0.2713,0.0125
 Central Asia,2021-2025,LSTM static concat (global full),0.244,0.2874,0.0114
-Central Asia,2021-2025,Minimal MLP (global full),0.2534,0.2639,0.0049
+Central Asia,2021-2025,Minimal MLP (global full),0.2548,0.2619,0.005
+Central Asia,2021-2025,Spatial climate TSN embedding fusion (global full),0.3104,0.3477,0.0073
 Central Asia,2021-2025,Spatial climate TSN-MLP (ECMWF global full),0.1916,0.3232,0.0084
 Central Asia,2021-2025,Spatial climate TSN-MLP (global full),0.343,0.4225,0.0097
 Central Asia,2021-2025,Spatial climate TSN-MLP no tp (ERA5 global full),0.3315,0.4132,0.0085
 Central Asia,2021-2025,TemporalConvNet / TSN-MLP (global full),0.1567,0.2717,0.0084
-Eastern Siberia,2021-2023,FT-Transformer (global full),0.5281,0.4596,0.002
+Central Asia,2021-2025,TemporalConvNet embedding fusion (global full),0.1892,0.3119,0.011
+Eastern Siberia,2021-2023,FT-Transformer (global full),0.5729,0.5537,0.0029
 Eastern Siberia,2021-2023,LSTM attention (global full),0.5991,0.57,0.0064
+Eastern Siberia,2021-2023,LSTM embedding fusion (global full),0.6129,0.5759,0.0035
 Eastern Siberia,2021-2023,LSTM gated MoE (global full),0.6154,0.6133,0.0035
 Eastern Siberia,2021-2023,LSTM static concat (global full),0.6279,0.528,0.0019
-Eastern Siberia,2021-2023,Minimal MLP (global full),0.6188,0.5785,0.0031
+Eastern Siberia,2021-2023,Minimal MLP (global full),0.6198,0.5789,0.003
+Eastern Siberia,2021-2023,Spatial climate TSN embedding fusion (global full),0.7507,0.795,0.003
 Eastern Siberia,2021-2023,Spatial climate TSN-MLP (ECMWF global full),0.5952,0.6399,0.003
 Eastern Siberia,2021-2023,Spatial climate TSN-MLP (global full),0.7601,0.8084,0.0023
 Eastern Siberia,2021-2023,Spatial climate TSN-MLP no tp (ERA5 global full),0.7473,0.786,0.0025
 Eastern Siberia,2021-2023,TemporalConvNet / TSN-MLP (global full),0.5413,0.5625,0.0024
-Eastern Siberia,2021-2025,FT-Transformer (global full),0.4939,0.4222,0.004
+Eastern Siberia,2021-2023,TemporalConvNet embedding fusion (global full),0.5759,0.5346,0.0036
+Eastern Siberia,2021-2025,FT-Transformer (global full),0.5254,0.502,0.0051
 Eastern Siberia,2021-2025,LSTM attention (global full),0.5543,0.5196,0.0022
+Eastern Siberia,2021-2025,LSTM embedding fusion (global full),0.5627,0.5151,0.0039
 Eastern Siberia,2021-2025,LSTM gated MoE (global full),0.5701,0.5634,0.0049
 Eastern Siberia,2021-2025,LSTM static concat (global full),0.5808,0.4875,0.0045
-Eastern Siberia,2021-2025,Minimal MLP (global full),0.5723,0.5296,0.0033
+Eastern Siberia,2021-2025,Minimal MLP (global full),0.5735,0.53,0.0033
+Eastern Siberia,2021-2025,Spatial climate TSN embedding fusion (global full),0.7075,0.7513,0.0041
 Eastern Siberia,2021-2025,Spatial climate TSN-MLP (ECMWF global full),0.5547,0.5823,0.0037
 Eastern Siberia,2021-2025,Spatial climate TSN-MLP (global full),0.7111,0.7549,0.0022
 Eastern Siberia,2021-2025,Spatial climate TSN-MLP no tp (ERA5 global full),0.7048,0.7378,0.0021
 Eastern Siberia,2021-2025,TemporalConvNet / TSN-MLP (global full),0.5029,0.5262,0.0046
-Europe,2021-2023,FT-Transformer (global full),0.2883,0.3223,0.0139
+Eastern Siberia,2021-2025,TemporalConvNet embedding fusion (global full),0.5303,0.484,0.0028
+Europe,2021-2023,FT-Transformer (global full),0.2961,0.3075,0.0173
 Europe,2021-2023,LSTM attention (global full),0.3553,0.347,0.006
+Europe,2021-2023,LSTM embedding fusion (global full),0.3269,0.2791,0.0131
 Europe,2021-2023,LSTM gated MoE (global full),0.3272,0.3228,0.0069
 Europe,2021-2023,LSTM static concat (global full),0.3671,0.379,0.0094
-Europe,2021-2023,Minimal MLP (global full),0.3634,0.3475,0.0073
+Europe,2021-2023,Minimal MLP (global full),0.3671,0.348,0.0077
+Europe,2021-2023,Spatial climate TSN embedding fusion (global full),0.371,0.3572,0.0135
 Europe,2021-2023,Spatial climate TSN-MLP (ECMWF global full),0.2488,0.3394,0.0136
 Europe,2021-2023,Spatial climate TSN-MLP (global full),0.3262,0.3653,0.0137
 Europe,2021-2023,Spatial climate TSN-MLP no tp (ERA5 global full),0.3267,0.3935,0.0109
 Europe,2021-2023,TemporalConvNet / TSN-MLP (global full),0.2189,0.3779,0.0049
-Europe,2021-2025,FT-Transformer (global full),0.2827,0.2939,0.0048
+Europe,2021-2023,TemporalConvNet embedding fusion (global full),0.2431,0.2728,0.0079
+Europe,2021-2025,FT-Transformer (global full),0.286,0.2799,0.006
 Europe,2021-2025,LSTM attention (global full),0.3387,0.3095,0.0119
+Europe,2021-2025,LSTM embedding fusion (global full),0.3154,0.2603,0.0074
 Europe,2021-2025,LSTM gated MoE (global full),0.3094,0.2908,0.0089
 Europe,2021-2025,LSTM static concat (global full),0.3451,0.334,0.0095
-Europe,2021-2025,Minimal MLP (global full),0.3457,0.3131,0.0115
+Europe,2021-2025,Minimal MLP (global full),0.3479,0.313,0.0115
+Europe,2021-2025,Spatial climate TSN embedding fusion (global full),0.3365,0.3041,0.0127
 Europe,2021-2025,Spatial climate TSN-MLP (ECMWF global full),0.2524,0.3039,0.0072
 Europe,2021-2025,Spatial climate TSN-MLP (global full),0.3034,0.2991,0.0078
 Europe,2021-2025,Spatial climate TSN-MLP no tp (ERA5 global full),0.3082,0.3335,0.0091
 Europe,2021-2025,TemporalConvNet / TSN-MLP (global full),0.2214,0.3378,0.0093
-Far East,2021-2023,FT-Transformer (global full),0.3485,0.4335,0.0106
+Europe,2021-2025,TemporalConvNet embedding fusion (global full),0.2509,0.2769,0.0134
+Far East,2021-2023,FT-Transformer (global full),0.3565,0.3771,0.0168
 Far East,2021-2023,LSTM attention (global full),0.3888,0.3788,0.0139
+Far East,2021-2023,LSTM embedding fusion (global full),0.4301,0.4384,0.0164
 Far East,2021-2023,LSTM gated MoE (global full),0.4102,0.4154,0.0054
 Far East,2021-2023,LSTM static concat (global full),0.4136,0.3894,0.0273
-Far East,2021-2023,Minimal MLP (global full),0.3987,0.4034,0.001
+Far East,2021-2023,Minimal MLP (global full),0.3994,0.402,0.0007
+Far East,2021-2023,Spatial climate TSN embedding fusion (global full),0.5953,0.5865,0.0104
 Far East,2021-2023,Spatial climate TSN-MLP (ECMWF global full),0.3672,0.3809,0.007
 Far East,2021-2023,Spatial climate TSN-MLP (global full),0.6159,0.671,0.0136
 Far East,2021-2023,Spatial climate TSN-MLP no tp (ERA5 global full),0.6055,0.6582,0.0091
 Far East,2021-2023,TemporalConvNet / TSN-MLP (global full),0.2998,0.4394,0.0176
-Far East,2021-2025,FT-Transformer (global full),0.3477,0.4293,0.0141
+Far East,2021-2023,TemporalConvNet embedding fusion (global full),0.3551,0.3076,0.0134
+Far East,2021-2025,FT-Transformer (global full),0.3526,0.3928,0.0072
 Far East,2021-2025,LSTM attention (global full),0.3869,0.389,0.011
+Far East,2021-2025,LSTM embedding fusion (global full),0.4441,0.4278,0.0126
 Far East,2021-2025,LSTM gated MoE (global full),0.4049,0.4097,0.0155
 Far East,2021-2025,LSTM static concat (global full),0.4229,0.3922,0.0122
-Far East,2021-2025,Minimal MLP (global full),0.4045,0.3926,0.0076
+Far East,2021-2025,Minimal MLP (global full),0.4061,0.3912,0.0076
+Far East,2021-2025,Spatial climate TSN embedding fusion (global full),0.5816,0.5565,0.0063
 Far East,2021-2025,Spatial climate TSN-MLP (ECMWF global full),0.3643,0.3996,0.0088
 Far East,2021-2025,Spatial climate TSN-MLP (global full),0.5412,0.6084,0.0113
 Far East,2021-2025,Spatial climate TSN-MLP no tp (ERA5 global full),0.5357,0.5838,0.0144
 Far East,2021-2025,TemporalConvNet / TSN-MLP (global full),0.2993,0.422,0.0125
-Global,2021-2023,FT-Transformer (global full),0.4608,0.4065,0.0068
+Far East,2021-2025,TemporalConvNet embedding fusion (global full),0.3533,0.3275,0.0151
+Global,2021-2023,FT-Transformer (global full),0.4868,0.4734,0.0092
 Global,2021-2023,LSTM attention (global full),0.5145,0.4905,0.0041
+Global,2021-2023,LSTM embedding fusion (global full),0.5364,0.5077,0.0055
 Global,2021-2023,LSTM gated MoE (global full),0.5237,0.5397,0.0034
 Global,2021-2023,LSTM static concat (global full),0.5453,0.4759,0.0047
-Global,2021-2023,Minimal MLP (global full),0.5469,0.5121,0.004
+Global,2021-2023,Minimal MLP (global full),0.548,0.5121,0.004
+Global,2021-2023,Spatial climate TSN embedding fusion (global full),0.6707,0.7293,0.0044
 Global,2021-2023,Spatial climate TSN-MLP (ECMWF global full),0.489,0.5541,0.0051
 Global,2021-2023,Spatial climate TSN-MLP (global full),0.6764,0.7471,0.0033
 Global,2021-2023,Spatial climate TSN-MLP no tp (ERA5 global full),0.6621,0.7203,0.0034
 Global,2021-2023,TemporalConvNet / TSN-MLP (global full),0.4337,0.4883,0.0056
-Global,2021-2025,FT-Transformer (global full),0.423,0.3702,0.0023
+Global,2021-2023,TemporalConvNet embedding fusion (global full),0.4526,0.4165,0.0043
+Global,2021-2025,FT-Transformer (global full),0.44,0.4234,0.004
 Global,2021-2025,LSTM attention (global full),0.4709,0.4465,0.0024
+Global,2021-2025,LSTM embedding fusion (global full),0.4896,0.4516,0.0052
 Global,2021-2025,LSTM gated MoE (global full),0.481,0.4905,0.0052
 Global,2021-2025,LSTM static concat (global full),0.5039,0.4375,0.0033
-Global,2021-2025,Minimal MLP (global full),0.5059,0.4702,0.0056
+Global,2021-2025,Minimal MLP (global full),0.5072,0.4703,0.0056
+Global,2021-2025,Spatial climate TSN embedding fusion (global full),0.637,0.6842,0.0061
 Global,2021-2025,Spatial climate TSN-MLP (ECMWF global full),0.4489,0.4982,0.0036
 Global,2021-2025,Spatial climate TSN-MLP (global full),0.6374,0.6915,0.0042
 Global,2021-2025,Spatial climate TSN-MLP no tp (ERA5 global full),0.6292,0.6712,0.0069
 Global,2021-2025,TemporalConvNet / TSN-MLP (global full),0.3927,0.4492,0.0026
+Global,2021-2025,TemporalConvNet embedding fusion (global full),0.4128,0.3728,0.0037

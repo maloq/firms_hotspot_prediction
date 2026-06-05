@@ -49,3 +49,4 @@ best_model/prepare_nn/prepared_data.npz
 best_model
 .vscode
 lightning_logs/
+paper

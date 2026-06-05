@@ -1,31 +1,31 @@
 Rank,Model,Feature,Type,PR-AUC Drop,F1 Drop
-1,Spatial climate TSN-MLP (global full),t2m spatial sequence,dynamic_spatial_channel,0.5233,0.4722
-2,Spatial climate TSN-MLP (global full),d2m spatial sequence,dynamic_spatial_channel,0.2417,0.1955
-3,Spatial climate TSN-MLP (global full),tp spatial sequence,dynamic_spatial_channel,0.1881,0.1516
-4,Spatial climate TSN-MLP (global full),stl1 spatial sequence,dynamic_spatial_channel,0.065,0.0655
-5,Spatial climate TSN-MLP (global full),ecoregion_name,categorical,0.0237,0.0193
-6,Spatial climate TSN-MLP (global full),tvl,categorical,0.0082,0.0064
-7,Spatial climate TSN-MLP (global full),tvh,categorical,0.0071,0.0028
-8,Spatial climate TSN-MLP (global full),coord_lon_cos,static,0.006,0.0087
-9,Spatial climate TSN-MLP (global full),road_density_gaussian_5km,static,0.0055,0.0036
-10,Spatial climate TSN-MLP (global full),slt_soil_type_stream_oper_daily_mean,categorical,0.0054,0.0024
-11,Spatial climate TSN-MLP (global full),road_density_gaussian_25km,static,0.0053,0.0029
-12,Spatial climate TSN-MLP (global full),month,static,0.0053,0.0048
-13,Spatial climate TSN-MLP (global full),light_density_gaussian_5km,static,0.0051,0.0024
-14,Spatial climate TSN-MLP (global full),landseamask,static,0.0046,0.0038
-15,Spatial climate TSN-MLP (global full),population,static,0.0042,0.0042
-16,Spatial climate TSN-MLP (global full),road_density_gaussian_10km,static,0.0035,0.0019
-17,Spatial climate TSN-MLP (global full),fire_index_fdsrte_median,static,0.003,0.0018
-18,Spatial climate TSN-MLP (global full),sdfor,static,0.0029,0.0026
-19,Spatial climate TSN-MLP (global full),light_density_gaussian_10km,static,0.0028,0.0017
-20,Spatial climate TSN-MLP (global full),fire_index_fdsrte_mean,static,0.0025,0.0027
-21,Spatial climate TSN-MLP (global full),distance_to_light_source_meters,static,0.0025,0.0025
-22,Spatial climate TSN-MLP (global full),elevation_mean_0.1deg,static,0.0022,0.0036
-23,Spatial climate TSN-MLP (global full),elevation_min_0.1deg,static,0.0022,0.0041
-24,Spatial climate TSN-MLP (global full),fire_index_fwinx_max,static,0.0021,0.0033
-25,Spatial climate TSN-MLP (global full),fire_index_fbupinx_median_trend,static,0.002,0.0019
-26,Spatial climate TSN-MLP (global full),slt,categorical,0.002,0.0026
-27,Spatial climate TSN-MLP (global full),isor,static,0.0019,0.0018
-28,Spatial climate TSN-MLP (global full),distance_to_road_meters,static,0.0019,0.0042
-29,Spatial climate TSN-MLP (global full),fire_index_fbupinx_mean_trend,static,0.0018,0.0009
-30,Spatial climate TSN-MLP (global full),distance_to_coast_km,static,0.0018,0.0022
+1,LSTM gated MoE (global full),t2m_mean_7,dynamic_sequence,0.1487,0.1297
+2,LSTM gated MoE (global full),d2m_mean_7,dynamic_sequence,0.1202,0.0783
+3,LSTM gated MoE (global full),t2m_mean_14,dynamic_sequence,0.1062,0.0978
+4,LSTM gated MoE (global full),d2m_mean_14,dynamic_sequence,0.075,0.0428
+5,LSTM gated MoE (global full),t2m_mean_30,dynamic_sequence,0.0734,0.0652
+6,LSTM gated MoE (global full),ecoregion_name,categorical,0.0539,0.0492
+7,LSTM gated MoE (global full),stl1_mean_7,dynamic_sequence,0.0494,0.0508
+8,LSTM gated MoE (global full),t2m_mean_90,dynamic_sequence,0.0484,0.0351
+9,LSTM gated MoE (global full),stl1_mean_14,dynamic_sequence,0.0472,0.0478
+10,LSTM gated MoE (global full),stl1_mean_30,dynamic_sequence,0.0342,0.0354
+11,LSTM gated MoE (global full),d2m_mean_30,dynamic_sequence,0.0332,0.0162
+12,LSTM gated MoE (global full),t2m_mean_120,dynamic_sequence,0.0331,0.018
+13,LSTM gated MoE (global full),lsm,static,0.024,0.0059
+14,LSTM gated MoE (global full),fire_index_drtcode_std,static,0.0213,0.0127
+15,LSTM gated MoE (global full),t2m_lag_120,dynamic_sequence,0.0173,0.0139
+16,LSTM gated MoE (global full),road_density_gaussian_5km,static,0.0159,0.0103
+17,LSTM gated MoE (global full),road_density_gaussian_10km,static,0.0131,0.008
+18,LSTM gated MoE (global full),tp_mean_7,dynamic_sequence,0.0113,0.0122
+19,LSTM gated MoE (global full),stl1_mean_90,dynamic_sequence,0.011,0.0119
+20,LSTM gated MoE (global full),fire_index_fbupinx_max_trend,static,0.0107,0.0071
+21,LSTM gated MoE (global full),tvh,categorical,0.0094,0.0009
+22,LSTM gated MoE (global full),population,static,0.0093,0.0101
+23,LSTM gated MoE (global full),fire_index_drtcode_median,static,0.0092,0.0064
+24,LSTM gated MoE (global full),fire_index_fbupinx_mean_trend,static,0.0085,0.0043
+25,LSTM gated MoE (global full),tp_mean_120,dynamic_sequence,0.0083,0.0119
+26,LSTM gated MoE (global full),sdfor,static,0.0081,0.0019
+27,LSTM gated MoE (global full),fire_index_drtcode_mean,static,0.008,0.0066
+28,LSTM gated MoE (global full),fire_index_drtcode_min,static,0.008,0.0122
+29,LSTM gated MoE (global full),t2m_lag_14,dynamic_sequence,0.0077,0.01
+30,LSTM gated MoE (global full),light_density_gaussian_5km,static,0.0074,0.0035

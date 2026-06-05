@@ -18,7 +18,11 @@ from .stages import (
 from .config import EvaluationConfig, NN_LABELS
 from .neural_metrics import import_neural_metrics
 from .neural_importance import run_neural_feature_importance
-from .fire_period_timelines import FirePeriodTimelineConfig, run_fire_period_timelines
+from .fire_period_timelines import (
+    FirePeriodTimelineConfig,
+    align_fire_period_timeline_outputs_to_common_windows,
+    run_fire_period_timelines,
+)
 from .probability_overlays import ProbabilityOverlayConfig, run_probability_overlays, safe_slug
 
 
@@ -71,6 +75,8 @@ def _resolve_best_neural_model(
 def probability_overlay_config(
     config: EvaluationConfig,
     *,
+    model: str | None = None,
+    source: str | None = None,
     feature_config: Path | None = None,
     output_dir: Path | None = None,
     source_label: str | None = None,
@@ -85,8 +91,8 @@ def probability_overlay_config(
         regions_file=config.regions_file,
         feature_config=feature_config or config.feature_config,
         target_config=config.target_config,
-        source=config.probability_overlay_source,
-        model=_resolve_best_neural_model(config),
+        source=source or config.probability_overlay_source,
+        model=_resolve_best_neural_model(config, model=model or config.probability_overlay_model),
         selection_metric=config.probability_overlay_selection_metric,
         min_wildfires=config.probability_overlay_min_wildfires,
         spatial_tolerance_degrees=config.probability_overlay_spatial_tolerance_degrees,
@@ -104,6 +110,16 @@ def probability_overlay_config(
         dense_neural_training_features=dense_neural_training_features or config.probability_overlay_dense_neural_training_features,
         dense_neural_batch_size=config.probability_overlay_dense_neural_batch_size,
         dense_neural_device=config.probability_overlay_dense_neural_device,
+        dense_neural_rows_per_prediction_batch=config.probability_overlay_dense_neural_rows_per_prediction_batch,
+        dense_neural_max_tensor_batch_bytes=config.probability_overlay_dense_neural_max_tensor_batch_bytes,
+        dense_neural_cache_dir=config.probability_overlay_dense_neural_cache_dir,
+        dense_neural_cache_policy=config.probability_overlay_dense_neural_cache_policy,
+        dense_neural_block_cache_dir=config.probability_overlay_dense_neural_block_cache_dir,
+        dense_neural_use_block_cache=config.probability_overlay_dense_neural_use_block_cache,
+        dense_neural_location_batch_size=config.probability_overlay_dense_neural_location_batch_size,
+        dense_neural_max_time_span_days=config.probability_overlay_dense_neural_max_time_span_days,
+        dense_neural_fill_row_batch_size=config.probability_overlay_dense_neural_fill_row_batch_size,
+        dense_neural_max_slab_spatial_cells=config.probability_overlay_dense_neural_max_slab_spatial_cells,
         overwrite_dense=config.probability_overlay_overwrite_dense,
         grid_resolution=config.probability_overlay_grid_resolution,
         interpolation_factor=config.probability_overlay_interpolation_factor,
@@ -144,9 +160,13 @@ def probability_overlay_configs(config: EvaluationConfig) -> list[ProbabilityOve
             or config.probability_overlay_dense_neural_training_features
         )
         model_path = run.get("dense_neural_model_path") or run.get("model_path")
+        run_model = run.get("probability_overlay_model") or run.get("model")
+        run_source = run.get("probability_overlay_source") or run.get("source")
         configs.append(
             probability_overlay_config(
                 config,
+                model=str(run_model) if run_model else None,
+                source=str(run_source) if run_source else None,
                 feature_config=run_feature_config,
                 output_dir=run_output,
                 source_label=label,
@@ -163,6 +183,8 @@ def probability_overlay_configs(config: EvaluationConfig) -> list[ProbabilityOve
 def fire_period_timeline_config(
     config: EvaluationConfig,
     *,
+    model: str | None = None,
+    source: str | None = None,
     feature_config: Path | None = None,
     output_dir: Path | None = None,
     source_label: str | None = None,
@@ -173,16 +195,16 @@ def fire_period_timeline_config(
     color_vmax: float | None = None,
 ) -> FirePeriodTimelineConfig:
     selection_metric = config.fire_period_timeline_selection_metric or config.probability_overlay_selection_metric
-    model = config.fire_period_timeline_model or config.probability_overlay_model
+    requested_model = model or config.fire_period_timeline_model or config.probability_overlay_model
     return FirePeriodTimelineConfig(
         results_dir=config.output_dir,
         regions_file=config.regions_file,
         feature_config=feature_config or config.feature_config,
         target_config=config.target_config,
-        source=config.fire_period_timeline_source or config.probability_overlay_source,
+        source=source or config.fire_period_timeline_source or config.probability_overlay_source,
         model=_resolve_best_neural_model(
             config,
-            model=model,
+            model=requested_model,
             selection_metric=selection_metric,
             best_model_scope=config.probability_overlay_best_model_scope,
         ),
@@ -236,6 +258,16 @@ def fire_period_timeline_config(
         or config.probability_overlay_dense_neural_training_features,
         overlay_dense_neural_batch_size=config.probability_overlay_dense_neural_batch_size,
         overlay_dense_neural_device=config.probability_overlay_dense_neural_device,
+        overlay_dense_neural_rows_per_prediction_batch=config.probability_overlay_dense_neural_rows_per_prediction_batch,
+        overlay_dense_neural_max_tensor_batch_bytes=config.probability_overlay_dense_neural_max_tensor_batch_bytes,
+        overlay_dense_neural_cache_dir=config.probability_overlay_dense_neural_cache_dir,
+        overlay_dense_neural_cache_policy=config.probability_overlay_dense_neural_cache_policy,
+        overlay_dense_neural_block_cache_dir=config.probability_overlay_dense_neural_block_cache_dir,
+        overlay_dense_neural_use_block_cache=config.probability_overlay_dense_neural_use_block_cache,
+        overlay_dense_neural_location_batch_size=config.probability_overlay_dense_neural_location_batch_size,
+        overlay_dense_neural_max_time_span_days=config.probability_overlay_dense_neural_max_time_span_days,
+        overlay_dense_neural_fill_row_batch_size=config.probability_overlay_dense_neural_fill_row_batch_size,
+        overlay_dense_neural_max_slab_spatial_cells=config.probability_overlay_dense_neural_max_slab_spatial_cells,
         overlay_overwrite_dense=config.probability_overlay_overwrite_dense,
         overlay_grid_resolution=config.probability_overlay_grid_resolution,
         overlay_interpolation_factor=config.probability_overlay_interpolation_factor,
@@ -275,9 +307,13 @@ def fire_period_timeline_configs(config: EvaluationConfig) -> list[FirePeriodTim
             or config.probability_overlay_dense_neural_training_features
         )
         model_path = run.get("dense_neural_model_path") or run.get("model_path")
+        run_model = run.get("fire_period_timeline_model") or run.get("probability_overlay_model") or run.get("model")
+        run_source = run.get("fire_period_timeline_source") or run.get("probability_overlay_source") or run.get("source")
         configs.append(
             fire_period_timeline_config(
                 config,
+                model=str(run_model) if run_model else None,
+                source=str(run_source) if run_source else None,
                 feature_config=run_feature_config,
                 output_dir=run_output,
                 source_label=label,
@@ -314,8 +350,14 @@ def run_evaluation(config: EvaluationConfig) -> None:
         for overlay_config in probability_overlay_configs(config):
             run_probability_overlays(overlay_config)
     if config.run_fire_period_timelines:
-        for timeline_config in fire_period_timeline_configs(config):
+        timeline_configs = fire_period_timeline_configs(config)
+        for timeline_config in timeline_configs:
             run_fire_period_timelines(timeline_config)
+        if config.fire_period_timeline_common_windows:
+            align_fire_period_timeline_outputs_to_common_windows(
+                timeline_configs,
+                reference_source_label=config.fire_period_timeline_reference_source,
+            )
     if config.run_prediction_diagnostics:
         run_prediction_diagnostics(config)
     if config.run_fire_weather_index_evaluation:

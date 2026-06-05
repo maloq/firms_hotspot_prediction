@@ -1,6 +1,2 @@
 Variant,F1,F1 Error,PR-AUC,PR-AUC Error,Delta PR-AUC,Threshold
-Dynamic sequence only,0.2657,0.000265,0.2158,0.0039,0.2335,0.0658
-Full neural feature set,0.3927,0.00255,0.4492,0.0109,0.0,0.1911
-No categorical features,0.4482,0.001368,0.4658,0.0045,-0.0166,0.3164
-No dynamic weather sequence,0.3885,0.001727,0.2976,0.0024,0.1517,0.3057
-No static features,0.381,0.001435,0.397,0.008,0.0522,0.2195
+Full neural feature set,0.637,0.002825,0.6842,0.004985,0.0,0.4301

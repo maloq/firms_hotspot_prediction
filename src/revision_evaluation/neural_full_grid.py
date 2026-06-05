@@ -32,11 +32,17 @@ _MODEL_OUTPUT_DIRS = {
     "nn_global_full_minimal_mlp_fullgrid_opt": "nn_global_full_minimal_mlp_fullgrid_opt",
     "nn_global_full_minimal_mlp_fullgrid_rank_opt": "nn_global_full_minimal_mlp_fullgrid_rank_opt",
     "spatial_tsn": "nn_global_full_spatial_tsn",
+    "spatial_tsn_embedding_fusion": "nn_global_full_spatial_tsn_embedding_fusion",
     "spatial_tsn_no_tp": "nn_global_full_spatial_tsn_no_tp",
     "spatial_tsn_ecmwf": "nn_global_full_spatial_tsn_ecmwf",
     "nn_global_full_spatial_tsn": "nn_global_full_spatial_tsn",
+    "nn_global_full_spatial_tsn_embedding_fusion": "nn_global_full_spatial_tsn_embedding_fusion",
     "nn_global_full_spatial_tsn_no_tp": "nn_global_full_spatial_tsn_no_tp",
     "nn_global_full_spatial_tsn_ecmwf": "nn_global_full_spatial_tsn_ecmwf",
+    "tsn_embedding_fusion": "nn_global_full_tsn_embedding_fusion",
+    "nn_global_full_tsn_embedding_fusion": "nn_global_full_tsn_embedding_fusion",
+    "lstm_embedding_fusion": "nn_global_full_lstm_embedding_fusion",
+    "nn_global_full_lstm_embedding_fusion": "nn_global_full_lstm_embedding_fusion",
 }
 
 
@@ -87,8 +93,38 @@ def dense_neural_feature_columns(predictor: Any) -> list[str]:
     return list(dict.fromkeys(str(col) for col in columns if str(col)))
 
 
-def make_dense_neural_raw_predict_fn(predictor: Any, rows_per_prediction_batch: int):
-    batch_rows = max(1, int(rows_per_prediction_batch))
+def _predictor_batch_rows(
+    predictor: Any,
+    rows_per_prediction_batch: int | str | None,
+    max_tensor_batch_bytes: int | None = None,
+) -> int:
+    if hasattr(predictor, "resolve_tensor_batch_rows"):
+        return int(
+            predictor.resolve_tensor_batch_rows(
+                rows_per_prediction_batch,
+                max_tensor_batch_bytes=max_tensor_batch_bytes,
+            )
+        )
+    if rows_per_prediction_batch is not None:
+        if isinstance(rows_per_prediction_batch, str):
+            normalized = rows_per_prediction_batch.strip().lower()
+            if normalized not in {"", "auto", "none"}:
+                return max(1, int(normalized))
+        elif int(rows_per_prediction_batch) > 0:
+            return max(1, int(rows_per_prediction_batch))
+    return 8192
+
+
+def make_dense_neural_raw_predict_fn(
+    predictor: Any,
+    rows_per_prediction_batch: int | str | None,
+    max_tensor_batch_bytes: int | None = None,
+):
+    batch_rows = _predictor_batch_rows(
+        predictor,
+        rows_per_prediction_batch,
+        max_tensor_batch_bytes=max_tensor_batch_bytes,
+    )
 
     def _predict(frame: pd.DataFrame) -> dict[str, Any]:
         probs: list[np.ndarray] = []
@@ -117,13 +153,20 @@ def run_neural_full_grid_evaluation(config: Any) -> list[dict[str, Any]]:
     regions = load_regions(Path(getattr(config, "regions_file")))
     training_features = Path(getattr(config, "neural_full_grid_training_features", getattr(config, "features_path")))
     batch_size = int(getattr(config, "neural_full_grid_batch_size", 8192))
-    rows_per_prediction_batch = int(getattr(config, "neural_full_grid_rows_per_prediction_batch", 8192))
+    rows_per_prediction_batch = getattr(config, "neural_full_grid_rows_per_prediction_batch", None)
+    max_tensor_batch_bytes = getattr(config, "neural_full_grid_max_tensor_batch_bytes", None)
     device = str(getattr(config, "neural_full_grid_device", "auto"))
     masked_dynamic_variables = list(getattr(config, "neural_full_grid_masked_climate_variables", []) or [])
+    output_dir = Path(getattr(config, "output_dir"))
     dense_cache_dir = getattr(config, "neural_full_grid_dense_cache_dir", None)
     dense_cache_dir = Path(dense_cache_dir) if dense_cache_dir else None
+    dense_cache_policy = str(getattr(config, "neural_full_grid_dense_cache_policy", "none") or "none")
+    if dense_cache_dir is None and dense_cache_policy.lower() in {"read", "write", "read-write"}:
+        dense_cache_dir = output_dir / "shared_artifacts" / "dense_neural_dynamic_cache"
     dense_block_cache_dir = getattr(config, "neural_full_grid_dense_block_cache_dir", None)
-    dense_block_cache_dir = Path(dense_block_cache_dir) if dense_block_cache_dir else dense_cache_dir
+    dense_block_cache_dir = Path(dense_block_cache_dir) if dense_block_cache_dir else None
+    if dense_block_cache_dir is None and dense_cache_dir is not None:
+        dense_block_cache_dir = dense_cache_dir / "blocks"
 
     rows: list[dict[str, Any]] = []
     for model in models:
@@ -145,9 +188,9 @@ def run_neural_full_grid_evaluation(config: Any) -> list[dict[str, Any]]:
                 feature_config=feature_config,
                 masked_dynamic_variables=masked_dynamic_variables,
                 daily_dynamic_cache_dir=dense_cache_dir,
-                daily_dynamic_cache_policy=str(getattr(config, "neural_full_grid_dense_cache_policy", "none")),
+                daily_dynamic_cache_policy=dense_cache_policy,
                 daily_dynamic_block_cache_dir=dense_block_cache_dir,
-                daily_dynamic_use_block_cache=bool(getattr(config, "neural_full_grid_dense_use_block_cache", False)),
+                daily_dynamic_use_block_cache=bool(getattr(config, "neural_full_grid_dense_use_block_cache", True)),
                 daily_dynamic_location_batch_size=getattr(config, "neural_full_grid_dense_location_batch_size", None),
                 daily_dynamic_max_time_span_days=getattr(config, "neural_full_grid_dense_max_time_span_days", None),
                 daily_dynamic_fill_row_batch_size=getattr(config, "neural_full_grid_dense_fill_row_batch_size", None),
@@ -164,8 +207,12 @@ def run_neural_full_grid_evaluation(config: Any) -> list[dict[str, Any]]:
                 feature_columns=feature_columns,
                 categorical_columns=list(getattr(predictor, "categorical_columns", []) or []),
                 config=config,
-                output_dir=Path(getattr(config, "output_dir")),
-                predict_raw_fn=make_dense_neural_raw_predict_fn(predictor, rows_per_prediction_batch),
+                output_dir=output_dir,
+                predict_raw_fn=make_dense_neural_raw_predict_fn(
+                    predictor,
+                    rows_per_prediction_batch,
+                    max_tensor_batch_bytes=max_tensor_batch_bytes,
+                ),
                 feature_config=feature_config,
                 target_config=target_config,
                 regions=regions,
@@ -186,7 +233,7 @@ def run_neural_full_grid_evaluation(config: Any) -> list[dict[str, Any]]:
             logging.info("Full-grid dense neural evaluation complete for %s", model_name)
         except Exception as exc:
             failure_path = write_full_grid_failure(
-                Path(getattr(config, "output_dir")),
+                output_dir,
                 model_name=model_name,
                 model_type="Neural",
                 exc=exc,
@@ -206,10 +253,18 @@ def run_neural_full_grid_evaluation(config: Any) -> list[dict[str, Any]]:
             if bool(getattr(config, "fail_on_full_grid_error", False)):
                 raise
 
-    out = primary_dir(Path(getattr(config, "output_dir")))
+    out = primary_dir(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "neural_full_grid_manifest.json").write_text(
         json.dumps(rows, indent=2, default=str),
         encoding="utf-8",
     )
+    try:
+        from .experiment_library import refresh_primary_full_grid_experiment
+
+        refresh_primary_full_grid_experiment(output_dir)
+    except Exception:
+        logging.exception("Failed to refresh experiment 04 after dense neural full-grid evaluation.")
+        if bool(getattr(config, "fail_on_full_grid_error", False)):
+            raise
     return rows

@@ -1,81 +1,81 @@
 Model,Split,Threshold,Precision,Recall,F1
-CatBoost,test,0.408,0.3469,0.9413,0.507
-CatBoost,test,0.408,0.3469,0.9413,0.507
-CatBoost,test_2021,0.408,0.5294,0.9806,0.6876
-CatBoost,test_2021,0.408,0.5294,0.9806,0.6876
-CatBoost,test_2021-2023,0.408,0.4294,0.9526,0.5919
-CatBoost,test_2021-2023,0.408,0.4294,0.9526,0.5919
-CatBoost,test_2021-2025,0.408,0.3469,0.9413,0.507
-CatBoost,test_2021-2025,0.408,0.3469,0.9413,0.507
-CatBoost,test_2022,0.408,0.2698,0.8412,0.4085
-CatBoost,test_2022,0.408,0.2698,0.8412,0.4085
-CatBoost,test_2023,0.408,0.322,0.9316,0.4786
-CatBoost,test_2023,0.408,0.322,0.9316,0.4786
-CatBoost,test_2024,0.408,0.2574,0.9203,0.4023
-CatBoost,test_2024,0.408,0.2574,0.9203,0.4023
-CatBoost,test_2025,0.408,0.1631,0.8833,0.2754
-CatBoost,test_2025,0.408,0.1631,0.8833,0.2754
-CatBoost,validation,0.408,0.4372,0.8638,0.5806
-CatBoost,validation,0.408,0.4372,0.8638,0.5806
-FWI-only CatBoost,test,0.4773,0.213,0.9109,0.3453
-FWI-only CatBoost,test,0.4773,0.213,0.9109,0.3453
-FWI-only CatBoost,test_2021,0.4773,0.3677,0.9352,0.5279
-FWI-only CatBoost,test_2021,0.4773,0.3677,0.9352,0.5279
-FWI-only CatBoost,test_2021-2023,0.4773,0.2445,0.9157,0.3859
-FWI-only CatBoost,test_2021-2023,0.4773,0.2445,0.9157,0.3859
-FWI-only CatBoost,test_2021-2025,0.4773,0.213,0.9109,0.3453
-FWI-only CatBoost,test_2022,0.4773,0.1234,0.9053,0.2172
-FWI-only CatBoost,test_2022,0.4773,0.1234,0.9053,0.2172
-FWI-only CatBoost,test_2023,0.4773,0.1551,0.8531,0.2624
-FWI-only CatBoost,test_2023,0.4773,0.1551,0.8531,0.2624
-FWI-only CatBoost,test_2024,0.4773,0.1923,0.8817,0.3157
-FWI-only CatBoost,test_2024,0.4773,0.1923,0.8817,0.3157
-FWI-only CatBoost,test_2025,0.4773,0.1082,0.9356,0.1939
-FWI-only CatBoost,test_2025,0.4773,0.1082,0.9356,0.1939
-FWI-only CatBoost,validation,0.4773,0.2582,0.8842,0.3996
-FWI-only CatBoost,validation,0.4773,0.2582,0.8842,0.3996
-Logistic Regression (linear SGD),test,1.0,0.2497,0.9624,0.3965
-Logistic Regression (linear SGD),test_2021,1.0,0.4025,0.9879,0.572
-Logistic Regression (linear SGD),test_2021-2023,1.0,0.284,0.9739,0.4398
-Logistic Regression (linear SGD),test_2021-2025,1.0,0.2497,0.9624,0.3965
-Logistic Regression (linear SGD),test_2022,1.0,0.1485,0.909,0.2553
-Logistic Regression (linear SGD),test_2023,1.0,0.1937,0.9697,0.3229
-Logistic Regression (linear SGD),test_2024,1.0,0.2218,0.921,0.3575
-Logistic Regression (linear SGD),test_2025,1.0,0.1313,0.9517,0.2307
-Logistic Regression (linear SGD),validation,1.0,0.2951,0.9429,0.4495
-Poisson Point-Process GLM,test,0.3282,0.3201,0.8447,0.4643
-Poisson Point-Process GLM,test_2021,0.3282,0.473,0.9188,0.6245
-Poisson Point-Process GLM,test_2021-2023,0.3282,0.355,0.8684,0.5039
-Poisson Point-Process GLM,test_2021-2025,0.3282,0.3201,0.8447,0.4643
-Poisson Point-Process GLM,test_2022,0.3282,0.1907,0.7097,0.3007
-Poisson Point-Process GLM,test_2023,0.3282,0.2392,0.8005,0.3683
-Poisson Point-Process GLM,test_2024,0.3282,0.278,0.7799,0.4099
-Poisson Point-Process GLM,test_2025,0.3282,0.1886,0.7721,0.3032
-Poisson Point-Process GLM,validation,0.3282,0.3519,0.7206,0.4729
-Random Forest,test,0.2865,0.3705,0.8553,0.517
-Random Forest,test_2021,0.2865,0.5097,0.9401,0.661
-Random Forest,test_2021-2023,0.2865,0.4093,0.8993,0.5626
-Random Forest,test_2021-2025,0.2865,0.3705,0.8553,0.517
-Random Forest,test_2022,0.2865,0.2524,0.7701,0.3802
-Random Forest,test_2023,0.2865,0.2961,0.8453,0.4386
-Random Forest,test_2024,0.2865,0.2991,0.6885,0.4171
-Random Forest,test_2025,0.2865,0.2447,0.8323,0.3782
-Random Forest,validation,0.2865,0.3973,0.7022,0.5075
-Weather-only CatBoost,test,0.3741,0.264,0.925,0.4108
-Weather-only CatBoost,test,0.3741,0.264,0.925,0.4108
-Weather-only CatBoost,test_2021,0.3741,0.4071,0.978,0.5749
-Weather-only CatBoost,test_2021,0.3741,0.4071,0.978,0.5749
-Weather-only CatBoost,test_2021-2023,0.3741,0.2912,0.9323,0.4438
-Weather-only CatBoost,test_2021-2023,0.3741,0.2912,0.9323,0.4438
-Weather-only CatBoost,test_2021-2025,0.3741,0.264,0.925,0.4108
-Weather-only CatBoost,test_2021-2025,0.3741,0.264,0.925,0.4108
-Weather-only CatBoost,test_2022,0.3741,0.1469,0.7246,0.2443
-Weather-only CatBoost,test_2022,0.3741,0.1469,0.7246,0.2443
-Weather-only CatBoost,test_2023,0.3741,0.1895,0.9165,0.314
-Weather-only CatBoost,test_2023,0.3741,0.1895,0.9165,0.314
-Weather-only CatBoost,test_2024,0.3741,0.2431,0.9321,0.3857
-Weather-only CatBoost,test_2024,0.3741,0.2431,0.9321,0.3857
-Weather-only CatBoost,test_2025,0.3741,0.1488,0.8371,0.2526
-Weather-only CatBoost,test_2025,0.3741,0.1488,0.8371,0.2526
-Weather-only CatBoost,validation,0.3741,0.305,0.8359,0.4469
-Weather-only CatBoost,validation,0.3741,0.305,0.8359,0.4469
+CatBoost,test,0.4976,0.3996,0.8216,0.5377
+CatBoost,test,0.4976,0.3996,0.8216,0.5377
+CatBoost,test_2021,0.4976,0.5238,0.9193,0.6674
+CatBoost,test_2021,0.4976,0.5238,0.9193,0.6674
+CatBoost,test_2021-2023,0.4976,0.4266,0.8533,0.5688
+CatBoost,test_2021-2023,0.4976,0.4266,0.8533,0.5688
+CatBoost,test_2021-2025,0.4976,0.3996,0.8216,0.5377
+CatBoost,test_2021-2025,0.4976,0.3996,0.8216,0.5377
+CatBoost,test_2022,0.4976,0.2479,0.6004,0.3509
+CatBoost,test_2022,0.4976,0.2479,0.6004,0.3509
+CatBoost,test_2023,0.4976,0.3088,0.7969,0.4451
+CatBoost,test_2023,0.4976,0.3088,0.7969,0.4451
+CatBoost,test_2024,0.4976,0.3492,0.7328,0.473
+CatBoost,test_2024,0.4976,0.3492,0.7328,0.473
+CatBoost,test_2025,0.4976,0.293,0.7293,0.4181
+CatBoost,test_2025,0.4976,0.293,0.7293,0.4181
+CatBoost,validation,0.4976,0.4179,0.6617,0.5123
+CatBoost,validation,0.4976,0.4179,0.6617,0.5123
+CatBoost deployment-weighted,test,0.4627,0.1983,0.9508,0.3281
+CatBoost deployment-weighted,test_2021,0.4627,0.3496,0.983,0.5157
+CatBoost deployment-weighted,test_2021-2023,0.4627,0.2288,0.9567,0.3693
+CatBoost deployment-weighted,test_2021-2025,0.4627,0.1983,0.9508,0.3281
+CatBoost deployment-weighted,test_2022,0.4627,0.1082,0.8812,0.1927
+CatBoost deployment-weighted,test_2023,0.4627,0.1461,0.9162,0.252
+CatBoost deployment-weighted,test_2024,0.4627,0.1839,0.952,0.3083
+CatBoost deployment-weighted,test_2025,0.4627,0.0908,0.8912,0.1649
+CatBoost deployment-weighted,validation,0.4627,0.2461,0.9419,0.3903
+FWI-only CatBoost,test,0.4647,0.2064,0.9371,0.3383
+FWI-only CatBoost,test_2021,0.4647,0.3585,0.9576,0.5217
+FWI-only CatBoost,test_2021-2023,0.4647,0.2372,0.9416,0.379
+FWI-only CatBoost,test_2021-2025,0.4647,0.2064,0.9371,0.3383
+FWI-only CatBoost,test_2022,0.4647,0.1196,0.9387,0.2121
+FWI-only CatBoost,test_2023,0.4647,0.1512,0.8862,0.2583
+FWI-only CatBoost,test_2024,0.4647,0.187,0.9135,0.3105
+FWI-only CatBoost,test_2025,0.4647,0.1029,0.9504,0.1858
+FWI-only CatBoost,validation,0.4647,0.2532,0.9225,0.3974
+Logistic Regression (linear SGD),test,1.0,0.2512,0.959,0.3981
+Logistic Regression (linear SGD),test_2021,1.0,0.4053,0.9872,0.5747
+Logistic Regression (linear SGD),test_2021-2023,1.0,0.2857,0.9718,0.4416
+Logistic Regression (linear SGD),test_2021-2025,1.0,0.2512,0.959,0.3981
+Logistic Regression (linear SGD),test_2022,1.0,0.1484,0.9033,0.2549
+Logistic Regression (linear SGD),test_2023,1.0,0.1949,0.9655,0.3244
+Logistic Regression (linear SGD),test_2024,1.0,0.2229,0.9129,0.3583
+Logistic Regression (linear SGD),test_2025,1.0,0.1321,0.9464,0.2318
+Logistic Regression (linear SGD),validation,1.0,0.2962,0.9402,0.4505
+Poisson Point-Process GLM,test,0.3227,0.3163,0.848,0.4607
+Poisson Point-Process GLM,test_2021,0.3227,0.4723,0.9226,0.6248
+Poisson Point-Process GLM,test_2021-2023,0.3227,0.3524,0.8742,0.5023
+Poisson Point-Process GLM,test_2021-2025,0.3227,0.3163,0.848,0.4607
+Poisson Point-Process GLM,test_2022,0.3227,0.1898,0.7343,0.3016
+Poisson Point-Process GLM,test_2023,0.3227,0.2364,0.8001,0.365
+Poisson Point-Process GLM,test_2024,0.3227,0.2747,0.7827,0.4066
+Poisson Point-Process GLM,test_2025,0.3227,0.1787,0.7526,0.2888
+Poisson Point-Process GLM,validation,0.3227,0.3546,0.7459,0.4807
+Random Forest,test,0.2174,0.3244,0.8843,0.4747
+Random Forest,test_2021,0.2174,0.4595,0.9401,0.6173
+Random Forest,test_2021-2023,0.2174,0.3538,0.9124,0.5099
+Random Forest,test_2021-2025,0.2174,0.3244,0.8843,0.4747
+Random Forest,test_2022,0.2174,0.2153,0.856,0.344
+Random Forest,test_2023,0.2174,0.2441,0.853,0.3796
+Random Forest,test_2024,0.2174,0.278,0.7703,0.4086
+Random Forest,test_2025,0.2174,0.2198,0.8878,0.3524
+Random Forest,validation,0.2174,0.3474,0.7437,0.4736
+Weather-only CatBoost,test,0.5005,0.288,0.7944,0.4227
+Weather-only CatBoost,test,0.5005,0.288,0.7944,0.4227
+Weather-only CatBoost,test_2021,0.5005,0.451,0.8881,0.5982
+Weather-only CatBoost,test_2021,0.5005,0.451,0.8881,0.5982
+Weather-only CatBoost,test_2021-2023,0.5005,0.3264,0.8205,0.467
+Weather-only CatBoost,test_2021-2023,0.5005,0.3264,0.8205,0.467
+Weather-only CatBoost,test_2021-2025,0.5005,0.288,0.7944,0.4227
+Weather-only CatBoost,test_2022,0.5005,0.1433,0.5149,0.2242
+Weather-only CatBoost,test_2022,0.5005,0.1433,0.5149,0.2242
+Weather-only CatBoost,test_2023,0.5005,0.2151,0.7956,0.3387
+Weather-only CatBoost,test_2023,0.5005,0.2151,0.7956,0.3387
+Weather-only CatBoost,test_2024,0.5005,0.2472,0.7218,0.3682
+Weather-only CatBoost,test_2024,0.5005,0.2472,0.7218,0.3682
+Weather-only CatBoost,test_2025,0.5005,0.1516,0.7182,0.2504
+Weather-only CatBoost,test_2025,0.5005,0.1516,0.7182,0.2504
+Weather-only CatBoost,validation,0.5005,0.3285,0.7313,0.4534
+Weather-only CatBoost,validation,0.5005,0.3285,0.7313,0.4534

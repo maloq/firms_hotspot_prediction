@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import glob
 import json
+import shutil
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -30,24 +31,212 @@ from .tabular import (
 LEGACY_FAILED_NN_IDS = ["lstm_mlp_full", "minimal_mlp_full", "ft_transformer_full"]
 MAIN_FEATURE_SET = "global full NN features"
 EVALUATION_TYPE = "legacy_sampled_case_control"
+_TEST_COORDINATE_FRAME_CACHE: dict[tuple[str, int | None], pd.DataFrame | None] = {}
 
 
-def import_neural_metrics(config: EvaluationConfig) -> None:
+def _raw_jsonl_path(output_dir: Path, name: str) -> Path:
+    stem = Path(name).with_suffix("").name
+    return output_dir / "shared_artifacts" / "raw_tables_jsonl" / f"{stem}.jsonl.gz"
+
+
+def _raw_schema_path(output_dir: Path, name: str) -> Path:
+    stem = Path(name).with_suffix("").name
+    return output_dir / "shared_artifacts" / "raw_table_schemas" / f"{stem}.schema.json"
+
+
+def write_result_table(output_dir: Path, name: str, table: pd.DataFrame) -> None:
+    """Write a result table in both flat and organized-result locations."""
+    path = output_dir / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    table.to_csv(path, index=False)
+
+    raw_path = _raw_jsonl_path(output_dir, name)
+    if raw_path.parent.exists():
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        table.to_json(raw_path, orient="records", lines=True, compression="gzip")
+
+    schema_path = _raw_schema_path(output_dir, name)
+    if schema_path.parent.exists():
+        schema_path.parent.mkdir(parents=True, exist_ok=True)
+        schema = {
+            "source_csv": name,
+            "rows": int(len(table)),
+            "columns": [{"name": c, "dtype": str(table[c].dtype)} for c in table.columns],
+        }
+        schema_path.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _round_for_presentation(table: pd.DataFrame) -> pd.DataFrame:
+    out = table.copy()
+    for column in out.columns:
+        if pd.api.types.is_float_dtype(out[column]):
+            lower = column.lower()
+            if "rate" in lower:
+                out[column] = out[column].round(8)
+            elif pd.to_numeric(out[column], errors="coerce").abs().max(skipna=True) < 0.01:
+                out[column] = out[column].round(6)
+            else:
+                out[column] = out[column].round(4)
+    return out
+
+
+def _presentation_table(
+    table: pd.DataFrame,
+    columns: list[tuple[str, str]],
+    *,
+    sort_by: list[str],
+) -> pd.DataFrame:
+    selected = []
+    rename = {}
+    for source, destination in columns:
+        if source in table.columns:
+            selected.append(source)
+            rename[source] = destination
+    if not selected:
+        return pd.DataFrame()
+    out = table.loc[:, selected].rename(columns=rename)
+    actual_sort = [column for column in sort_by if column in out.columns]
+    if actual_sort:
+        out = out.sort_values(actual_sort)
+    return _round_for_presentation(out)
+
+
+def _filter_global(table: pd.DataFrame) -> pd.DataFrame:
+    if "region_display" in table.columns:
+        return table[table["region_display"].astype(str).str.lower().eq("global")].copy()
+    if "region" in table.columns:
+        return table[table["region"].astype(str).str.lower().eq("global")].copy()
+    return table.copy()
+
+
+def _filter_non_global(table: pd.DataFrame) -> pd.DataFrame:
+    if "region_display" in table.columns:
+        return table[~table["region_display"].astype(str).str.lower().eq("global")].copy()
+    if "region" in table.columns:
+        return table[~table["region"].astype(str).str.lower().eq("global")].copy()
+    return table.copy()
+
+
+def _annual_only(table: pd.DataFrame) -> pd.DataFrame:
+    if "period" not in table.columns:
+        return table.copy()
+    return table[table["period"].astype(str).isin(["2021", "2022", "2023", "2024", "2025"])].copy()
+
+
+def _combined_periods(table: pd.DataFrame) -> pd.DataFrame:
+    if "period" not in table.columns:
+        return table.copy()
+    return table[table["period"].astype(str).isin(["2021-2023", "2021-2025"])].copy()
+
+
+def refresh_neural_embedding_experiment_tables(
+    output_dir: Path,
+    neural_table: pd.DataFrame | None = None,
+    neural_by_year: pd.DataFrame | None = None,
+) -> None:
+    """Refresh organized neural embedding experiment tables without running the full organizer."""
+    neural_table = neural_table if neural_table is not None else read_result_table(output_dir, "embedding_fusion_ablation.csv")
+    neural_by_year = (
+        neural_by_year
+        if neural_by_year is not None
+        else read_result_table(output_dir, "embedding_fusion_ablation_by_year.csv")
+    )
+    if neural_table.empty:
+        return
+
+    exp12 = output_dir / "experiments" / "12_neural_embedding_fusion_global" / "tables"
+    exp12.mkdir(parents=True, exist_ok=True)
+    _presentation_table(
+        _filter_global(neural_table),
+        [
+            ("experiment", "Variant"),
+            ("f1", "F1"),
+            ("f1_error", "F1 Error"),
+            ("average_precision", "PR-AUC"),
+            ("average_precision_error", "PR-AUC Error"),
+            ("threshold", "Threshold"),
+        ],
+        sort_by=["Variant"],
+    ).to_csv(exp12 / "global_neural_fusion_metrics.csv", index=False)
+
+    exp13 = output_dir / "experiments" / "13_neural_embedding_fusion_by_region" / "tables"
+    exp13.mkdir(parents=True, exist_ok=True)
+    _presentation_table(
+        _filter_non_global(neural_table),
+        [
+            ("region_display", "Region"),
+            ("experiment", "Variant"),
+            ("f1", "F1"),
+            ("f1_error", "F1 Error"),
+            ("average_precision", "PR-AUC"),
+            ("average_precision_error", "PR-AUC Error"),
+        ],
+        sort_by=["Region", "Variant"],
+    ).to_csv(exp13 / "regional_neural_fusion_metrics.csv", index=False)
+
+    if not neural_by_year.empty:
+        exp14 = output_dir / "experiments" / "14_neural_embedding_fusion_by_year" / "tables"
+        exp14.mkdir(parents=True, exist_ok=True)
+        _presentation_table(
+            _annual_only(neural_by_year),
+            [
+                ("region_display", "Region"),
+                ("period", "Year"),
+                ("experiment", "Variant"),
+                ("f1", "F1"),
+                ("average_precision", "PR-AUC"),
+                ("average_precision_error", "PR-AUC Error"),
+            ],
+            sort_by=["Region", "Year", "Variant"],
+        ).to_csv(exp14 / "yearly_neural_fusion_metrics.csv", index=False)
+        _presentation_table(
+            _combined_periods(neural_by_year),
+            [
+                ("region_display", "Region"),
+                ("period", "Period"),
+                ("experiment", "Variant"),
+                ("f1", "F1"),
+                ("average_precision", "PR-AUC"),
+                ("average_precision_error", "PR-AUC Error"),
+            ],
+            sort_by=["Region", "Period", "Variant"],
+        ).to_csv(exp14 / "combined_period_neural_fusion_metrics.csv", index=False)
+
+    for exp_slug in [
+        "12_neural_embedding_fusion_global",
+        "13_neural_embedding_fusion_by_region",
+        "14_neural_embedding_fusion_by_year",
+    ]:
+        for stem in ["embedding_fusion_pr_auc", "embedding_fusion_f1"]:
+            for suffix, subdir in [(".png", "png"), (".pdf", "pdf")]:
+                candidates = [
+                    output_dir / "plots" / f"{stem}{suffix}",
+                    output_dir / "shared_artifacts" / "source_plots_mixed" / f"{stem}{suffix}",
+                ]
+                src = next((path for path in candidates if path.exists()), None)
+                if src is None:
+                    continue
+                dst = output_dir / "experiments" / exp_slug / "plots" / subdir / src.name
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+
+
+def import_neural_metrics(
+    config: EvaluationConfig,
+    *,
+    refresh_main_plots: bool = True,
+    import_feature_ablation: bool = True,
+) -> None:
     out = config.output_dir
-    main_path = out / "main_model_comparison.csv"
-    neural_path = out / "embedding_fusion_ablation.csv"
-    if not main_path.exists() or not neural_path.exists():
+    main_table = read_result_table(out, "main_model_comparison.csv")
+    neural_table = read_result_table(out, "embedding_fusion_ablation.csv")
+    if main_table.empty or neural_table.empty:
         print("Skipping NN metric import: flat result tables are not present.", flush=True)
         return
 
-    main_table = pd.read_csv(main_path)
-    by_year_path = out / "main_model_comparison_by_year.csv"
-    main_by_year = pd.read_csv(by_year_path) if by_year_path.exists() else pd.DataFrame()
-    neural_table = pd.read_csv(neural_path)
-    neural_by_year_path = out / "embedding_fusion_ablation_by_year.csv"
-    neural_by_year = pd.read_csv(neural_by_year_path) if neural_by_year_path.exists() else pd.DataFrame()
-    registry_path = out / "experiment_registry.csv"
-    registry = pd.read_csv(registry_path) if registry_path.exists() else pd.DataFrame()
+    main_by_year = read_result_table(out, "main_model_comparison_by_year.csv")
+    neural_by_year = read_result_table(out, "embedding_fusion_ablation_by_year.csv")
+    registry = read_result_table(out, "experiment_registry.csv")
     regions = load_regions(config.regions_file)
 
     main_rows: list[dict[str, Any]] = []
@@ -127,32 +316,38 @@ def import_neural_metrics(config: EvaluationConfig) -> None:
     main_table = replace_rows(main_table, "Model", labels)
     main_table = pd.concat([main_table, pd.DataFrame(main_rows)], ignore_index=True)
     main_table = sort_if_possible(main_table, ["Region", "PR-AUC"], [True, False])
-    main_table.to_csv(main_path, index=False)
+    write_result_table(out, "main_model_comparison.csv", main_table)
 
     if main_year_rows:
         main_by_year = replace_rows(main_by_year, "model", labels)
         main_by_year = pd.concat([main_by_year, pd.DataFrame(main_year_rows)], ignore_index=True)
         main_by_year = sort_if_possible(main_by_year, ["model", "region_display", "period"], [True, True, True])
-        main_by_year.to_csv(by_year_path, index=False)
+        write_result_table(out, "main_model_comparison_by_year.csv", main_by_year)
 
     neural_table = replace_rows(neural_table, "experiment", labels)
     neural_table = pd.concat([neural_table, pd.DataFrame(neural_rows)], ignore_index=True)
-    neural_table.to_csv(neural_path, index=False)
+    write_result_table(out, "embedding_fusion_ablation.csv", neural_table)
 
     if neural_year_rows:
         neural_by_year = replace_rows(neural_by_year, "experiment", labels)
         neural_by_year = pd.concat([neural_by_year, pd.DataFrame(neural_year_rows)], ignore_index=True)
-        neural_by_year.to_csv(neural_by_year_path, index=False)
+        write_result_table(out, "embedding_fusion_ablation_by_year.csv", neural_by_year)
 
     if not registry.empty:
         registry = registry[~registry["experiment_id"].isin(ids + LEGACY_FAILED_NN_IDS)]
     registry = pd.concat([registry, pd.DataFrame(registry_rows)], ignore_index=True)
-    registry.to_csv(registry_path, index=False)
+    write_result_table(out, "experiment_registry.csv", registry)
 
     sync_legacy_model_tables(out, main_table, main_by_year)
-    write_main_model_pr_plots(config)
+    if refresh_main_plots:
+        try:
+            write_main_model_pr_plots(config)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Skipping all-model PR plot refresh after NN import: {exc}", flush=True)
     write_neural_plots(out, neural_table)
-    import_neural_feature_ablation_metrics(config, regions)
+    refresh_neural_embedding_experiment_tables(out, neural_table, neural_by_year)
+    if import_feature_ablation:
+        import_neural_feature_ablation_metrics(config, regions)
     print(
         f"Imported {len(labels)} NN metric file(s); added {len(main_rows)} "
         "regional sampled/case-control NN row(s) to the main table.",
@@ -172,7 +367,7 @@ def neural_metric_rows_from_artifacts(
     feature_set: str = MAIN_FEATURE_SET,
 ) -> list[dict[str, Any]]:
     pred = read_prediction_artifact(payload, "test")
-    frame = read_test_coordinate_frame(payload)
+    frame = read_test_coordinate_frame(payload, expected_rows=None if pred is None else len(pred))
     if pred is None or frame is None or len(pred) != len(frame):
         return []
 
@@ -414,17 +609,25 @@ def read_prediction_artifact(payload: dict[str, Any], split: str) -> pd.DataFram
     return pred
 
 
-def read_test_coordinate_frame(payload: dict[str, Any]) -> pd.DataFrame | None:
-    path = Path(str(payload.get("data_path") or ""))
+def read_test_coordinate_frame_from_path(path: Path, *, expected_rows: int | None = None) -> pd.DataFrame | None:
     if not path.is_file():
         return None
+    cache_key = (str(path.resolve()), None if expected_rows is None else int(expected_rows))
+    if cache_key in _TEST_COORDINATE_FRAME_CACHE:
+        cached = _TEST_COORDINATE_FRAME_CACHE[cache_key]
+        return None if cached is None else cached.copy()
     with np.load(path) as data:
         keys = set(data.files)
         if not {"split", "lat", "lon"}.issubset(keys):
+            _TEST_COORDINATE_FRAME_CACHE[cache_key] = None
             return None
         split = np.asarray(data["split"], dtype=np.int8)
         test_mask = split == 2
         if not test_mask.any():
+            _TEST_COORDINATE_FRAME_CACHE[cache_key] = None
+            return None
+        if expected_rows is not None and int(test_mask.sum()) != int(expected_rows):
+            _TEST_COORDINATE_FRAME_CACHE[cache_key] = None
             return None
         if "years" in keys:
             years = np.asarray(data["years"])[test_mask].astype(int)
@@ -432,14 +635,40 @@ def read_test_coordinate_frame(payload: dict[str, Any]) -> pd.DataFrame | None:
             dates = pd.to_datetime(np.asarray(data["dates"])[test_mask], unit="D", errors="coerce")
             years = dates.year.to_numpy(dtype=int)
         else:
+            _TEST_COORDINATE_FRAME_CACHE[cache_key] = None
             return None
-        return pd.DataFrame(
+        frame = pd.DataFrame(
             {
                 LAT_COLUMN: np.asarray(data["lat"])[test_mask].astype(float),
                 LON_COLUMN: np.asarray(data["lon"])[test_mask].astype(float),
                 "year": years,
             }
         )
+        _TEST_COORDINATE_FRAME_CACHE[cache_key] = frame
+        return frame.copy()
+
+
+def read_test_coordinate_frame(payload: dict[str, Any], *, expected_rows: int | None = None) -> pd.DataFrame | None:
+    candidates: list[Path] = []
+    raw_data_path = payload.get("data_path")
+    if raw_data_path:
+        candidates.append(Path(str(raw_data_path)))
+    candidates.extend(
+        [
+            Path("data/saved_features/nn_train_data/prepared_data.npz"),
+            Path("/home/ids/vmorozov/data/saved_features/nn_train_data/prepared_data.npz"),
+        ]
+    )
+
+    seen: set[Path] = set()
+    for path in candidates:
+        if path in seen:
+            continue
+        seen.add(path)
+        frame = read_test_coordinate_frame_from_path(path, expected_rows=expected_rows)
+        if frame is not None:
+            return frame
+    return None
 
 
 def fallback_global_metric_rows(
@@ -767,6 +996,7 @@ def main_model_prediction_ids(config: EvaluationConfig) -> dict[str, str]:
         "FWI-only CatBoost": "catboost_fwi_only",
         "Weather-only CatBoost": "catboost_weather_only",
         "CatBoost": "catboost_full",
+        "CatBoost deployment-weighted": "catboost_deployment_weighted",
         "Random Forest": "random_forest_full",
     }
     for key in config.new_nn_models:

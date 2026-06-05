@@ -30,7 +30,7 @@ def run_neural_feature_importance(config: EvaluationConfig) -> None:
             f"is missing under {output_dir} or shared_artifacts/raw_tables_jsonl."
         )
 
-    exp_id, label = select_best_neural_model(main)
+    exp_id, label = select_best_neural_model(main, output_dir=output_dir, config=config)
     metrics_path = find_metrics_file(output_dir, exp_id, config)
     payload = json.loads(metrics_path.read_text(encoding="utf-8"))
     prediction_path = find_prediction_file(output_dir, exp_id, payload)
@@ -86,13 +86,40 @@ def run_neural_feature_importance(config: EvaluationConfig) -> None:
         for step in range(n_steps):
             for channel in range(n_channels):
                 flat_idx = step * n_channels + channel
-                permuted = x_dyn.copy()
-                order = rng.permutation(len(permuted))
-                permuted[:, step, channel] = permuted[order, step, channel]
+                order = rng.permutation(len(x_dyn))
+                original = x_dyn[:, step, channel].copy()
+                x_dyn[:, step, channel] = original[order]
+                try:
+                    rows.append(
+                        importance_row(
+                            model=model,
+                            x_dyn=x_dyn,
+                            x_static=x_static,
+                            x_cat=x_cat,
+                            y_true=y_true,
+                            batch_size=int(config.neural_importance_batch_size),
+                            device=device,
+                            model_id=exp_id,
+                            model_label=label,
+                            feature=dynamic_columns[flat_idx],
+                            feature_type="dynamic_sequence",
+                            baseline_ap=baseline_ap,
+                            baseline_f1=baseline_f1,
+                            threshold=threshold,
+                        )
+                    )
+                finally:
+                    x_dyn[:, step, channel] = original
+    elif x_dyn.ndim == 5:
+        for channel, feature in enumerate(dynamic_channel_names(dynamic_columns, x_dyn.shape[-1])):
+            order = rng.permutation(len(x_dyn))
+            original = x_dyn[..., channel].copy()
+            x_dyn[..., channel] = original[order, ...]
+            try:
                 rows.append(
                     importance_row(
                         model=model,
-                        x_dyn=permuted,
+                        x_dyn=x_dyn,
                         x_static=x_static,
                         x_cat=x_cat,
                         y_true=y_true,
@@ -100,23 +127,27 @@ def run_neural_feature_importance(config: EvaluationConfig) -> None:
                         device=device,
                         model_id=exp_id,
                         model_label=label,
-                        feature=dynamic_columns[flat_idx],
-                        feature_type="dynamic_sequence",
+                        feature=feature,
+                        feature_type="dynamic_spatial_channel",
                         baseline_ap=baseline_ap,
                         baseline_f1=baseline_f1,
                         threshold=threshold,
                     )
                 )
-                del permuted
-    elif x_dyn.ndim == 5:
-        for channel, feature in enumerate(dynamic_channel_names(dynamic_columns, x_dyn.shape[-1])):
-            permuted = x_dyn.copy()
-            order = rng.permutation(len(permuted))
-            permuted[..., channel] = permuted[order, ..., channel]
+            finally:
+                x_dyn[..., channel] = original
+    else:
+        raise ValueError(f"Unsupported dynamic tensor shape for neural importance: {x_dyn.shape}")
+
+    for idx, feature in enumerate(static_columns):
+        order = rng.permutation(len(x_static))
+        original = x_static[:, idx].copy()
+        x_static[:, idx] = original[order]
+        try:
             rows.append(
                 importance_row(
                     model=model,
-                    x_dyn=permuted,
+                    x_dyn=x_dyn,
                     x_static=x_static,
                     x_cat=x_cat,
                     y_true=y_true,
@@ -125,63 +156,40 @@ def run_neural_feature_importance(config: EvaluationConfig) -> None:
                     model_id=exp_id,
                     model_label=label,
                     feature=feature,
-                    feature_type="dynamic_spatial_channel",
+                    feature_type="static",
                     baseline_ap=baseline_ap,
                     baseline_f1=baseline_f1,
                     threshold=threshold,
                 )
             )
-            del permuted
-    else:
-        raise ValueError(f"Unsupported dynamic tensor shape for neural importance: {x_dyn.shape}")
-
-    for idx, feature in enumerate(static_columns):
-        permuted = x_static.copy()
-        order = rng.permutation(len(permuted))
-        permuted[:, idx] = permuted[order, idx]
-        rows.append(
-            importance_row(
-                model=model,
-                x_dyn=x_dyn,
-                x_static=permuted,
-                x_cat=x_cat,
-                y_true=y_true,
-                batch_size=int(config.neural_importance_batch_size),
-                device=device,
-                model_id=exp_id,
-                model_label=label,
-                feature=feature,
-                feature_type="static",
-                baseline_ap=baseline_ap,
-                baseline_f1=baseline_f1,
-                threshold=threshold,
-            )
-        )
-        del permuted
+        finally:
+            x_static[:, idx] = original
 
     for idx, feature in enumerate(categorical_columns):
-        permuted = x_cat.copy()
-        order = rng.permutation(len(permuted))
-        permuted[:, idx] = permuted[order, idx]
-        rows.append(
-            importance_row(
-                model=model,
-                x_dyn=x_dyn,
-                x_static=x_static,
-                x_cat=permuted,
-                y_true=y_true,
-                batch_size=int(config.neural_importance_batch_size),
-                device=device,
-                model_id=exp_id,
-                model_label=label,
-                feature=feature,
-                feature_type="categorical",
-                baseline_ap=baseline_ap,
-                baseline_f1=baseline_f1,
-                threshold=threshold,
+        order = rng.permutation(len(x_cat))
+        original = x_cat[:, idx].copy()
+        x_cat[:, idx] = original[order]
+        try:
+            rows.append(
+                importance_row(
+                    model=model,
+                    x_dyn=x_dyn,
+                    x_static=x_static,
+                    x_cat=x_cat,
+                    y_true=y_true,
+                    batch_size=int(config.neural_importance_batch_size),
+                    device=device,
+                    model_id=exp_id,
+                    model_label=label,
+                    feature=feature,
+                    feature_type="categorical",
+                    baseline_ap=baseline_ap,
+                    baseline_f1=baseline_f1,
+                    threshold=threshold,
+                )
             )
-        )
-        del permuted
+        finally:
+            x_cat[:, idx] = original
 
     table = pd.DataFrame(rows)
     table = table.sort_values("delta_average_precision", ascending=False, na_position="last").reset_index(drop=True)
@@ -218,7 +226,7 @@ def read_result_table(output_dir: Path, name: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-def select_best_neural_model(main: pd.DataFrame) -> tuple[str, str]:
+def select_best_neural_model(main: pd.DataFrame, *, output_dir: Path, config: EvaluationConfig) -> tuple[str, str]:
     label_to_key = {label: key for key, label in NN_LABELS.items()}
     work = main.copy()
     if "Region" in work.columns:
@@ -232,8 +240,22 @@ def select_best_neural_model(main: pd.DataFrame) -> tuple[str, str]:
     work = work.dropna(subset=["PR-AUC"]).sort_values("PR-AUC", ascending=False)
     if work.empty:
         raise ValueError("Global neural model rows have no finite PR-AUC values.")
-    label = str(work.iloc[0]["Model"])
-    return f"nn_global_full_{label_to_key[label]}", label
+    skipped: list[str] = []
+    for _, row in work.iterrows():
+        label = str(row["Model"])
+        exp_id = f"nn_global_full_{label_to_key[label]}"
+        try:
+            metrics_path = find_metrics_file(output_dir, exp_id, config)
+            payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+            prediction_path = find_prediction_file(output_dir, exp_id, payload)
+            find_data_file(payload, prediction_path)
+            return exp_id, label
+        except Exception as exc:
+            skipped.append(f"{label}: {exc}")
+    raise ValueError(
+        "No global neural model has a compatible checkpoint/prediction/data triplet for feature importance. "
+        "Skipped candidates: " + "; ".join(skipped)
+    )
 
 
 def find_metrics_file(output_dir: Path, exp_id: str, config: EvaluationConfig) -> Path:
@@ -267,10 +289,38 @@ def find_data_file(payload: dict[str, Any], prediction_path: Path) -> Path:
     if payload.get("data_path"):
         candidates.append(Path(str(payload["data_path"])))
     candidates.extend(neural_data_paths(prediction_path))
+    expected_rows = expected_prediction_rows(prediction_path)
     for path in candidates:
-        if path.is_file():
+        if importance_data_is_compatible(path, payload, expected_rows):
             return path
     raise FileNotFoundError(f"Could not find prepared NN tensor data for {prediction_path}.")
+
+
+def expected_prediction_rows(prediction_path: Path) -> int | None:
+    try:
+        return int(len(pd.read_parquet(prediction_path, columns=["is_fire"])))
+    except Exception:
+        return None
+
+
+def importance_data_is_compatible(path: Path, payload: dict[str, Any], expected_rows: int | None) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        with np.load(path) as data:
+            if not {"x_dyn", "split"}.issubset(set(data.files)):
+                return False
+            split = np.asarray(data["split"], dtype=np.int8)
+            test_rows = int(np.sum(split == 2))
+            if expected_rows is not None and test_rows != int(expected_rows):
+                return False
+            x_dyn_ndim = int(data["x_dyn"].ndim)
+    except Exception:
+        return False
+
+    architecture = str(payload.get("architecture") or "").lower()
+    expects_spatial = "spatial" in architecture
+    return x_dyn_ndim == 5 if expects_spatial else x_dyn_ndim == 3
 
 
 def find_model_file(output_dir: Path, exp_id: str, payload: dict[str, Any]) -> Path:
@@ -391,14 +441,15 @@ def predict_probs(model: Any, x_dyn: np.ndarray, x_static: np.ndarray, x_cat: np
 
     probs: list[np.ndarray] = []
     model.eval()
-    with torch.no_grad():
+    batch_size = max(1, int(batch_size))
+    with torch.inference_mode():
         for start in range(0, len(x_dyn), batch_size):
             end = min(start + batch_size, len(x_dyn))
             dyn = torch.as_tensor(x_dyn[start:end], dtype=torch.float32, device=device)
             stat = torch.as_tensor(x_static[start:end], dtype=torch.float32, device=device)
             cat = torch.as_tensor(x_cat[start:end], dtype=torch.long, device=device)
             logits = model(dyn, stat, cat if cat.numel() else None)
-            probs.append(torch.sigmoid(logits).detach().cpu().numpy().reshape(-1))
+            probs.append(torch.sigmoid(logits).detach().float().cpu().numpy().reshape(-1))
     return np.concatenate(probs).astype(np.float32) if probs else np.zeros((0,), dtype=np.float32)
 
 

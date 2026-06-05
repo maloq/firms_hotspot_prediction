@@ -1,21 +1,21 @@
 Model,Year,F1,PR-AUC,ROC-AUC
-Best neural spatial TSN,2021,0.6636,0.6566,0.8503
-Best neural spatial TSN,2022,0.3346,0.2622,0.7888
-Best neural spatial TSN,2023,0.4728,0.423,0.8609
-Best neural spatial TSN,2024,0.4335,0.3691,0.8031
-CatBoost,2021,0.6093,0.7198,0.8896
-CatBoost,2022,0.3501,0.4141,0.9032
-CatBoost,2023,0.4994,0.5642,0.9204
-CatBoost,2024,0.3595,0.3774,0.8028
-Logistic Regression,2021,0.5378,0.4119,0.6968
-Logistic Regression,2022,0.2527,0.1381,0.6757
-Logistic Regression,2023,0.391,0.2351,0.7612
-Logistic Regression,2024,0.4105,0.2587,0.7368
-Poisson Point-Process GLM,2021,0.5991,0.6473,0.8437
-Poisson Point-Process GLM,2022,0.2221,0.2027,0.746
-Poisson Point-Process GLM,2023,0.402,0.3998,0.8061
-Poisson Point-Process GLM,2024,0.4303,0.3792,0.821
-Random Forest,2021,0.5726,0.6716,0.8538
-Random Forest,2022,0.2601,0.3078,0.8303
-Random Forest,2023,0.489,0.5113,0.8807
-Random Forest,2024,0.3629,0.3727,0.8035
+Best neural spatial TSN,2021,0.7382,0.7759,0.9174
+Best neural spatial TSN,2022,0.5227,0.5464,0.9326
+Best neural spatial TSN,2023,0.5502,0.61,0.919
+Best neural spatial TSN,2024,0.617,0.6406,0.923
+CatBoost,2021,0.5684,0.6762,0.8526
+CatBoost,2022,0.2271,0.3011,0.826
+CatBoost,2023,0.4223,0.4545,0.8593
+CatBoost,2024,0.3223,0.3767,0.8016
+Logistic Regression,2021,0.536,0.4107,0.6957
+Logistic Regression,2022,0.2559,0.1394,0.678
+Logistic Regression,2023,0.3902,0.2347,0.7615
+Logistic Regression,2024,0.4103,0.2594,0.7377
+Poisson Point-Process GLM,2021,0.5853,0.6469,0.8434
+Poisson Point-Process GLM,2022,0.2013,0.2006,0.7475
+Poisson Point-Process GLM,2023,0.3928,0.4031,0.8068
+Poisson Point-Process GLM,2024,0.4206,0.3801,0.822
+Random Forest,2021,0.5861,0.668,0.8547
+Random Forest,2022,0.2762,0.2837,0.8187
+Random Forest,2023,0.4718,0.484,0.8767
+Random Forest,2024,0.3604,0.3815,0.8064

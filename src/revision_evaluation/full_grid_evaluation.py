@@ -71,10 +71,55 @@ def _json_default(value: Any) -> Any:
     return str(value)
 
 
+def _raw_jsonl_for_csv(path: Path) -> Path | None:
+    if path.suffix != ".csv":
+        return None
+    if path.parent.name != "primary_full_grid_calibrated":
+        return None
+    output_dir = path.parent.parent
+    return output_dir / "shared_artifacts" / "raw_tables_jsonl" / f"primary_full_grid_calibrated_{path.stem}.jsonl.gz"
+
+
+def _raw_schema_for_csv(path: Path) -> Path | None:
+    if path.suffix != ".csv":
+        return None
+    if path.parent.name != "primary_full_grid_calibrated":
+        return None
+    output_dir = path.parent.parent
+    return output_dir / "shared_artifacts" / "raw_table_schemas" / f"primary_full_grid_calibrated_{path.stem}.schema.json"
+
+
+def _read_existing_table(path: Path) -> pd.DataFrame:
+    if path.exists():
+        return pd.read_csv(path)
+    raw_path = _raw_jsonl_for_csv(path)
+    if raw_path is not None and raw_path.exists():
+        return pd.read_json(raw_path, orient="records", lines=True, compression="gzip")
+    return pd.DataFrame()
+
+
+def _sync_organized_raw_table(path: Path, table: pd.DataFrame) -> None:
+    raw_path = _raw_jsonl_for_csv(path)
+    if raw_path is None or not raw_path.parent.exists():
+        return
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    table.to_json(raw_path, orient="records", lines=True, compression="gzip")
+
+    schema_path = _raw_schema_for_csv(path)
+    if schema_path is not None:
+        schema_path.parent.mkdir(parents=True, exist_ok=True)
+        schema = {
+            "source_csv": f"primary_full_grid_calibrated/{path.name}",
+            "rows": int(len(table)),
+            "columns": [{"name": col, "dtype": str(table[col].dtype)} for col in table.columns],
+        }
+        schema_path.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _upsert_csv(path: Path, rows: pd.DataFrame, key_cols: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        old = pd.read_csv(path)
+    old = _read_existing_table(path)
+    if not old.empty:
         if not old.empty and all(col in old.columns for col in key_cols) and all(col in rows.columns for col in key_cols):
             old_key = old[key_cols].astype(str).agg("\x1f".join, axis=1)
             new_key = rows[key_cols].astype(str).agg("\x1f".join, axis=1)
@@ -83,6 +128,7 @@ def _upsert_csv(path: Path, rows: pd.DataFrame, key_cols: list[str]) -> None:
     else:
         combined = rows
     combined.to_csv(path, index=False)
+    _sync_organized_raw_table(path, combined)
 
 
 def _selection_direction(metric_name: str, requested: str | None = None) -> str:

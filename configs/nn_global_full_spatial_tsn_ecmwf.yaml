@@ -9,7 +9,7 @@ batch_size: 4096
 epochs: 15
 num_workers: 0
 selection_metric: val_ap
-compute_train_metrics: true
+compute_train_metrics: false
 
 class_weights:
   0: 1.0

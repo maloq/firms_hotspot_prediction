@@ -18,6 +18,7 @@ import re
 import sys
 import time
 import zipfile
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -197,8 +198,12 @@ DISCRIMINATION_METRICS = {
     "spatial_tolerant_average_precision",
     "spatial_tolerant_roc_auc",
 }
+DEFAULT_DENSE_NEURAL_MAX_TENSOR_BATCH_BYTES = 512 * 1024 * 1024
+DEFAULT_DENSE_NEURAL_MAX_AUTO_ROWS = 131_072
+PREDICTION_FRAME_CACHE_MAX_ITEMS = 4
 _DENSE_NEURAL_CACHE: dict[tuple[str, ...], "DenseNeuralPredictor"] = {}
 _CLIMATE_FRAGMENTS_CACHE: dict[tuple[str, str], list[object]] = {}
+_PREDICTION_FRAME_CACHE: OrderedDict[tuple[str, int, int, str], pd.DataFrame] = OrderedDict()
 
 
 @dataclass(frozen=True)
@@ -229,6 +234,16 @@ class ProbabilityOverlayConfig:
     )
     dense_neural_batch_size: int = 8192
     dense_neural_device: str = "auto"
+    dense_neural_rows_per_prediction_batch: int | str | None = None
+    dense_neural_max_tensor_batch_bytes: int = DEFAULT_DENSE_NEURAL_MAX_TENSOR_BATCH_BYTES
+    dense_neural_cache_dir: Path | None = None
+    dense_neural_cache_policy: str = "read-write"
+    dense_neural_block_cache_dir: Path | None = None
+    dense_neural_use_block_cache: bool = True
+    dense_neural_location_batch_size: int | None = None
+    dense_neural_max_time_span_days: int | None = None
+    dense_neural_fill_row_batch_size: int | None = None
+    dense_neural_max_slab_spatial_cells: int | None = None
     overwrite_dense: bool = False
     grid_resolution: float | None = None
     interpolation_factor: int = 5
@@ -388,14 +403,17 @@ def pretty_model_name(path: Path) -> str:
         "spline_logistic_regression_full": "Spline Logistic Regression",
         "poisson_point_process_full": "Poisson Point-Process GLM",
         "nn_global_full_ft_transformer": "FT-Transformer (global full)",
+        "nn_global_full_lstm_embedding_fusion": "LSTM embedding fusion (global full)",
         "nn_global_full_lstm_attention": "LSTM attention (global full)",
         "nn_global_full_lstm_gated_moe": "LSTM gated MoE (global full)",
         "nn_global_full_lstm_static_concat": "LSTM static concat (global full)",
         "nn_global_full_spatial_tsn": "Spatial climate TSN-MLP (global full)",
-        "nn_global_full_spatial_tsn_no_tp": "Spatial climate TSN-MLP no tp (global full)",
+        "nn_global_full_spatial_tsn_embedding_fusion": "Spatial climate TSN embedding fusion (global full)",
+        "nn_global_full_spatial_tsn_no_tp": "Spatial climate TSN-MLP no tp (ERA5 global full)",
         "nn_global_full_spatial_tsn_ecmwf": "Spatial climate TSN-MLP (ECMWF global full)",
         "nn_global_full_minimal_mlp": "Minimal MLP (global full)",
         "nn_global_full_tsn": "TemporalConvNet / TSN-MLP (global full)",
+        "nn_global_full_tsn_embedding_fusion": "TemporalConvNet embedding fusion (global full)",
     }
     return known.get(stem, display_name(stem))
 
@@ -489,11 +507,25 @@ def neural_data_paths(path: Path) -> list[Path]:
             if data_path:
                 candidates.append(Path(data_path))
     stem = prediction_stem(path)
-    if stem == "nn_global_full_spatial_tsn":
+    if stem in {"nn_global_full_spatial_tsn", "nn_global_full_spatial_tsn_embedding_fusion"}:
         candidates.extend(
             [
                 Path("data/saved_features/nn_train_data_daily_spatial_3x3/prepared_data.npz"),
                 Path("/home/ids/vmorozov/data/saved_features/nn_train_data_daily_spatial_3x3/prepared_data.npz"),
+            ]
+        )
+    if stem == "nn_global_full_tsn_embedding_fusion":
+        candidates.extend(
+            [
+                Path("data/saved_features/nn_train_data_daily/prepared_data.npz"),
+                Path("/home/ids/vmorozov/data/saved_features/nn_train_data_daily/prepared_data.npz"),
+            ]
+        )
+    if stem == "nn_global_full_lstm_embedding_fusion":
+        candidates.extend(
+            [
+                Path("data/saved_features/nn_train_data/prepared_data.npz"),
+                Path("/home/ids/vmorozov/data/saved_features/nn_train_data/prepared_data.npz"),
             ]
         )
     if stem == "nn_global_full_spatial_tsn_no_tp":
@@ -566,7 +598,44 @@ def neural_coordinate_frame_from_data(data_path: Path, split_code: int, row_coun
         )
 
 
+def _prediction_frame_cache_key(path: Path, prob_col: str) -> tuple[str, int, int, str] | None:
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return (str(path.resolve()), int(stat.st_mtime_ns), int(stat.st_size), str(prob_col))
+
+
+def clear_prediction_frame_cache() -> None:
+    _PREDICTION_FRAME_CACHE.clear()
+
+
+def _prediction_cache_get(path: Path, prob_col: str) -> pd.DataFrame | None:
+    key = _prediction_frame_cache_key(path, prob_col)
+    if key is None:
+        return None
+    cached = _PREDICTION_FRAME_CACHE.get(key)
+    if cached is None:
+        return None
+    _PREDICTION_FRAME_CACHE.move_to_end(key)
+    return cached.copy(deep=False)
+
+
+def _prediction_cache_put(path: Path, prob_col: str, frame: pd.DataFrame) -> None:
+    key = _prediction_frame_cache_key(path, prob_col)
+    if key is None:
+        return
+    _PREDICTION_FRAME_CACHE[key] = frame
+    _PREDICTION_FRAME_CACHE.move_to_end(key)
+    while len(_PREDICTION_FRAME_CACHE) > PREDICTION_FRAME_CACHE_MAX_ITEMS:
+        _PREDICTION_FRAME_CACHE.popitem(last=False)
+
+
 def read_prediction_columns(path: Path, prob_col: str) -> pd.DataFrame:
+    cached = _prediction_cache_get(path, prob_col)
+    if cached is not None:
+        return cached
+
     schema_names = set(pq.read_schema(path).names)
     source_prob_col = choose_column(schema_names, prob_col, PROBABILITY_COLUMNS, "probability", path)
     source_target_col = choose_column(schema_names, "auto", TARGET_COLUMNS, "target", path)
@@ -626,7 +695,9 @@ def read_prediction_columns(path: Path, prob_col: str) -> pd.DataFrame:
     ]
     if "country" in frame.columns:
         keep.append("country")
-    return frame[keep]
+    frame = frame[keep]
+    _prediction_cache_put(path, prob_col, frame)
+    return frame.copy(deep=False)
 
 
 @dataclass
@@ -672,6 +743,55 @@ class DenseNeuralPredictor:
     def _scale(x: np.ndarray, fill: np.ndarray, mean: np.ndarray, std: np.ndarray) -> np.ndarray:
         x_filled = np.where(np.isnan(x), fill, x).astype(np.float32)
         return ((x_filled - mean) / std).astype(np.float32)
+
+    def estimated_tensor_row_bytes(self) -> int:
+        dynamic_values = int(np.prod(self.dynamic_shape, dtype=np.int64)) if self.dynamic_shape else 0
+        static_values = len(self.static_columns) + len(self.spatial_coordinate_columns)
+        categorical_values = len(self.categorical_columns)
+        row_bytes = dynamic_values * np.dtype(np.float32).itemsize
+        row_bytes += static_values * np.dtype(np.float32).itemsize
+        row_bytes += categorical_values * np.dtype(np.int64).itemsize
+        return max(1, int(row_bytes))
+
+    def resolve_tensor_batch_rows(
+        self,
+        rows_per_chunk: int | str | None,
+        *,
+        max_tensor_batch_bytes: int | None = None,
+    ) -> int:
+        if rows_per_chunk is not None:
+            if isinstance(rows_per_chunk, str):
+                normalized = rows_per_chunk.strip().lower()
+                if normalized not in {"", "auto", "none"}:
+                    return max(1, int(normalized))
+            elif int(rows_per_chunk) > 0:
+                return max(1, int(rows_per_chunk))
+        budget = int(max_tensor_batch_bytes or DEFAULT_DENSE_NEURAL_MAX_TENSOR_BATCH_BYTES)
+        budget = max(budget, self.estimated_tensor_row_bytes())
+        # Daily climate extraction temporarily holds raw per-variable arrays as
+        # well as the fused dynamic tensor, so keep a conservative safety factor.
+        effective_row_bytes = max(1, self.estimated_tensor_row_bytes() * 2)
+        rows = max(1, budget // effective_row_bytes)
+        return int(min(rows, DEFAULT_DENSE_NEURAL_MAX_AUTO_ROWS))
+
+    def predict_in_chunks(
+        self,
+        frame: pd.DataFrame,
+        *,
+        rows_per_chunk: int | str | None = None,
+        max_tensor_batch_bytes: int | None = None,
+    ) -> np.ndarray:
+        batch_rows = self.resolve_tensor_batch_rows(
+            rows_per_chunk,
+            max_tensor_batch_bytes=max_tensor_batch_bytes,
+        )
+        if len(frame) <= batch_rows:
+            return self.predict(frame)
+        probs: list[np.ndarray] = []
+        for start in range(0, len(frame), batch_rows):
+            end = min(start + batch_rows, len(frame))
+            probs.append(np.asarray(self.predict(frame.iloc[start:end]), dtype=np.float32).reshape(-1))
+        return np.concatenate(probs) if probs else np.zeros((0,), dtype=np.float32)
 
     def _apply_mask_to_scaled_dynamic(self, dyn_scaled: np.ndarray) -> np.ndarray:
         if not self.masked_dynamic_variables or not self.dynamic_columns:
@@ -981,7 +1101,7 @@ class DenseNeuralPredictor:
         x_dyn, x_stat, x_cat = self.tensors_from_features(frame)
         probs: list[np.ndarray] = []
         self.model.eval()
-        with torch.no_grad():
+        with torch.inference_mode():
             for start in range(0, len(frame), self.batch_size):
                 end = min(start + self.batch_size, len(frame))
                 dyn = torch.as_tensor(x_dyn[start:end], dtype=torch.float32, device=self.device)
@@ -1496,9 +1616,15 @@ def period_metrics_for_model(
 
     for region in regions:
         region_mask = region.mask(frame)
-        region_frame = frame.loc[region_mask]
+        region_frame = frame.loc[region_mask].sort_values(DATE_COL, kind="mergesort")
         if region_frame.empty:
             continue
+        date_days = (
+            pd.to_datetime(region_frame[DATE_COL])
+            .to_numpy(dtype="datetime64[ns]")
+            .astype("datetime64[D]")
+            .astype(np.int64)
+        )
 
         first_start = pd.Timestamp(region_frame[DATE_COL].min()).normalize()
         last_start = pd.Timestamp(region_frame[DATE_COL].max()).normalize()
@@ -1511,7 +1637,11 @@ def period_metrics_for_model(
             period_end = period_start + pd.Timedelta(days=window_days - 1)
             if require_full_periods and (period_start < min_date or period_end > max_date):
                 continue
-            period = region_frame[(region_frame[DATE_COL] >= period_start) & (region_frame[DATE_COL] <= period_end)]
+            start_day = np.datetime64(period_start.date(), "D").astype(np.int64)
+            end_day = np.datetime64(period_end.date(), "D").astype(np.int64)
+            left = int(np.searchsorted(date_days, start_day, side="left"))
+            right = int(np.searchsorted(date_days, end_day, side="right"))
+            period = region_frame.iloc[left:right]
             if period.empty:
                 continue
 
@@ -2045,6 +2175,16 @@ def dense_period_neural_predictions(
     overwrite: bool,
     batch_size: int,
     device: str,
+    rows_per_prediction_batch: int | str | None,
+    max_tensor_batch_bytes: int | None,
+    daily_dynamic_cache_dir: Path | None,
+    daily_dynamic_cache_policy: str,
+    daily_dynamic_block_cache_dir: Path | None,
+    daily_dynamic_use_block_cache: bool,
+    daily_dynamic_location_batch_size: int | None,
+    daily_dynamic_max_time_span_days: int | None,
+    daily_dynamic_fill_row_batch_size: int | None,
+    daily_dynamic_max_slab_spatial_cells: int | None,
     prior_correction: bool,
     train_prior: float,
     deploy_prior: float,
@@ -2068,6 +2208,13 @@ def dense_period_neural_predictions(
 
     prediction_path = Path(str(selection["prediction_path"]))
     feature_config = load_yaml(feature_config_path)
+    cache_policy = str(daily_dynamic_cache_policy or "none")
+    effective_cache_dir = daily_dynamic_cache_dir
+    if effective_cache_dir is None and cache_policy.lower() in {"read", "write", "read-write"}:
+        effective_cache_dir = results_dir / "shared_artifacts" / "dense_neural_dynamic_cache"
+    effective_block_cache_dir = daily_dynamic_block_cache_dir
+    if effective_block_cache_dir is None and effective_cache_dir is not None:
+        effective_block_cache_dir = effective_cache_dir / "blocks"
     predictor = load_dense_neural_predictor(
         results_dir=results_dir,
         prediction_path=prediction_path,
@@ -2077,6 +2224,14 @@ def dense_period_neural_predictions(
         device=device,
         feature_config_path=feature_config_path,
         feature_config=feature_config,
+        daily_dynamic_cache_dir=effective_cache_dir,
+        daily_dynamic_cache_policy=cache_policy,
+        daily_dynamic_block_cache_dir=effective_block_cache_dir,
+        daily_dynamic_use_block_cache=bool(daily_dynamic_use_block_cache),
+        daily_dynamic_location_batch_size=daily_dynamic_location_batch_size,
+        daily_dynamic_max_time_span_days=daily_dynamic_max_time_span_days,
+        daily_dynamic_fill_row_batch_size=daily_dynamic_fill_row_batch_size,
+        daily_dynamic_max_slab_spatial_cells=daily_dynamic_max_slab_spatial_cells,
     )
     countries = prediction_countries(feature_config)
 
@@ -2152,7 +2307,11 @@ def dense_period_neural_predictions(
             print(f"  feature-generation log: {log_path}")
         if features.empty:
             continue
-        pred = predictor.predict(features)
+        pred = predictor.predict_in_chunks(
+            features,
+            rows_per_chunk=rows_per_prediction_batch,
+            max_tensor_batch_bytes=max_tensor_batch_bytes,
+        )
         if prior_correction:
             pred = adjust_probabilities_for_prior(
                 pred,
@@ -2313,6 +2472,16 @@ def plot_selected_period(
     dense_neural_training_features: Path,
     dense_neural_batch_size: int,
     dense_neural_device: str,
+    dense_neural_rows_per_prediction_batch: int | str | None,
+    dense_neural_max_tensor_batch_bytes: int | None,
+    dense_neural_cache_dir: Path | None,
+    dense_neural_cache_policy: str,
+    dense_neural_block_cache_dir: Path | None,
+    dense_neural_use_block_cache: bool,
+    dense_neural_location_batch_size: int | None,
+    dense_neural_max_time_span_days: int | None,
+    dense_neural_fill_row_batch_size: int | None,
+    dense_neural_max_slab_spatial_cells: int | None,
     feature_config_path: Path,
     overwrite_dense: bool,
     prior_correction: bool,
@@ -2375,6 +2544,16 @@ def plot_selected_period(
             overwrite=overwrite_dense,
             batch_size=dense_neural_batch_size,
             device=dense_neural_device,
+            rows_per_prediction_batch=dense_neural_rows_per_prediction_batch,
+            max_tensor_batch_bytes=dense_neural_max_tensor_batch_bytes,
+            daily_dynamic_cache_dir=dense_neural_cache_dir,
+            daily_dynamic_cache_policy=dense_neural_cache_policy,
+            daily_dynamic_block_cache_dir=dense_neural_block_cache_dir,
+            daily_dynamic_use_block_cache=dense_neural_use_block_cache,
+            daily_dynamic_location_batch_size=dense_neural_location_batch_size,
+            daily_dynamic_max_time_span_days=dense_neural_max_time_span_days,
+            daily_dynamic_fill_row_batch_size=dense_neural_fill_row_batch_size,
+            daily_dynamic_max_slab_spatial_cells=dense_neural_max_slab_spatial_cells,
             prior_correction=prior_correction,
             train_prior=train_prior,
             deploy_prior=deploy_prior,
@@ -2766,6 +2945,16 @@ def run_probability_overlays(config: ProbabilityOverlayConfig) -> dict[str, obje
                     dense_neural_training_features=config.dense_neural_training_features,
                     dense_neural_batch_size=config.dense_neural_batch_size,
                     dense_neural_device=config.dense_neural_device,
+                    dense_neural_rows_per_prediction_batch=config.dense_neural_rows_per_prediction_batch,
+                    dense_neural_max_tensor_batch_bytes=config.dense_neural_max_tensor_batch_bytes,
+                    dense_neural_cache_dir=config.dense_neural_cache_dir,
+                    dense_neural_cache_policy=config.dense_neural_cache_policy,
+                    dense_neural_block_cache_dir=config.dense_neural_block_cache_dir,
+                    dense_neural_use_block_cache=config.dense_neural_use_block_cache,
+                    dense_neural_location_batch_size=config.dense_neural_location_batch_size,
+                    dense_neural_max_time_span_days=config.dense_neural_max_time_span_days,
+                    dense_neural_fill_row_batch_size=config.dense_neural_fill_row_batch_size,
+                    dense_neural_max_slab_spatial_cells=config.dense_neural_max_slab_spatial_cells,
                     feature_config_path=config.feature_config,
                     overwrite_dense=config.overwrite_dense,
                     prior_correction=config.prior_correction,

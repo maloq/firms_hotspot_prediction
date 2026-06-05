@@ -1,0 +1,3 @@
+Model,Region,Periods,Expected,Observed,Bias,Mean Abs Error,Max Abs Error
+CatBoost,eastern_siberia,46,7329.4578,7442.0,-112.5422,124.3786,1320.7042
+CatBoost,far_east,46,743.5422,631.0,112.5422,8.5373,35.7881

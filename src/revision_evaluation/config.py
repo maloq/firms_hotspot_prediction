@@ -14,10 +14,13 @@ ALL_NN_MODELS = [
     "minimal_mlp_fullgrid_rank_opt",
     "ft_transformer",
     "tsn",
+    "tsn_embedding_fusion",
     "spatial_tsn",
+    "spatial_tsn_embedding_fusion",
     "spatial_tsn_no_tp",
     "spatial_tsn_ecmwf",
     "lstm_static_concat",
+    "lstm_embedding_fusion",
     "lstm_attention",
     "lstm_gated_moe",
 ]
@@ -28,10 +31,13 @@ NN_LABELS = {
     "minimal_mlp_fullgrid_rank_opt": "Minimal MLP full-grid rank optimized",
     "ft_transformer": "FT-Transformer (global full)",
     "tsn": "TemporalConvNet / TSN-MLP (global full)",
+    "tsn_embedding_fusion": "TemporalConvNet embedding fusion (global full)",
     "spatial_tsn": "Spatial climate TSN-MLP (global full)",
+    "spatial_tsn_embedding_fusion": "Spatial climate TSN embedding fusion (global full)",
     "spatial_tsn_no_tp": "Spatial climate TSN-MLP no tp (ERA5 global full)",
     "spatial_tsn_ecmwf": "Spatial climate TSN-MLP (ECMWF global full)",
     "lstm_static_concat": "LSTM static concat (global full)",
+    "lstm_embedding_fusion": "LSTM embedding fusion (global full)",
     "lstm_attention": "LSTM attention (global full)",
     "lstm_gated_moe": "LSTM gated MoE (global full)",
 }
@@ -148,6 +154,9 @@ class EvaluationConfig:
     )
     nn_data_path: Path | None = None
     nn_dry_run: bool = False
+    nn_parallel_jobs: int | str = "auto"
+    nn_parallel_devices: list[str] | str | None = "auto"
+    skip_existing_nn_models: bool = False
     nn_metrics_glob: str = "outputs/nn_global_full_*/metrics.json"
     nn_feature_ablation_metrics_glob: str = "outputs/nn_feature_ablation_*/metrics.json"
     neural_importance_sample_size: int = 50_000
@@ -158,13 +167,14 @@ class EvaluationConfig:
         "data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet"
     )
     neural_full_grid_batch_size: int = 8192
-    neural_full_grid_rows_per_prediction_batch: int = 8192
+    neural_full_grid_rows_per_prediction_batch: int | str | None = None
+    neural_full_grid_max_tensor_batch_bytes: int = 512 * 1024 * 1024
     neural_full_grid_device: str = "auto"
     neural_full_grid_masked_climate_variables: list[str] = field(default_factory=list)
     neural_full_grid_dense_cache_dir: Path | None = None
-    neural_full_grid_dense_cache_policy: str = "none"
+    neural_full_grid_dense_cache_policy: str = "read-write"
     neural_full_grid_dense_block_cache_dir: Path | None = None
-    neural_full_grid_dense_use_block_cache: bool = False
+    neural_full_grid_dense_use_block_cache: bool = True
     neural_full_grid_dense_location_batch_size: int | None = None
     neural_full_grid_dense_max_time_span_days: int | None = None
     neural_full_grid_dense_fill_row_batch_size: int | None = None
@@ -187,6 +197,16 @@ class EvaluationConfig:
     )
     input_source_neural_batch_size: int = 8192
     input_source_neural_device: str = "auto"
+    input_source_neural_rows_per_prediction_batch: int | str | None = None
+    input_source_neural_max_tensor_batch_bytes: int = 512 * 1024 * 1024
+    input_source_neural_dense_cache_dir: Path | None = None
+    input_source_neural_dense_cache_policy: str = "read-write"
+    input_source_neural_dense_block_cache_dir: Path | None = None
+    input_source_neural_dense_use_block_cache: bool = True
+    input_source_neural_dense_location_batch_size: int | None = None
+    input_source_neural_dense_max_time_span_days: int | None = None
+    input_source_neural_dense_fill_row_batch_size: int | None = None
+    input_source_neural_dense_max_slab_spatial_cells: int | None = None
     input_source_neural_masked_climate_variables: list[str] = field(default_factory=list)
 
     probability_overlay_source: str = "legacy"
@@ -212,6 +232,16 @@ class EvaluationConfig:
     )
     probability_overlay_dense_neural_batch_size: int = 8192
     probability_overlay_dense_neural_device: str = "auto"
+    probability_overlay_dense_neural_rows_per_prediction_batch: int | str | None = None
+    probability_overlay_dense_neural_max_tensor_batch_bytes: int = 512 * 1024 * 1024
+    probability_overlay_dense_neural_cache_dir: Path | None = None
+    probability_overlay_dense_neural_cache_policy: str = "read-write"
+    probability_overlay_dense_neural_block_cache_dir: Path | None = None
+    probability_overlay_dense_neural_use_block_cache: bool = True
+    probability_overlay_dense_neural_location_batch_size: int | None = None
+    probability_overlay_dense_neural_max_time_span_days: int | None = None
+    probability_overlay_dense_neural_fill_row_batch_size: int | None = None
+    probability_overlay_dense_neural_max_slab_spatial_cells: int | None = None
     probability_overlay_overwrite_dense: bool = False
     probability_overlay_grid_resolution: float | None = None
     probability_overlay_interpolation_factor: int = 5
@@ -236,6 +266,8 @@ class EvaluationConfig:
     fire_period_timeline_window_days: int = 28
     fire_period_timeline_top_periods: int = 1
     fire_period_timeline_allow_overlapping_periods: bool | None = None
+    fire_period_timeline_common_windows: bool = False
+    fire_period_timeline_reference_source: str | None = None
     fire_period_timeline_regions: list[str] | None = None
     fire_period_timeline_include_global: bool | None = None
     fire_period_timeline_allow_partial_periods: bool | None = None
@@ -312,6 +344,8 @@ class EvaluationConfig:
             "ecmwf_feature_root",
             "era5_source_cache_dir",
             "input_source_neural_training_features",
+            "input_source_neural_dense_cache_dir",
+            "input_source_neural_dense_block_cache_dir",
             "nn_data_path",
             "neural_full_grid_training_features",
             "neural_full_grid_dense_cache_dir",
@@ -319,6 +353,8 @@ class EvaluationConfig:
             "probability_overlay_dense_model_path",
             "probability_overlay_dense_neural_model_path",
             "probability_overlay_dense_neural_training_features",
+            "probability_overlay_dense_neural_cache_dir",
+            "probability_overlay_dense_neural_block_cache_dir",
             "probability_overlay_country_shapes",
             "probability_overlay_output_dir",
             "fire_period_timeline_output_dir",

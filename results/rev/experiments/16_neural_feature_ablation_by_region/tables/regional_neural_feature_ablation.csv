@@ -1,21 +1,5 @@
 Region,Variant,F1,F1 Error,PR-AUC,PR-AUC Error,Delta PR-AUC
-Central Asia,Dynamic sequence only,0.1034,7e-06,0.0555,0.0019,0.2162
-Central Asia,Full neural feature set,0.1567,0.000533,0.2717,0.007,0.0
-Central Asia,No categorical features,0.1947,0.000507,0.2569,0.0051,0.0148
-Central Asia,No dynamic weather sequence,0.1619,0.001465,0.1573,0.0058,0.1144
-Central Asia,No static features,0.1421,0.000751,0.2272,0.0071,0.0445
-Eastern Siberia,Dynamic sequence only,0.3928,5.8e-05,0.2796,0.0008,0.2466
-Eastern Siberia,Full neural feature set,0.5029,0.000922,0.5262,0.0048,0.0
-Eastern Siberia,No categorical features,0.542,0.000614,0.5483,0.0037,-0.0221
-Eastern Siberia,No dynamic weather sequence,0.4896,0.000631,0.3987,0.0016,0.1275
-Eastern Siberia,No static features,0.5036,0.001584,0.4846,0.0025,0.0416
-Europe,Dynamic sequence only,0.1037,2e-06,0.0778,0.0027,0.26
-Europe,Full neural feature set,0.2214,0.001386,0.3378,0.0132,0.0
-Europe,No categorical features,0.2742,0.000925,0.2726,0.0038,0.0652
-Europe,No dynamic weather sequence,0.2062,0.002775,0.2127,0.0077,0.1251
-Europe,No static features,0.1805,0.001237,0.2377,0.0056,0.1001
-Far East,Dynamic sequence only,0.2105,1.5e-05,0.2942,0.0137,0.1279
-Far East,Full neural feature set,0.2993,0.001138,0.422,0.006,0.0
-Far East,No categorical features,0.3486,0.002483,0.4013,0.0048,0.0208
-Far East,No dynamic weather sequence,0.3796,0.003644,0.275,0.0047,0.147
-Far East,No static features,0.2911,0.001078,0.3583,0.0114,0.0637
+Central Asia,Full neural feature set,0.3104,0.004256,0.3477,0.0108,0.0
+Eastern Siberia,Full neural feature set,0.7075,0.002901,0.7513,0.0042,0.0
+Europe,Full neural feature set,0.3365,0.005218,0.3041,0.0098,0.0
+Far East,Full neural feature set,0.5816,0.005117,0.5565,0.0053,0.0

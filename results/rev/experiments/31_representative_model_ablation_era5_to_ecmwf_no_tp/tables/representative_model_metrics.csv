@@ -1,6 +1,6 @@
 Model Group,Model,F1,F1 Error,PR-AUC,PR-AUC Error,ROC-AUC
-Bagged tree ensemble,Random Forest,0.4922,0.001928,0.5569,0.002946,0.8605
-Deep daily-spatial sequence,Best neural spatial TSN,0.5501,0.005012,0.5294,0.003604,0.8495
-Gradient boosted trees,CatBoost,0.5205,0.00436,0.6069,0.003477,0.8947
-Linear discriminative,Logistic Regression,0.4389,0.000885,0.2889,0.000932,0.7216
-Statistical intensity model,Poisson Point-Process GLM,0.4969,0.003369,0.5116,0.001324,0.8357
+Bagged tree ensemble,Random Forest,0.4979,0.004042,0.5507,0.003075,0.8596
+Deep daily-spatial sequence,Best neural spatial TSN,0.6533,0.00404,0.7044,0.006625,0.9285
+Gradient boosted trees,CatBoost,0.4699,0.003521,0.5528,0.003002,0.8555
+Linear discriminative,Logistic Regression,0.4381,0.000603,0.2885,0.000395,0.7215
+Statistical intensity model,Poisson Point-Process GLM,0.486,0.003122,0.5123,0.0016,0.8362

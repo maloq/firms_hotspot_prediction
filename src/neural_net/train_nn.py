@@ -64,35 +64,204 @@ if torch.cuda.is_available():
 class FireDataset(Dataset):
     """Dataset that returns model inputs, hard labels, loss targets, and sample weights."""
 
-    def __init__(self, x_dyn, x_stat, x_cat, y, sample_weight=None, loss_target=None):
-        self.x_dyn = torch.as_tensor(x_dyn)
-        if not torch.is_floating_point(self.x_dyn):
-            self.x_dyn = self.x_dyn.float()
-        self.x_stat = torch.as_tensor(x_stat, dtype=torch.float32)
+    def __init__(
+        self,
+        x_dyn,
+        x_stat,
+        x_cat,
+        y,
+        sample_weight=None,
+        loss_target=None,
+        *,
+        device: str | torch.device = "cpu",
+        fast_batched_getitems: bool = True,
+    ):
+        self.device = torch.device(device)
+        self.fast_batched_getitems = bool(fast_batched_getitems)
+        self.x_dyn = torch.as_tensor(x_dyn, dtype=torch.float32, device=self.device)
+        self.x_stat = torch.as_tensor(x_stat, dtype=torch.float32, device=self.device)
         if x_cat is None:
             x_cat = np.zeros((self.x_dyn.shape[0], 0), dtype=np.int64)
-        self.x_cat = torch.as_tensor(x_cat, dtype=torch.long)
-        self.y = torch.as_tensor(y, dtype=torch.float32).view(-1)
+        self.x_cat = torch.as_tensor(x_cat, dtype=torch.long, device=self.device)
+        self.y = torch.as_tensor(y, dtype=torch.float32, device=self.device).view(-1)
         if loss_target is None:
             loss_target = y
-        self.loss_target = torch.as_tensor(loss_target, dtype=torch.float32).view(-1)
+        self.loss_target = torch.as_tensor(loss_target, dtype=torch.float32, device=self.device).view(-1)
         if sample_weight is None:
             self.sample_weight = torch.ones_like(self.y)
         else:
-            self.sample_weight = torch.as_tensor(sample_weight, dtype=torch.float32).view(-1)
+            self.sample_weight = torch.as_tensor(sample_weight, dtype=torch.float32, device=self.device).view(-1)
 
     def __len__(self):
         return self.x_dyn.shape[0]
 
     def __getitem__(self, idx):
         return (
-            self.x_dyn[idx].float(),
+            self.x_dyn[idx],
             self.x_stat[idx],
             self.x_cat[idx],
             self.y[idx],
             self.loss_target[idx],
             self.sample_weight[idx],
         )
+
+    def __getitems__(self, indices):
+        if not self.fast_batched_getitems:
+            return [self.__getitem__(idx) for idx in indices]
+        if isinstance(indices, torch.Tensor):
+            idx = indices.to(device=self.device, dtype=torch.long)
+        else:
+            idx = torch.as_tensor(indices, dtype=torch.long, device=self.device)
+        return self.__getitem__(idx)
+
+
+def identity_collate(batch):
+    return batch
+
+
+def tensor_nbytes(shape, dtype: torch.dtype) -> int:
+    return int(np.prod(tuple(shape), dtype=np.int64)) * int(torch.empty((), dtype=dtype).element_size())
+
+
+def fire_dataset_tensor_nbytes(
+    x_dyn,
+    x_stat,
+    x_cat,
+    y,
+    *,
+    sample_weight=None,
+    loss_target=None,
+) -> int:
+    rows = int(len(y))
+    cat_shape = (rows, 0) if x_cat is None else tuple(x_cat.shape)
+    total = tensor_nbytes(tuple(x_dyn.shape), torch.float32)
+    total += tensor_nbytes(tuple(x_stat.shape), torch.float32)
+    total += tensor_nbytes(cat_shape, torch.long)
+    total += tensor_nbytes((rows,), torch.float32)
+    total += tensor_nbytes((rows,), torch.float32)
+    total += tensor_nbytes((rows,), torch.float32)
+    return total
+
+
+def format_gib(num_bytes: int | float) -> float:
+    return round(float(num_bytes) / (1024**3), 3)
+
+
+def config_bool(value: object, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def resolve_training_data_device(
+    requested: object,
+    *,
+    tensor_bytes: int,
+    max_fraction: float = 0.45,
+    min_free_gb: float = 2.0,
+) -> tuple[str, dict[str, Any]]:
+    requested_name = str(requested if requested is not None else "auto").strip().lower()
+    if requested_name in {"", "none"}:
+        requested_name = "auto"
+    info: dict[str, Any] = {
+        "requested": requested_name,
+        "tensor_gib": format_gib(tensor_bytes),
+    }
+    cpu_aliases = {"cpu", "host", "false", "off", "0", "no"}
+    cuda_aliases = {"cuda", "gpu", "true", "on", "1", "yes"}
+    if requested_name in cpu_aliases:
+        info.update({"resolved": "cpu", "reason": "requested_cpu"})
+        return "cpu", info
+    if requested_name in cuda_aliases and not torch.cuda.is_available():
+        raise ValueError("NN trainer data_device='cuda' was requested, but CUDA is not available.")
+    if not torch.cuda.is_available():
+        info.update({"resolved": "cpu", "reason": "cuda_unavailable"})
+        return "cpu", info
+
+    free_bytes, total_bytes = torch.cuda.mem_get_info()
+    reserve_bytes = int(float(min_free_gb) * (1024**3))
+    budget_bytes = max(0, int(free_bytes) - reserve_bytes)
+    allowed_bytes = int(budget_bytes * max(0.0, min(float(max_fraction), 1.0)))
+    info.update(
+        {
+            "cuda_free_gib": format_gib(free_bytes),
+            "cuda_total_gib": format_gib(total_bytes),
+            "max_fraction": float(max_fraction),
+            "min_free_gib": float(min_free_gb),
+        }
+    )
+    if requested_name in cuda_aliases:
+        info.update({"resolved": "cuda", "reason": "requested_cuda"})
+        return "cuda", info
+    if int(tensor_bytes) <= allowed_bytes:
+        info.update({"resolved": "cuda", "reason": "fits_auto_budget"})
+        return "cuda", info
+    info.update(
+        {
+            "resolved": "cpu",
+            "reason": "too_large_for_auto_budget",
+            "allowed_gib": format_gib(allowed_bytes),
+        }
+    )
+    return "cpu", info
+
+
+def make_fire_dataloader(
+    *,
+    x_dyn,
+    x_stat,
+    x_cat,
+    y,
+    batch_size: int,
+    shuffle: bool,
+    num_workers: int,
+    training_device: str,
+    data_device: str,
+    sample_weight=None,
+    loss_target=None,
+    fast_batched_getitems: bool = True,
+    pin_memory: bool | None = None,
+    persistent_workers: bool | None = None,
+    prefetch_factor: int | None = None,
+) -> DataLoader:
+    if data_device != "cpu" and int(num_workers) > 0:
+        print("Forcing num_workers=0 because NN training tensors are cached on CUDA.", flush=True)
+        num_workers = 0
+    if pin_memory is None:
+        pin_memory = bool(training_device == "cuda" and data_device == "cpu")
+    dataset = FireDataset(
+        x_dyn,
+        x_stat,
+        x_cat,
+        y,
+        sample_weight=sample_weight,
+        loss_target=loss_target,
+        device=data_device,
+        fast_batched_getitems=fast_batched_getitems,
+    )
+    kwargs: dict[str, Any] = {
+        "batch_size": int(batch_size),
+        "shuffle": bool(shuffle),
+        "num_workers": int(num_workers),
+        "pin_memory": bool(pin_memory),
+    }
+    if fast_batched_getitems:
+        kwargs["collate_fn"] = identity_collate
+    if int(num_workers) > 0:
+        kwargs["persistent_workers"] = True if persistent_workers is None else bool(persistent_workers)
+        if prefetch_factor is not None:
+            kwargs["prefetch_factor"] = max(1, int(prefetch_factor))
+    return DataLoader(dataset, **kwargs)
+
 
 class HistoryCallback(pl.Callback):
     """Collects epoch-level metrics for later plotting."""
@@ -322,24 +491,25 @@ def predict_logits(
     device = device or next(model.parameters()).device
     if x_cat is None:
         x_cat = np.zeros((len(x_dyn), 0), dtype=np.int64)
-    dataset = FireDataset(x_dyn, x_stat, x_cat, np.zeros(len(x_dyn), dtype=np.float32))
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    iterator = loader
+    batch_size = max(1, int(batch_size))
+    iterator = range(0, len(x_dyn), batch_size)
     if show_progress:
         iterator = tqdm(
-            loader,
+            iterator,
+            total=math.ceil(len(x_dyn) / batch_size),
             desc=desc or "Predict",
             dynamic_ncols=True,
             leave=True,
         )
     preds = []
-    with torch.no_grad():
-        for dyn, stat, cat, *_ in iterator:
-            dyn = dyn.to(device)
-            stat = stat.to(device)
-            cat = cat.to(device)
+    with torch.inference_mode():
+        for start in iterator:
+            end = min(start + batch_size, len(x_dyn))
+            dyn = torch.as_tensor(x_dyn[start:end], dtype=torch.float32, device=device)
+            stat = torch.as_tensor(x_stat[start:end], dtype=torch.float32, device=device)
+            cat = torch.as_tensor(x_cat[start:end], dtype=torch.long, device=device)
             logits = model(dyn, stat, cat if cat.numel() else None)
-            preds.append(logits.cpu().numpy())
+            preds.append(logits.detach().float().cpu().numpy())
     return np.concatenate(preds).reshape(-1)
 
 
@@ -431,7 +601,9 @@ def train_pipeline(
         cat_dim = x_cat_train.shape[1] if x_cat_train.ndim == 2 else 0
         x_cat_test = np.zeros((0, cat_dim), dtype=np.int64)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    accelerator_request = str((trainer_kwargs or {}).get("accelerator", "auto")).strip().lower()
+    cpu_accelerators = {"cpu", "mps", "tpu", "ipu", "hpu"}
+    device = "cuda" if torch.cuda.is_available() and accelerator_request not in cpu_accelerators else "cpu"
     print("Using device:", device)
 
     # Handle class weights: use config if provided, otherwise calculate
@@ -562,6 +734,46 @@ def train_pipeline(
     else:
         print(f"Unknown selection_metric '{selection_metric}', defaulting to 'sel_ap'.")
         monitor_metric = "sel_ap"
+    lightning_kwargs.setdefault("log_train_ap", monitor_metric == "sel_ap")
+
+    trainer_params = dict(trainer_kwargs or {})
+    data_loader_cfg = trainer_params.pop("data_loader", None)
+    if data_loader_cfg is None:
+        data_loader_cfg = {}
+    elif not isinstance(data_loader_cfg, dict):
+        raise ValueError("Expected nn_model.trainer.data_loader to be a mapping")
+    data_loader_cfg = dict(data_loader_cfg)
+
+    fast_batched_getitems_cfg = True
+    for key in ("fast_tensor_batches", "fast_batched_getitems"):
+        if key in trainer_params:
+            fast_batched_getitems_cfg = trainer_params.pop(key)
+    for key in ("fast_tensor_batches", "fast_batched_getitems"):
+        if key in data_loader_cfg:
+            fast_batched_getitems_cfg = data_loader_cfg.pop(key)
+    fast_batched_getitems = config_bool(fast_batched_getitems_cfg, default=True)
+    data_device_request = data_loader_cfg.pop("data_device", trainer_params.pop("data_device", "auto"))
+    data_device_max_fraction = float(
+        data_loader_cfg.pop("data_device_max_fraction", trainer_params.pop("data_device_max_fraction", 0.45))
+    )
+    data_device_min_free_gb = float(
+        data_loader_cfg.pop("data_device_min_free_gb", trainer_params.pop("data_device_min_free_gb", 2.0))
+    )
+    pin_memory_cfg = data_loader_cfg.pop("pin_memory", trainer_params.pop("pin_memory", None))
+    pin_memory = None if pin_memory_cfg is None else config_bool(pin_memory_cfg, default=True)
+    persistent_workers_cfg = data_loader_cfg.pop(
+        "persistent_workers",
+        trainer_params.pop("persistent_workers", None),
+    )
+    persistent_workers = (
+        None if persistent_workers_cfg is None else config_bool(persistent_workers_cfg, default=True)
+    )
+    prefetch_factor_cfg = data_loader_cfg.pop("prefetch_factor", trainer_params.pop("prefetch_factor", None))
+    prefetch_factor = None if prefetch_factor_cfg is None else int(prefetch_factor_cfg)
+    log_learning_rate = config_bool(trainer_params.pop("log_learning_rate", False), default=False)
+    if data_loader_cfg:
+        unknown = ", ".join(sorted(str(key) for key in data_loader_cfg))
+        raise ValueError(f"Unknown nn_model.trainer.data_loader option(s): {unknown}")
 
     # Check for empty datasets
     if len(x_dyn_train) == 0:
@@ -570,8 +782,7 @@ def train_pipeline(
         raise ValueError(f"Validation set is empty! x_dyn_val shape: {x_dyn_val.shape}")
     
     print(f"Dataset sizes - Train: {len(x_dyn_train)}, Val: {len(x_dyn_val)}")
-    
-    train_dataset = FireDataset(
+    train_tensor_bytes = fire_dataset_tensor_nbytes(
         x_dyn_train,
         x_stat_train,
         x_cat_train,
@@ -579,22 +790,68 @@ def train_pipeline(
         sample_weight=sample_w_train,
         loss_target=y_loss_train,
     )
-    val_dataset = FireDataset(x_dyn_val, x_stat_val, x_cat_val, y_val, loss_target=y_loss_val)
+    val_tensor_bytes = fire_dataset_tensor_nbytes(
+        x_dyn_val,
+        x_stat_val,
+        x_cat_val,
+        y_val,
+        loss_target=y_loss_val,
+    )
+    data_device, data_cache_info = resolve_training_data_device(
+        data_device_request,
+        tensor_bytes=train_tensor_bytes + val_tensor_bytes,
+        max_fraction=data_device_max_fraction,
+        min_free_gb=data_device_min_free_gb,
+    )
+    print("[training_data_cache]", json.dumps(data_cache_info, sort_keys=True))
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=(device == "cuda"),
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=(device == "cuda"),
-    )
+    def _build_loaders(resolved_data_device: str):
+        return (
+            make_fire_dataloader(
+                x_dyn=x_dyn_train,
+                x_stat=x_stat_train,
+                x_cat=x_cat_train,
+                y=y_train,
+                sample_weight=sample_w_train,
+                loss_target=y_loss_train,
+                batch_size=int(batch_size),
+                shuffle=True,
+                num_workers=int(num_workers),
+                training_device=device,
+                data_device=resolved_data_device,
+                fast_batched_getitems=fast_batched_getitems,
+                pin_memory=pin_memory,
+                persistent_workers=persistent_workers,
+                prefetch_factor=prefetch_factor,
+            ),
+            make_fire_dataloader(
+                x_dyn=x_dyn_val,
+                x_stat=x_stat_val,
+                x_cat=x_cat_val,
+                y=y_val,
+                loss_target=y_loss_val,
+                batch_size=int(batch_size),
+                shuffle=False,
+                num_workers=int(num_workers),
+                training_device=device,
+                data_device=resolved_data_device,
+                fast_batched_getitems=fast_batched_getitems,
+                pin_memory=pin_memory,
+                persistent_workers=persistent_workers,
+                prefetch_factor=prefetch_factor,
+            ),
+        )
+
+    try:
+        train_loader, val_loader = _build_loaders(data_device)
+    except RuntimeError as exc:
+        if data_device != "cuda" or str(data_device_request).strip().lower() in {"cuda", "gpu", "true", "on", "1", "yes"}:
+            raise
+        print(f"Falling back to CPU training tensors after CUDA cache allocation failed: {exc}", flush=True)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        data_device = "cpu"
+        train_loader, val_loader = _build_loaders(data_device)
 
     model = SequenceStaticLightningModule(
         model_name=model_name,
@@ -605,7 +862,8 @@ def train_pipeline(
     callbacks = []
     history_cb = HistoryCallback()
     callbacks.append(history_cb)
-    callbacks.append(LearningRateMonitor(logging_interval="step"))
+    if log_learning_rate:
+        callbacks.append(LearningRateMonitor(logging_interval="step"))
 
     checkpoint_path = None
     if model_path is not None:
@@ -626,7 +884,6 @@ def train_pipeline(
     else:
         checkpoint_callback = None
 
-    trainer_params = dict(trainer_kwargs or {})
     early_stopping_cfg = trainer_params.pop("early_stopping", None)
     if early_stopping_cfg is None:
         early_stopping_cfg = {}
@@ -653,6 +910,9 @@ def train_pipeline(
         "log_every_n_steps": 50,
         "precision": "16-mixed",
         "enable_checkpointing": checkpoint_callback is not None,
+        "num_sanity_val_steps": 0,
+        "benchmark": device == "cuda",
+        "enable_model_summary": False,
     }
     default_trainer_params.update(trainer_params)
     prediction_progress_bar = bool(default_trainer_params.get("enable_progress_bar", True))
@@ -1617,7 +1877,13 @@ if __name__ == "__main__":
     
     # Selection metric can be configured in YAML: selection_metric: "sel_ap" or "val_ap"
     selection_metric = str(config.get("selection_metric", "sel_ap"))
-    compute_train_metrics = bool(config.get("compute_train_metrics", True))
+    fast_revision_default = os.environ.get("REVISION_EVALUATION_FAST_NN", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    compute_train_metrics = bool(config.get("compute_train_metrics", not fast_revision_default))
     results = train_pipeline(
         x_dyn_train,
         x_stat_train,

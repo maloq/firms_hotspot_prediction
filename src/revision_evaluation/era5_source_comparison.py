@@ -104,6 +104,16 @@ def default_args(**overrides: Any) -> SimpleNamespace:
         "input_source_neural_training_features": DEFAULT_FEATURES_PATH,
         "input_source_neural_batch_size": 8192,
         "input_source_neural_device": "auto",
+        "input_source_neural_rows_per_prediction_batch": None,
+        "input_source_neural_max_tensor_batch_bytes": 512 * 1024 * 1024,
+        "input_source_neural_dense_cache_dir": None,
+        "input_source_neural_dense_cache_policy": "read-write",
+        "input_source_neural_dense_block_cache_dir": None,
+        "input_source_neural_dense_use_block_cache": True,
+        "input_source_neural_dense_location_batch_size": None,
+        "input_source_neural_dense_max_time_span_days": None,
+        "input_source_neural_dense_fill_row_batch_size": None,
+        "input_source_neural_dense_max_slab_spatial_cells": None,
         "input_source_neural_masked_climate_variables": [],
     }
     data.update(overrides)
@@ -775,6 +785,15 @@ def evaluate_neural_source_model(
         prediction_path,
         source_name,
     )
+    cache_policy = str(getattr(args, "input_source_neural_dense_cache_policy", "none") or "none")
+    cache_dir = getattr(args, "input_source_neural_dense_cache_dir", None)
+    cache_dir = Path(cache_dir) if cache_dir else None
+    if cache_dir is None and cache_policy.lower() in {"read", "write", "read-write"}:
+        cache_dir = Path(args.output_dir) / "shared_artifacts" / "dense_neural_dynamic_cache"
+    block_cache_dir = getattr(args, "input_source_neural_dense_block_cache_dir", None)
+    block_cache_dir = Path(block_cache_dir) if block_cache_dir else None
+    if block_cache_dir is None and cache_dir is not None:
+        block_cache_dir = cache_dir / "blocks"
     predictor = load_dense_neural_predictor(
         results_dir=args.output_dir,
         prediction_path=prediction_path,
@@ -785,11 +804,27 @@ def evaluate_neural_source_model(
         feature_config_path=args.feature_config,
         feature_config=feature_config,
         masked_dynamic_variables=masked_variables,
+        daily_dynamic_cache_dir=cache_dir,
+        daily_dynamic_cache_policy=cache_policy,
+        daily_dynamic_block_cache_dir=block_cache_dir,
+        daily_dynamic_use_block_cache=bool(getattr(args, "input_source_neural_dense_use_block_cache", True)),
+        daily_dynamic_location_batch_size=getattr(args, "input_source_neural_dense_location_batch_size", None),
+        daily_dynamic_max_time_span_days=getattr(args, "input_source_neural_dense_max_time_span_days", None),
+        daily_dynamic_fill_row_batch_size=getattr(args, "input_source_neural_dense_fill_row_batch_size", None),
+        daily_dynamic_max_slab_spatial_cells=getattr(args, "input_source_neural_dense_max_slab_spatial_cells", None),
     )
     y_val = positive_labels(validation_frame[TARGET_COLUMN])
     y_test = positive_labels(test_frame[TARGET_COLUMN])
-    val_prob = predictor.predict(validation_frame)
-    test_prob = predictor.predict(test_frame)
+    val_prob = predictor.predict_in_chunks(
+        validation_frame,
+        rows_per_chunk=getattr(args, "input_source_neural_rows_per_prediction_batch", None),
+        max_tensor_batch_bytes=getattr(args, "input_source_neural_max_tensor_batch_bytes", None),
+    )
+    test_prob = predictor.predict_in_chunks(
+        test_frame,
+        rows_per_chunk=getattr(args, "input_source_neural_rows_per_prediction_batch", None),
+        max_tensor_batch_bytes=getattr(args, "input_source_neural_max_tensor_batch_bytes", None),
+    )
     threshold_info = choose_threshold_by_f1(y_val, val_prob)
     threshold = float(threshold_info["threshold"])
 

@@ -1,40 +1,52 @@
 Region,Variant,F1,F1 Error,PR-AUC,PR-AUC Error
-Central Asia,FT-Transformer (global full),0.2079,0.000983,0.2634,0.0082
+Central Asia,FT-Transformer (global full),0.2025,0.001545,0.2673,0.0091
 Central Asia,LSTM attention (global full),0.2123,0.001214,0.2473,0.0102
+Central Asia,LSTM embedding fusion (global full),0.231,0.003027,0.2112,0.0084
 Central Asia,LSTM gated MoE (global full),0.2122,0.00217,0.2713,0.0096
 Central Asia,LSTM static concat (global full),0.244,0.001123,0.2874,0.0057
-Central Asia,Minimal MLP (global full),0.2534,0.006311,0.2639,0.0114
+Central Asia,Minimal MLP (global full),0.2548,0.006177,0.2619,0.0114
+Central Asia,Spatial climate TSN embedding fusion (global full),0.3104,0.001968,0.3477,0.0017
 Central Asia,Spatial climate TSN-MLP (ECMWF global full),0.1916,0.002333,0.3232,0.0089
 Central Asia,Spatial climate TSN-MLP (global full),0.343,0.003274,0.4225,0.0076
 Central Asia,Spatial climate TSN-MLP no tp (ERA5 global full),0.3315,0.003357,0.4132,0.0077
 Central Asia,TemporalConvNet / TSN-MLP (global full),0.1567,0.000541,0.2717,0.0046
-Eastern Siberia,FT-Transformer (global full),0.4939,0.001558,0.4222,0.0035
+Central Asia,TemporalConvNet embedding fusion (global full),0.1892,0.001256,0.3119,0.015
+Eastern Siberia,FT-Transformer (global full),0.5254,0.001951,0.502,0.0053
 Eastern Siberia,LSTM attention (global full),0.5543,0.000844,0.5196,0.0036
+Eastern Siberia,LSTM embedding fusion (global full),0.5627,0.002469,0.5151,0.0022
 Eastern Siberia,LSTM gated MoE (global full),0.5701,0.00303,0.5634,0.0058
 Eastern Siberia,LSTM static concat (global full),0.5808,0.00458,0.4875,0.008
-Eastern Siberia,Minimal MLP (global full),0.5723,0.001903,0.5296,0.0039
+Eastern Siberia,Minimal MLP (global full),0.5735,0.00184,0.53,0.004
+Eastern Siberia,Spatial climate TSN embedding fusion (global full),0.7075,0.002865,0.7513,0.004
 Eastern Siberia,Spatial climate TSN-MLP (ECMWF global full),0.5547,0.001263,0.5823,0.0064
 Eastern Siberia,Spatial climate TSN-MLP (global full),0.7111,0.002114,0.7549,0.0039
 Eastern Siberia,Spatial climate TSN-MLP no tp (ERA5 global full),0.7048,0.002133,0.7378,0.005
 Eastern Siberia,TemporalConvNet / TSN-MLP (global full),0.5029,0.001681,0.5262,0.0076
-Europe,FT-Transformer (global full),0.2827,0.002029,0.2939,0.0066
+Eastern Siberia,TemporalConvNet embedding fusion (global full),0.5303,0.0024,0.484,0.004
+Europe,FT-Transformer (global full),0.286,0.002622,0.2799,0.0093
 Europe,LSTM attention (global full),0.3387,0.003195,0.3095,0.0069
+Europe,LSTM embedding fusion (global full),0.3154,0.004457,0.2603,0.006
 Europe,LSTM gated MoE (global full),0.3094,0.002387,0.2908,0.0093
 Europe,LSTM static concat (global full),0.3451,0.001779,0.334,0.0083
-Europe,Minimal MLP (global full),0.3457,0.007443,0.3131,0.0045
+Europe,Minimal MLP (global full),0.3479,0.008258,0.313,0.0045
+Europe,Spatial climate TSN embedding fusion (global full),0.3365,0.005032,0.3041,0.0036
 Europe,Spatial climate TSN-MLP (ECMWF global full),0.2524,0.000487,0.3039,0.0127
 Europe,Spatial climate TSN-MLP (global full),0.3034,0.008238,0.2991,0.0094
 Europe,Spatial climate TSN-MLP no tp (ERA5 global full),0.3082,0.004226,0.3335,0.0099
 Europe,TemporalConvNet / TSN-MLP (global full),0.2214,0.000622,0.3378,0.0071
-Far East,FT-Transformer (global full),0.3477,0.000589,0.4293,0.0196
+Europe,TemporalConvNet embedding fusion (global full),0.2509,0.001796,0.2769,0.006
+Far East,FT-Transformer (global full),0.3526,0.002727,0.3928,0.018
 Far East,LSTM attention (global full),0.3869,0.0029,0.389,0.0096
+Far East,LSTM embedding fusion (global full),0.4441,0.002997,0.4278,0.0101
 Far East,LSTM gated MoE (global full),0.4049,0.002001,0.4097,0.0079
 Far East,LSTM static concat (global full),0.4229,0.00335,0.3922,0.0175
-Far East,Minimal MLP (global full),0.4045,0.002893,0.3926,0.0223
+Far East,Minimal MLP (global full),0.4061,0.003016,0.3912,0.0221
+Far East,Spatial climate TSN embedding fusion (global full),0.5816,0.005646,0.5565,0.0053
 Far East,Spatial climate TSN-MLP (ECMWF global full),0.3643,0.001862,0.3996,0.0054
 Far East,Spatial climate TSN-MLP (global full),0.5412,0.009273,0.6084,0.0118
 Far East,Spatial climate TSN-MLP no tp (ERA5 global full),0.5357,0.005652,0.5838,0.009
 Far East,TemporalConvNet / TSN-MLP (global full),0.2993,0.001737,0.422,0.0084
+Far East,TemporalConvNet embedding fusion (global full),0.3533,0.002233,0.3275,0.0046
 ,Dynamic + static without categorical embeddings,,,,
 ,FT-Transformer baseline,,,,
 ,LSTM-MLP full current model,,,,

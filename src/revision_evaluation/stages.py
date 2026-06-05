@@ -136,6 +136,16 @@ def run_era5_source_comparison(config: EvaluationConfig) -> None:
         input_source_neural_training_features=config.input_source_neural_training_features,
         input_source_neural_batch_size=config.input_source_neural_batch_size,
         input_source_neural_device=config.input_source_neural_device,
+        input_source_neural_rows_per_prediction_batch=config.input_source_neural_rows_per_prediction_batch,
+        input_source_neural_max_tensor_batch_bytes=config.input_source_neural_max_tensor_batch_bytes,
+        input_source_neural_dense_cache_dir=config.input_source_neural_dense_cache_dir,
+        input_source_neural_dense_cache_policy=config.input_source_neural_dense_cache_policy,
+        input_source_neural_dense_block_cache_dir=config.input_source_neural_dense_block_cache_dir,
+        input_source_neural_dense_use_block_cache=config.input_source_neural_dense_use_block_cache,
+        input_source_neural_dense_location_batch_size=config.input_source_neural_dense_location_batch_size,
+        input_source_neural_dense_max_time_span_days=config.input_source_neural_dense_max_time_span_days,
+        input_source_neural_dense_fill_row_batch_size=config.input_source_neural_dense_fill_row_batch_size,
+        input_source_neural_dense_max_slab_spatial_cells=config.input_source_neural_dense_max_slab_spatial_cells,
         input_source_neural_masked_climate_variables=config.input_source_neural_masked_climate_variables,
     )
     run(args)

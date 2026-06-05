@@ -112,6 +112,16 @@ class FirePeriodTimelineConfig:
     )
     overlay_dense_neural_batch_size: int = 8192
     overlay_dense_neural_device: str = "auto"
+    overlay_dense_neural_rows_per_prediction_batch: int | str | None = None
+    overlay_dense_neural_max_tensor_batch_bytes: int | None = None
+    overlay_dense_neural_cache_dir: Path | None = None
+    overlay_dense_neural_cache_policy: str = "read-write"
+    overlay_dense_neural_block_cache_dir: Path | None = None
+    overlay_dense_neural_use_block_cache: bool = True
+    overlay_dense_neural_location_batch_size: int | None = None
+    overlay_dense_neural_max_time_span_days: int | None = None
+    overlay_dense_neural_fill_row_batch_size: int | None = None
+    overlay_dense_neural_max_slab_spatial_cells: int | None = None
     overlay_overwrite_dense: bool = False
     overlay_grid_resolution: float | None = None
     overlay_interpolation_factor: int = 5
@@ -753,6 +763,7 @@ def write_markdown_summary(
     source_label: str | None,
     excluded_months: Sequence[int],
     generate_overlay_maps: bool,
+    common_window_reference_label: str | None = None,
 ) -> None:
     excluded = ", ".join(str(month) for month in excluded_months) or "none"
     lines = [
@@ -766,13 +777,24 @@ def write_markdown_summary(
         "",
         f"Feature source: `{source_label or 'default'}`.",
         "",
-        f"Excluded months: `{excluded}`.",
-        "",
-        f"Matching overlay maps: `{'enabled' if generate_overlay_maps else 'disabled'}`.",
-        "",
-        "| Region | Rank | Model | Period | Days | Fire locations | AP | Brier |",
-        "|---|---:|---|---:|---:|---:|---:|---:|",
     ]
+    if common_window_reference_label:
+        lines.extend(
+            [
+                f"Common window reference: `{common_window_reference_label}`.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            f"Excluded months: `{excluded}`.",
+            "",
+            f"Matching overlay maps: `{'enabled' if generate_overlay_maps else 'disabled'}`.",
+            "",
+            "| Region | Rank | Model | Period | Days | Fire locations | AP | Brier |",
+            "|---|---:|---|---:|---:|---:|---:|---:|",
+        ]
+    )
     for _, row in selected.iterrows():
         period = f"{row['period_start']} to {row['period_end']}"
         lines.append(
@@ -956,6 +978,16 @@ def run_fire_period_timelines(config: FirePeriodTimelineConfig) -> dict[str, obj
                         dense_neural_training_features=config.overlay_dense_neural_training_features,
                         dense_neural_batch_size=config.overlay_dense_neural_batch_size,
                         dense_neural_device=config.overlay_dense_neural_device,
+                        dense_neural_rows_per_prediction_batch=config.overlay_dense_neural_rows_per_prediction_batch,
+                        dense_neural_max_tensor_batch_bytes=config.overlay_dense_neural_max_tensor_batch_bytes,
+                        dense_neural_cache_dir=config.overlay_dense_neural_cache_dir,
+                        dense_neural_cache_policy=config.overlay_dense_neural_cache_policy,
+                        dense_neural_block_cache_dir=config.overlay_dense_neural_block_cache_dir,
+                        dense_neural_use_block_cache=config.overlay_dense_neural_use_block_cache,
+                        dense_neural_location_batch_size=config.overlay_dense_neural_location_batch_size,
+                        dense_neural_max_time_span_days=config.overlay_dense_neural_max_time_span_days,
+                        dense_neural_fill_row_batch_size=config.overlay_dense_neural_fill_row_batch_size,
+                        dense_neural_max_slab_spatial_cells=config.overlay_dense_neural_max_slab_spatial_cells,
                         feature_config_path=config.feature_config,
                         overwrite_dense=config.overlay_overwrite_dense,
                         prior_correction=config.overlay_prior_correction,
@@ -1002,3 +1034,265 @@ def run_fire_period_timelines(config: FirePeriodTimelineConfig) -> dict[str, obj
     print(f"Wrote fire-period timelines: {len(written)} timeline plot(s), {len(overlay_written)} overlay map(s)")
     print(f"Wrote selected periods: {selected_path}")
     return manifest
+
+
+def _timeline_output_dir(config: FirePeriodTimelineConfig) -> Path:
+    return config.output_dir or default_output_dir(config.results_dir)
+
+
+def _read_wide_table(output_dir: Path, name: str) -> pd.DataFrame:
+    path = output_dir / "artifacts" / "wide_tables" / f"{name}.jsonl.gz"
+    if not path.exists():
+        raise FileNotFoundError(f"Missing fire-period wide table: {path}")
+    return pd.read_json(path, orient="records", lines=True, compression="gzip")
+
+
+def _reference_config(
+    configs: Sequence[FirePeriodTimelineConfig],
+    reference_source_label: str | None,
+) -> FirePeriodTimelineConfig:
+    if not configs:
+        raise ValueError("No fire-period timeline configs were provided.")
+    if not reference_source_label:
+        return configs[0]
+    wanted = safe_slug(reference_source_label).lower()
+    for config in configs:
+        if safe_slug(config.source_label or config.source).lower() == wanted:
+            return config
+    labels = ", ".join(str(config.source_label or config.source) for config in configs)
+    raise ValueError(f"Common-window reference {reference_source_label!r} was not found among: {labels}")
+
+
+def _aligned_selected_periods(
+    period_metrics: pd.DataFrame,
+    reference_selected: pd.DataFrame,
+    *,
+    config: FirePeriodTimelineConfig,
+    reference_label: str,
+) -> pd.DataFrame:
+    if period_metrics.empty:
+        raise ValueError(f"No period metrics are available for {config.source_label or config.source}.")
+    if reference_selected.empty:
+        raise ValueError(f"No reference selected fire periods are available for {reference_label}.")
+    if config.selection_metric not in METRIC_DIRECTIONS:
+        raise ValueError(f"Unsupported selection metric: {config.selection_metric}")
+
+    metrics = period_metrics.copy()
+    if "season_filter" in metrics.columns:
+        metrics = metrics[metrics["season_filter"].astype(str).eq("kept_nonwinter")].copy()
+    starts = pd.to_datetime(metrics["period_start"], errors="coerce").dt.normalize()
+    ends = pd.to_datetime(metrics["period_end"], errors="coerce").dt.normalize()
+    direction = METRIC_DIRECTIONS[config.selection_metric]
+    ascending = direction == "min"
+
+    selections: list[pd.Series] = []
+    for _, ref in reference_selected.iterrows():
+        ref_region = str(ref["region"])
+        ref_start = pd.Timestamp(ref["period_start"]).normalize()
+        ref_end = pd.Timestamp(ref["period_end"]).normalize()
+        mask = metrics["region"].astype(str).eq(ref_region) & starts.eq(ref_start) & ends.eq(ref_end)
+        candidates = metrics.loc[mask].copy()
+        if candidates.empty:
+            label = config.source_label or config.source
+            raise ValueError(
+                f"No {label} fire-period metrics match reference window "
+                f"{ref_region} {ref_start:%Y-%m-%d} to {ref_end:%Y-%m-%d}."
+            )
+        sort_cols = [config.selection_metric, "count_abs_error", "weighted_brier_score", "prediction_path"]
+        sort_cols = [col for col in sort_cols if col in candidates.columns]
+        sort_ascending = [ascending] + [True] * max(0, len(sort_cols) - 1)
+        selected = candidates.sort_values(sort_cols, ascending=sort_ascending, na_position="last").iloc[0].copy()
+        selected["selection_metric"] = config.selection_metric
+        selected["selection_direction"] = direction
+        selected["selection_fallback_reason"] = ""
+        selected["period_rank"] = int(ref.get("period_rank", len(selections) + 1))
+        selected["excluded_months"] = ",".join(str(month) for month in config.excluded_months)
+        selected["common_window_reference_source"] = reference_label
+        selected["common_window_reference_model"] = ref.get("model_name", "")
+        selected["common_window_reference_average_precision"] = ref.get("average_precision", math.nan)
+        selections.append(selected)
+
+    return pd.DataFrame(selections).reset_index(drop=True)
+
+
+def align_fire_period_timeline_outputs_to_common_windows(
+    configs: Sequence[FirePeriodTimelineConfig],
+    *,
+    reference_source_label: str | None = None,
+) -> list[dict[str, object]]:
+    """Rewrite per-source timeline outputs to use the same selected windows."""
+
+    configs = list(configs)
+    if len(configs) < 2:
+        return []
+
+    ref_config = _reference_config(configs, reference_source_label)
+    reference_label = str(ref_config.source_label or ref_config.source)
+    ref_output_dir = _timeline_output_dir(ref_config)
+    reference_selected = _read_wide_table(ref_output_dir, "selected_fire_periods")
+
+    manifests: list[dict[str, object]] = []
+    for config in configs:
+        output_dir = _timeline_output_dir(config)
+        period_metrics = _read_wide_table(output_dir, "period_probability_metrics")
+        selected = _aligned_selected_periods(
+            period_metrics,
+            reference_selected,
+            config=config,
+            reference_label=reference_label,
+        )
+
+        wide_dir = output_dir / "artifacts" / "wide_tables"
+        write_wide_jsonl(wide_dir / "selected_fire_periods.jsonl.gz", selected)
+        selected_path = output_dir / "tables" / "selected_fire_periods.csv"
+        compact_overlay_table(
+            selected,
+            [
+                "region_display",
+                "model_name",
+                "period_rank",
+                "period_start",
+                "period_end",
+                "window_days",
+                "observed_positive_locations",
+                "average_precision",
+                "observed_peak_day_index",
+                "first_quarter_fire_fraction",
+                "middle_half_fire_fraction",
+                "centered_activity_score",
+            ],
+        ).to_csv(selected_path, index=False)
+
+        write_markdown_summary(
+            output_dir,
+            selected,
+            source=config.source,
+            source_label=config.source_label,
+            excluded_months=config.excluded_months,
+            generate_overlay_maps=config.generate_overlay_maps,
+            common_window_reference_label=reference_label,
+        )
+
+        if config.overlay_grid_resolution is None:
+            target_config = load_yaml(config.target_config)
+            grid_resolution = float(target_config.get("spatial_coarseness", 0.1))
+        else:
+            grid_resolution = float(config.overlay_grid_resolution)
+        only = set(config.regions) if config.regions else None
+        regions = load_regions(config.regions_file, include_global=config.include_global, only=only)
+        region_by_name = {region.name: region for region in regions}
+        formats = [fmt.strip() for fmt in config.formats if fmt.strip()]
+
+        cleanup_old_plot_files(output_dir)
+        world = load_world_boundaries(config.overlay_country_shapes) if config.generate_overlay_maps else None
+        written: list[Path] = []
+        overlay_written: list[Path] = []
+        lead_columns: dict[str, str | None] = {}
+        for prediction_path, group in selected.groupby("prediction_path", sort=False):
+            path = Path(str(prediction_path))
+            frame, lead_col = read_prediction_columns_with_lead(path, config.prob_col, config.lead_column)
+            lead_columns[str(path)] = lead_col
+            for _, selection in group.iterrows():
+                region = region_by_name[str(selection["region"])]
+                written.extend(
+                    plot_fire_period_timeline(
+                        frame,
+                        selection=selection,
+                        region=region,
+                        output_dir=output_dir,
+                        formats=formats,
+                        dpi=config.dpi,
+                        grid_resolution=grid_resolution,
+                        source_label=config.source_label,
+                        lead_column=lead_col,
+                        max_lead_days=config.max_lead_days,
+                        burned_area_label=config.burned_area_label,
+                        count_colormap=config.count_colormap,
+                        count_norm_gamma=config.count_norm_gamma,
+                        count_vmax_percentile=config.count_vmax_percentile,
+                    )
+                )
+                if config.generate_overlay_maps:
+                    overlay_selection = overlay_selection_for_timeline(
+                        selection,
+                        window_days=config.overlay_window_days,
+                        center_on_peak=config.overlay_center_on_observed_peak,
+                    )
+                    overlay_written.extend(
+                        plot_selected_period(
+                            frame,
+                            selection=overlay_selection,
+                            region=region,
+                            output_dir=output_dir,
+                            results_dir=config.results_dir,
+                            formats=formats,
+                            dpi=config.dpi,
+                            map_summary=config.overlay_map_summary,
+                            grid_resolution=grid_resolution,
+                            interpolation_factor=config.overlay_interpolation_factor,
+                            surface_source=config.overlay_surface_source,
+                            dense_model_path=config.overlay_dense_model_path
+                            or (config.results_dir / "shared_artifacts" / "models" / "catboost_full.cbm"),
+                            dense_neural_model_path=config.overlay_dense_neural_model_path,
+                            dense_neural_training_features=config.overlay_dense_neural_training_features,
+                            dense_neural_batch_size=config.overlay_dense_neural_batch_size,
+                            dense_neural_device=config.overlay_dense_neural_device,
+                            dense_neural_rows_per_prediction_batch=config.overlay_dense_neural_rows_per_prediction_batch,
+                            dense_neural_max_tensor_batch_bytes=config.overlay_dense_neural_max_tensor_batch_bytes,
+                            dense_neural_cache_dir=config.overlay_dense_neural_cache_dir,
+                            dense_neural_cache_policy=config.overlay_dense_neural_cache_policy,
+                            dense_neural_block_cache_dir=config.overlay_dense_neural_block_cache_dir,
+                            dense_neural_use_block_cache=config.overlay_dense_neural_use_block_cache,
+                            dense_neural_location_batch_size=config.overlay_dense_neural_location_batch_size,
+                            dense_neural_max_time_span_days=config.overlay_dense_neural_max_time_span_days,
+                            dense_neural_fill_row_batch_size=config.overlay_dense_neural_fill_row_batch_size,
+                            dense_neural_max_slab_spatial_cells=config.overlay_dense_neural_max_slab_spatial_cells,
+                            feature_config_path=config.feature_config,
+                            overwrite_dense=config.overlay_overwrite_dense,
+                            prior_correction=config.overlay_prior_correction,
+                            train_prior=config.overlay_train_prior,
+                            deploy_prior=config.overlay_deploy_prior,
+                            colormap=config.overlay_colormap,
+                            color_floor=config.overlay_color_floor,
+                            color_vmax=config.overlay_color_vmax,
+                            source_label=config.source_label,
+                            verbose_feature_generation=config.overlay_verbose_feature_generation,
+                            world=world,
+                        )
+                    )
+            del frame
+
+        manifest = {
+            "output_dir": str(output_dir),
+            "period_metrics": str(output_dir / "tables" / "period_probability_metrics.csv"),
+            "selected_periods": str(selected_path),
+            "timeline_plots": [str(path) for path in written],
+            "overlay_plots": [str(path) for path in overlay_written],
+            "plot_count": len(written) + len(overlay_written),
+            "model": config.model,
+            "source": config.source,
+            "source_label": config.source_label,
+            "selection_metric": config.selection_metric,
+            "window_days": int(config.window_days),
+            "excluded_months": list(config.excluded_months),
+            "common_window_reference_source": reference_label,
+            "count_colormap": config.count_colormap,
+            "count_norm_gamma": float(config.count_norm_gamma),
+            "count_vmax_percentile": float(config.count_vmax_percentile),
+            "overlay_window_days": config.overlay_window_days,
+            "overlay_center_on_observed_peak": bool(config.overlay_center_on_observed_peak),
+            "lead_columns": lead_columns,
+            "regions": [region.name for region in regions],
+            "burned_area_note": (
+                "Burnt-area panel is an observed fire-positive grid-cell area proxy, "
+                "not satellite burned-area retrieval."
+            ),
+        }
+        (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        manifests.append(manifest)
+        print(
+            f"Aligned {config.source_label or config.source} fire-period timelines to "
+            f"{reference_label}: {len(written)} timeline plot(s), {len(overlay_written)} overlay map(s)"
+        )
+
+    return manifests

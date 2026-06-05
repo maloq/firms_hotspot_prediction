@@ -1,0 +1,60 @@
+seed: 17
+
+output_train_data_dir: "data/saved_features/nn_train_data_daily"
+output_nn_plots_dir: "outputs/plots_nn/global_full_tsn_embedding_fusion"
+nn_output_model_path: "models/nn_global_full_tsn_embedding_fusion.ckpt"
+nn_metrics_path: "outputs/nn_global_full_tsn_embedding_fusion/metrics.json"
+
+batch_size: 4096
+epochs: 15
+num_workers: 0
+selection_metric: val_ap
+compute_train_metrics: false
+
+class_weights:
+  0: 1.0
+  1: 1.0
+
+loss:
+  name: focal
+  focal_gamma: 2.0
+  focal_alpha: 0.65
+  use_soft_labels: false
+
+nn_model:
+  architecture: tsn_embedding_fusion
+  params:
+    token_dim: 64
+    tcn_units: 256
+    num_blocks: 3
+    kernel_sizes: [3, 5, 9]
+    dilations: [1, 2, 4, 8]
+    dropout_tcn: 0.12
+    pooling: attention
+    token_layers: 1
+    token_heads: 4
+    token_ffn_dim: 192
+    token_dropout: 0.08
+    token_pooling: attention
+    static_units: 512
+    dropout_static: 0.05
+    merge_units: 384
+    dropout_merged: 0.15
+    categorical_mode: embedding
+  lightning:
+    learning_rate: 0.0005
+    l2: 0.0001
+    clip_gradient_norm: 5.0
+    log_train_ap: false
+    scheduler_config:
+      type: cosine
+      interval: epoch
+      frequency: 1
+      params:
+        T_max: 15
+        eta_min: 0.00002
+  trainer:
+    enable_progress_bar: false
+    early_stopping:
+      patience: 6
+      min_delta: 0.0005

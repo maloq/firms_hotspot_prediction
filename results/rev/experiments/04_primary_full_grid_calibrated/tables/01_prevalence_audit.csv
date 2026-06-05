@@ -1,21 +1,23 @@
 Source,Denominator,Events,Denominator Count,Event Rate,Rate Error
-CatBoost,deployment_weighted_grid_cell_days,18832,385908645.0341,4.88e-05,0.0
-CatBoost,evaluated_rows_unweighted,18832,1948285.0,0.00966594,0.0
-FWI-only CatBoost,deployment_weighted_grid_cell_days,18832,385908645.0341,4.88e-05,0.0
-FWI-only CatBoost,evaluated_rows_unweighted,18832,1948285.0,0.00966594,0.0
-Logistic Regression (linear SGD),deployment_weighted_grid_cell_days,18832,385908645.0341,4.88e-05,0.0
-Logistic Regression (linear SGD),evaluated_rows_unweighted,18832,1948285.0,0.00966594,0.0
-Poisson Point-Process GLM,deployment_weighted_grid_cell_days,18832,385908645.0341,4.88e-05,0.0
-Poisson Point-Process GLM,evaluated_rows_unweighted,18832,1948285.0,0.00966594,0.0
-Random Forest,deployment_weighted_grid_cell_days,18832,385908645.0341,4.88e-05,0.0
-Random Forest,evaluated_rows_unweighted,18832,1948285.0,0.00966594,0.0
-Weather-only CatBoost,deployment_weighted_grid_cell_days,18832,385908645.0341,4.88e-05,0.0
-Weather-only CatBoost,evaluated_rows_unweighted,18832,1948285.0,0.00966594,0.0
-sampled_case_control,Global test,49514,321173.0,0.15416613,
-sampled_case_control,Global test 2021,24772,87238.0,0.28395883,
-sampled_case_control,Global test 2022,4923,58312.0,0.08442516,
-sampled_case_control,Global test 2023,6898,60888.0,0.11328998,
-sampled_case_control,Global test 2024,9134,65063.0,0.14038701,
-sampled_case_control,Global test 2025,3787,49672.0,0.07624014,
-sampled_case_control,Global train,170986,1185561.0,0.14422371,
-sampled_case_control,Global validation,28826,147424.0,0.19553126,
+CatBoost,deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+CatBoost,evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+CatBoost deployment-weighted,deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+CatBoost deployment-weighted,evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+FWI-only CatBoost,deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+FWI-only CatBoost,evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+Logistic Regression (linear SGD),deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+Logistic Regression (linear SGD),evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+Poisson Point-Process GLM,deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+Poisson Point-Process GLM,evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+Random Forest,deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+Random Forest,evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+Weather-only CatBoost,deployment_weighted_grid_cell_days,18832.0,385908645.0341,4.88e-05,0.0
+Weather-only CatBoost,evaluated_rows_unweighted,18832.0,1948285.0,0.00966594,0.0
+sampled_case_control,Global test,49514.0,321173.0,0.15416613,
+sampled_case_control,Global test 2021,24772.0,87238.0,0.28395883,
+sampled_case_control,Global test 2022,4923.0,58312.0,0.08442516,
+sampled_case_control,Global test 2023,6898.0,60888.0,0.11328998,
+sampled_case_control,Global test 2024,9134.0,65063.0,0.14038701,
+sampled_case_control,Global test 2025,3787.0,49672.0,0.07624014,
+sampled_case_control,Global train,170986.0,1185561.0,0.14422371,
+sampled_case_control,Global validation,28826.0,147424.0,0.19553126,

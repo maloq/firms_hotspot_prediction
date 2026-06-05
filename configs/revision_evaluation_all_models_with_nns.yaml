@@ -14,6 +14,7 @@ run_neural_feature_importance: true
 run_era5_source_comparison: true
 run_representative_model_ablation: true
 run_probability_overlays: true
+run_fire_period_timelines: true
 run_organizer: true
 
 run_legacy_sampled_evaluation: true
@@ -121,10 +122,13 @@ new_nn_models:
   - minimal_mlp
   - ft_transformer
   - tsn
+  - tsn_embedding_fusion
   - spatial_tsn
+  - spatial_tsn_embedding_fusion
   - spatial_tsn_no_tp
   - spatial_tsn_ecmwf
   - lstm_static_concat
+  - lstm_embedding_fusion
   - lstm_attention
   - lstm_gated_moe
 
@@ -151,8 +155,16 @@ probability_overlay_overwrite_dense: false
 probability_overlay_dense_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
 probability_overlay_source_runs:
   - name: ECMWF
+    model: nn_global_full_spatial_tsn_ecmwf
     feature_config: configs/features_config_30d.yaml
     dense_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
   - name: ERA5
+    model: nn_global_full_spatial_tsn_no_tp
     feature_config: configs/features_config_30d_era5.yaml
     dense_neural_training_features: data/saved_features_boost/train_test_features_30d_all_extended_north_14cb_laggedfire.parquet
+fire_period_timeline_common_windows: true
+fire_period_timeline_reference_source: ERA5
+fire_period_timeline_regions:
+  - eastern_siberia
+fire_period_timeline_include_global: true
+fire_period_timeline_generate_overlay_maps: false

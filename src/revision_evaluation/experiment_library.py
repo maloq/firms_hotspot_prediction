@@ -1397,7 +1397,7 @@ class Builder:
         exp = Experiment(
             "12_neural_embedding_fusion_global",
             "Neural Embedding Fusion Global",
-            "Compares temporal-only, static-only, concatenation, one-hot, learned embedding, full fusion, and gated neural variants globally.",
+            "Compares temporal-only, static-only, concatenation, categorical embedding, shared-token embedding fusion, and gated neural variants globally.",
             ["embedding_fusion_ablation.csv"],
             ["embedding_fusion_pr_auc", "embedding_fusion_f1"],
             artifact_globs=artifact_globs,
@@ -2411,7 +2411,7 @@ class Builder:
         exp = Experiment(
             "33_fire_period_timeline_plots",
             "Fire Period Timeline Plots",
-            "Selects centered non-winter 28-day prediction periods, plots forecast-vs-MODIS temporal strips, and saves matching probability overlay maps.",
+            "Selects centered non-winter 28-day prediction periods, plots forecast-vs-MODIS temporal strips, and optionally saves matching probability overlay maps.",
             [],
             [],
             artifact_globs=["fire_period_timelines/**/*"],
@@ -2420,6 +2420,7 @@ class Builder:
                 "The selector prefers windows whose observed activity peaks near the middle instead of at the start.",
                 "The area bubble panel is a fire-positive grid-cell area proxy, not an independent burned-area product.",
                 "If prediction files do not contain lead-time metadata, the forecast panel uses one row for the selected model/source.",
+                "Matching overlay maps are included only when the timeline generation stage is run with overlay map generation enabled.",
             ],
         )
         d = self.exp_dir(exp)
@@ -2681,6 +2682,17 @@ def organize_results(root: Path = ROOT) -> None:
     write_root_readme()
     prune_empty_dirs(ROOT)
     verify_outputs()
+
+
+def refresh_primary_full_grid_experiment(root: Path = ROOT) -> None:
+    """Refresh experiment 04 from current full-grid CSV/JSONL tables."""
+    set_root(root)
+    if not ROOT.exists():
+        raise SystemExit(f"Missing result directory: {ROOT}")
+    dfs = load_all_tables()
+    builder = Builder(dfs)
+    builder.build_primary_full_grid()
+    prune_empty_dirs(ROOT)
 
 
 def main(root: Path = ROOT) -> None:

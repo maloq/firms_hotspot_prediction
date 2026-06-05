@@ -1,17 +1,17 @@
 Experiment,Model,Precision,Recall,F1,PR-AUC
-CatBoost <=30d climate windows,CatBoost,0.3946,0.8955,0.5478,0.5833
-CatBoost dynamic weather+FWI only,CatBoost,0.2676,0.9328,0.4159,0.4822
-CatBoost no Gaussian-smoothed anthropogenic rasters,CatBoost,0.3449,0.9432,0.5051,0.5789
-CatBoost no anthropogenic,CatBoost,0.3902,0.7993,0.5245,0.5278
-CatBoost no fuel/ecoregion/vegetation,CatBoost,0.4283,0.8557,0.5709,0.5885
-CatBoost no history,CatBoost,0.2756,0.9718,0.4294,0.3447
-CatBoost no seasonality,CatBoost,0.35,0.9411,0.5103,0.5818
-CatBoost no sine/cos seasonality,CatBoost,0.3469,0.9413,0.507,0.5815
-CatBoost no temporal-history/weather lags,CatBoost,0.3187,0.8554,0.4644,0.4471
-CatBoost no terrain,CatBoost,0.4309,0.863,0.5748,0.6009
-CatBoost static only,CatBoost,0.3545,0.8085,0.4929,0.5042
-CatBoost-no-ecoregion,CatBoost,0.3469,0.9413,0.507,0.5815
-CatBoost-no-geography,CatBoost,0.3469,0.9413,0.507,0.5815
-FWI-only CatBoost,FWI-only CatBoost,0.213,0.9109,0.3453,0.3106
-Full CatBoost,CatBoost,0.3469,0.9413,0.507,0.5815
-Weather-only CatBoost,Weather-only CatBoost,0.264,0.925,0.4108,0.4912
+CatBoost <=30d climate windows,CatBoost,0.3973,0.8005,0.5311,0.545
+CatBoost dynamic weather+FWI only,CatBoost,0.2886,0.8752,0.4341,0.4391
+CatBoost no Gaussian-smoothed anthropogenic rasters,CatBoost,0.3986,0.8159,0.5355,0.5595
+CatBoost no anthropogenic,CatBoost,0.3959,0.7907,0.5276,0.5335
+CatBoost no fuel/ecoregion/vegetation,CatBoost,0.3864,0.8289,0.5271,0.5504
+CatBoost no history,CatBoost,0.2708,0.9479,0.4212,0.5002
+CatBoost no seasonality,CatBoost,0.3965,0.8217,0.5349,0.5517
+CatBoost no sine/cos seasonality,CatBoost,0.3996,0.8216,0.5377,0.562
+CatBoost no temporal-history/weather lags,CatBoost,0.3589,0.6719,0.4679,0.4578
+CatBoost no terrain,CatBoost,0.3985,0.8173,0.5358,0.556
+CatBoost static only,CatBoost,0.3425,0.6936,0.4586,0.462
+CatBoost-no-ecoregion,CatBoost,0.3996,0.8216,0.5377,0.562
+CatBoost-no-geography,CatBoost,0.3996,0.8216,0.5377,0.562
+FWI-only CatBoost,FWI-only CatBoost,0.2064,0.9371,0.3383,0.3127
+Full CatBoost,CatBoost,0.3996,0.8216,0.5377,0.562
+Weather-only CatBoost,Weather-only CatBoost,0.288,0.7944,0.4227,0.3422

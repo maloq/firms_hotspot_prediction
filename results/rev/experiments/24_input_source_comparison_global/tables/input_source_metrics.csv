@@ -1,7 +1,7 @@
 Experiment,Status,F1,F1 Error,PR-AUC,PR-AUC Error
-Best neural ERA5 -> ERA5 (no tp),completed_available_domain,0.6584,0.00345,0.7113,0.006216
-Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,0.4457,0.002144,0.5294,0.003604
-ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,0.5936,0.00188,0.6083,0.00179
-ERA5 -> ERA5 (no tp),completed_available_domain,0.6921,0.002522,0.7379,0.001649
-ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,0.5272,0.004263,0.6062,0.003494
-SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,0.5831,0.001464,0.5936,0.003463
+Best neural ERA5 -> ERA5 (no tp),completed_available_domain,0.6533,0.00404,0.7044,0.006625
+Best neural ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,0.6533,0.00404,0.7044,0.006625
+ERA5 + SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,0.5524,0.002497,0.5596,0.00142
+ERA5 -> ERA5 (no tp),completed_available_domain,0.6476,0.002133,0.6891,0.002501
+ERA5 -> SEAS5/ECMWF (no tp),completed_available_domain,0.4437,0.004349,0.5525,0.002819
+SEAS5/ECMWF -> SEAS5/ECMWF (no tp),completed_available_domain,0.552,0.002225,0.5446,0.002168

@@ -1,25 +1,29 @@
 Model,Top Q,Recall@Q,Recall Error,Lift@Q,Lift Error,Precision@Q,AP Lift
-CatBoost,top_0.1pct,0.1055,0.0082,105.4908,8.0482,0.005148,76.0493
-CatBoost,top_0.5pct,0.2589,0.0207,51.7808,4.1954,0.002527,76.0493
-CatBoost,top_1pct,0.384,0.01,38.4014,0.994,0.001874,76.0493
-CatBoost,top_5pct,0.5701,0.0259,11.4029,0.5181,0.000556,76.0493
-FWI-only CatBoost,top_0.1pct,0.0043,0.0068,4.2993,6.6985,0.00021,5.2677
-FWI-only CatBoost,top_0.5pct,0.1039,0.0179,20.7837,3.5679,0.001014,5.2677
-FWI-only CatBoost,top_1pct,0.1123,0.0223,11.2256,2.2357,0.000548,5.2677
-FWI-only CatBoost,top_5pct,0.2686,0.0161,5.3717,0.3224,0.000262,5.2677
-Logistic Regression (linear SGD),top_0.1pct,0.0027,0.0025,2.7072,2.5096,0.000132,6.6038
-Logistic Regression (linear SGD),top_0.5pct,0.0255,0.0133,5.108,2.6512,0.000249,6.6038
-Logistic Regression (linear SGD),top_1pct,0.0284,0.01,2.8356,1.0032,0.000138,6.6038
-Logistic Regression (linear SGD),top_5pct,0.3398,0.04,6.7958,0.8009,0.000332,6.6038
-Poisson Point-Process GLM,top_0.1pct,0.0695,0.0178,69.4206,17.5493,0.003388,20.7574
-Poisson Point-Process GLM,top_0.5pct,0.1973,0.0235,39.4613,4.6735,0.001926,20.7574
-Poisson Point-Process GLM,top_1pct,0.2665,0.0176,26.6453,1.7565,0.0013,20.7574
-Poisson Point-Process GLM,top_5pct,0.4567,0.0128,9.1344,0.2558,0.000446,20.7574
-Random Forest,top_0.1pct,0.0706,0.0144,70.6208,14.1824,0.003446,24.3822
-Random Forest,top_0.5pct,0.1967,0.0134,39.3342,2.6756,0.001919,24.3822
-Random Forest,top_1pct,0.2903,0.0274,29.0291,2.7312,0.001417,24.3822
-Random Forest,top_5pct,0.5316,0.0243,10.6329,0.4857,0.000519,24.3822
-Weather-only CatBoost,top_0.1pct,0.0419,0.0069,41.941,6.773,0.002047,18.069
-Weather-only CatBoost,top_0.5pct,0.173,0.0121,34.5881,2.413,0.001688,18.069
-Weather-only CatBoost,top_1pct,0.3085,0.0172,30.8455,1.7118,0.001505,18.069
-Weather-only CatBoost,top_5pct,0.5175,0.0296,10.3504,0.5921,0.000505,18.069
+CatBoost,top_0.1pct,0.0893,0.0188,89.2234,18.5061,0.004354,62.1829
+CatBoost,top_0.5pct,0.2194,0.0104,43.8786,2.0702,0.002141,62.1829
+CatBoost,top_1pct,0.2942,0.0125,29.423,1.2513,0.001436,62.1829
+CatBoost,top_5pct,0.5158,0.0179,10.3165,0.3577,0.000503,62.1829
+CatBoost deployment-weighted,top_0.1pct,0.0053,0.0031,5.2545,3.0396,0.000256,4.3216
+CatBoost deployment-weighted,top_0.5pct,0.0336,0.0035,6.7117,0.6912,0.000328,4.3216
+CatBoost deployment-weighted,top_1pct,0.1001,0.0185,10.0091,1.854,0.000488,4.3216
+CatBoost deployment-weighted,top_5pct,0.2897,0.0156,5.7933,0.3124,0.000283,4.3216
+FWI-only CatBoost,top_0.1pct,0.0072,0.0063,7.2213,6.244,0.000352,5.5234
+FWI-only CatBoost,top_0.5pct,0.0967,0.0214,19.3388,4.2636,0.000944,5.5234
+FWI-only CatBoost,top_1pct,0.1176,0.0251,11.7563,2.5106,0.000574,5.5234
+FWI-only CatBoost,top_5pct,0.2728,0.0193,5.4556,0.3853,0.000266,5.5234
+Logistic Regression (linear SGD),top_0.1pct,0.0058,0.0025,5.788,2.5081,0.000282,11.2948
+Logistic Regression (linear SGD),top_0.5pct,0.0311,0.0153,6.2127,3.0557,0.000303,11.2948
+Logistic Regression (linear SGD),top_1pct,0.1138,0.0084,11.3795,0.8351,0.000555,11.2948
+Logistic Regression (linear SGD),top_5pct,0.705,0.0193,14.1004,0.3863,0.000688,11.2948
+Poisson Point-Process GLM,top_0.1pct,0.0894,0.0081,89.382,7.9492,0.004362,31.09
+Poisson Point-Process GLM,top_0.5pct,0.2431,0.017,48.6187,3.4599,0.002373,31.09
+Poisson Point-Process GLM,top_1pct,0.3255,0.0124,32.5454,1.2352,0.001588,31.09
+Poisson Point-Process GLM,top_5pct,0.5311,0.0137,10.6212,0.2745,0.000518,31.09
+Random Forest,top_0.1pct,0.0562,0.0165,56.2123,16.211,0.002743,20.3636
+Random Forest,top_0.5pct,0.1599,0.0153,31.9765,3.049,0.00156,20.3636
+Random Forest,top_1pct,0.2325,0.0211,23.2472,2.1027,0.001134,20.3636
+Random Forest,top_5pct,0.5141,0.0241,10.2824,0.4813,0.000502,20.3636
+Weather-only CatBoost,top_0.1pct,0.0049,0.0077,4.883,7.5821,0.000238,6.2514
+Weather-only CatBoost,top_0.5pct,0.0627,0.0068,12.5423,1.3502,0.000612,6.2514
+Weather-only CatBoost,top_1pct,0.1466,0.0276,14.6557,2.7556,0.000715,6.2514
+Weather-only CatBoost,top_5pct,0.3546,0.0257,7.0911,0.515,0.000346,6.2514

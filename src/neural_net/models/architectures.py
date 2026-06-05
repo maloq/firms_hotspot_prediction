@@ -9,6 +9,13 @@ from torch import nn
 from torch.nn import functional as F
 
 
+def _positive_int(value: int, name: str) -> int:
+    value = int(value)
+    if value <= 0:
+        raise ValueError(f"{name} must be positive")
+    return value
+
+
 def _build_embedding_layers(
     categorical_embeddings: Optional[List[Dict]]
 ) -> tuple[nn.ModuleList, int]:
@@ -97,6 +104,221 @@ def _concat_categorical_features(
     embeddings: List[torch.Tensor] = [layer(cat[:, idx]) for idx, layer in enumerate(embedding_layers)]
     embedded = torch.cat(embeddings, dim=1)
     return torch.cat([stat, embedded], dim=1)
+
+
+class FeatureTokenEncoder(nn.Module):
+    """Project continuous and categorical static predictors into shared tokens."""
+
+    def __init__(
+        self,
+        n_continuous: int,
+        token_dim: int,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        self.n_continuous = int(n_continuous or 0)
+        if self.n_continuous < 0:
+            raise ValueError("n_continuous cannot be negative")
+        self.token_dim = _positive_int(token_dim, "token_dim")
+        self.categorical_mode = _normalize_categorical_mode(
+            categorical_mode,
+            has_embeddings=bool(categorical_embeddings),
+        )
+        self.n_categorical = int(n_categorical or 0)
+        if self.n_categorical < 0:
+            raise ValueError("n_categorical cannot be negative")
+
+        if self.n_continuous > 0:
+            self.continuous_weight = nn.Parameter(torch.empty(self.n_continuous, self.token_dim))
+            self.continuous_bias = nn.Parameter(torch.empty(self.n_continuous, self.token_dim))
+            nn.init.xavier_uniform_(self.continuous_weight)
+            nn.init.zeros_(self.continuous_bias)
+        else:
+            self.register_parameter("continuous_weight", None)
+            self.register_parameter("continuous_bias", None)
+
+        embeddings_meta = list(categorical_embeddings or [])
+        self.categorical_token_embeddings = nn.ModuleList()
+        if self.categorical_mode == "embedding":
+            if self.n_categorical == 0:
+                self.n_categorical = len(embeddings_meta)
+            if len(embeddings_meta) != self.n_categorical:
+                raise ValueError(
+                    f"Expected {self.n_categorical} categorical embedding specs, "
+                    f"got {len(embeddings_meta)}."
+                )
+            for meta in embeddings_meta:
+                cardinality = int(meta.get("cardinality", 0))
+                if cardinality <= 0:
+                    raise ValueError("Categorical embedding cardinality must be positive")
+                self.categorical_token_embeddings.append(nn.Embedding(cardinality, self.token_dim))
+            self.register_parameter("raw_categorical_weight", None)
+            self.register_parameter("raw_categorical_bias", None)
+        elif self.categorical_mode == "raw" and self.n_categorical > 0:
+            self.raw_categorical_weight = nn.Parameter(torch.empty(self.n_categorical, self.token_dim))
+            self.raw_categorical_bias = nn.Parameter(torch.empty(self.n_categorical, self.token_dim))
+            nn.init.xavier_uniform_(self.raw_categorical_weight)
+            nn.init.zeros_(self.raw_categorical_bias)
+        else:
+            self.register_parameter("raw_categorical_weight", None)
+            self.register_parameter("raw_categorical_bias", None)
+
+        self.token_count = self.n_continuous
+        if self.categorical_mode == "embedding":
+            self.token_count += len(self.categorical_token_embeddings)
+        elif self.categorical_mode == "raw":
+            self.token_count += self.n_categorical
+        if self.token_count <= 0:
+            raise ValueError("FeatureTokenEncoder requires at least one continuous or categorical token")
+
+    def forward(self, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        tokens: list[torch.Tensor] = []
+
+        if self.n_continuous > 0:
+            if stat.ndim != 2 or stat.shape[1] != self.n_continuous:
+                raise ValueError(
+                    f"Expected static feature matrix with {self.n_continuous} columns, got {stat.shape}."
+                )
+            tokens.append(
+                stat.unsqueeze(-1) * self.continuous_weight.unsqueeze(0)
+                + self.continuous_bias.unsqueeze(0)
+            )
+        elif stat.ndim != 2:
+            raise ValueError(f"Expected static feature matrix shaped (batch, features), got {stat.shape}.")
+
+        if self.categorical_mode == "embedding" and self.categorical_token_embeddings:
+            expected = len(self.categorical_token_embeddings)
+            if cat is None:
+                raise ValueError("Categorical features tensor is required but was not provided.")
+            if cat.ndim != 2 or cat.shape[1] != expected:
+                raise ValueError(
+                    f"Expected categorical feature matrix with {expected} columns, "
+                    f"got {cat.shape if cat is not None else None}."
+                )
+            tokens.append(
+                torch.stack(
+                    [layer(cat[:, idx]) for idx, layer in enumerate(self.categorical_token_embeddings)],
+                    dim=1,
+                )
+            )
+        elif self.categorical_mode == "raw" and self.n_categorical > 0:
+            if cat is None:
+                raise ValueError("Categorical features tensor is required but was not provided.")
+            if cat.ndim != 2 or cat.shape[1] != self.n_categorical:
+                raise ValueError(
+                    f"Expected categorical feature matrix with {self.n_categorical} columns, "
+                    f"got {cat.shape if cat is not None else None}."
+                )
+            tokens.append(
+                cat.float().unsqueeze(-1) * self.raw_categorical_weight.unsqueeze(0)
+                + self.raw_categorical_bias.unsqueeze(0)
+            )
+
+        if not tokens:
+            raise RuntimeError("FeatureTokenEncoder produced no tokens")
+        return torch.cat(tokens, dim=1)
+
+
+class TokenAttentionPooling(nn.Module):
+    """Attention pooling over same-width feature tokens."""
+
+    def __init__(self, token_dim: int) -> None:
+        super().__init__()
+        self.score = nn.Linear(_positive_int(token_dim, "token_dim"), 1, bias=False)
+        self._last_weights: Optional[torch.Tensor] = None
+
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        weights = torch.softmax(self.score(tokens).squeeze(-1), dim=1)
+        self._last_weights = weights
+        return torch.bmm(weights.unsqueeze(1), tokens).squeeze(1)
+
+
+def _normalize_token_pooling(value: str | None) -> str:
+    mode = str(value or "attention").strip().lower()
+    if mode in {"attention", "attn"}:
+        return "attention"
+    if mode in {"mean", "avg", "average"}:
+        return "mean"
+    if mode == "max":
+        return "max"
+    raise ValueError("token_pooling must be one of 'attention', 'mean', or 'max'")
+
+
+class StaticFeatureTokenBranch(nn.Module):
+    """Encode static continuous/categorical predictors, contextualize tokens, and pool."""
+
+    def __init__(
+        self,
+        n_static: int,
+        output_units: int,
+        token_dim: int = 64,
+        token_layers: int = 1,
+        token_heads: int = 4,
+        token_ffn_dim: int = 128,
+        token_dropout: float = 0.1,
+        token_pooling: str = "attention",
+        output_dropout: float = 0.0,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        self.encoder = FeatureTokenEncoder(
+            n_continuous=n_static,
+            token_dim=token_dim,
+            categorical_embeddings=categorical_embeddings,
+            n_categorical=n_categorical,
+            categorical_mode=categorical_mode,
+        )
+        self.token_pooling = _normalize_token_pooling(token_pooling)
+        token_layers = int(token_layers or 0)
+        token_heads = int(token_heads or 1)
+        if token_layers < 0:
+            raise ValueError("token_layers cannot be negative")
+        if token_heads <= 0:
+            raise ValueError("token_heads must be positive")
+        if token_dim % token_heads != 0:
+            raise ValueError("token_dim must be divisible by token_heads")
+        if token_layers > 0:
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=token_dim,
+                nhead=token_heads,
+                dim_feedforward=token_ffn_dim,
+                dropout=token_dropout,
+                activation="gelu",
+                batch_first=True,
+                norm_first=True,
+            )
+            self.context_encoder: nn.Module = nn.TransformerEncoder(encoder_layer, num_layers=token_layers)
+        else:
+            self.context_encoder = nn.Identity()
+
+        self.attention = TokenAttentionPooling(token_dim) if self.token_pooling == "attention" else None
+        layers: list[nn.Module] = [
+            nn.LayerNorm(token_dim),
+            nn.Linear(token_dim, output_units, bias=True),
+            nn.ReLU(),
+            nn.BatchNorm1d(output_units),
+        ]
+        if output_dropout > 0:
+            layers.append(nn.Dropout(output_dropout))
+        self.output_net = nn.Sequential(*layers)
+
+    def forward(self, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        tokens = self.context_encoder(self.encoder(stat, cat))
+        if self.token_pooling == "attention":
+            if self.attention is None:
+                raise RuntimeError("Attention token pooling was not initialized")
+            pooled = self.attention(tokens)
+        elif self.token_pooling == "mean":
+            pooled = tokens.mean(dim=1)
+        elif self.token_pooling == "max":
+            pooled = torch.amax(tokens, dim=1)
+        else:
+            raise AssertionError(f"Unhandled token pooling mode: {self.token_pooling}")
+        return self.output_net(pooled)
 
 
 def _normalize_dynamic_mode(mode: str | None) -> str:
@@ -847,6 +1069,112 @@ class LSTMAttentionModel(nn.Module):
         return logits.squeeze(-1)
 
 
+@register_model("lstm_embedding_fusion")
+class LSTMEmbeddingFusionModel(nn.Module):
+    """LSTM model that embeds dynamic, continuous static, and categorical inputs before fusion."""
+
+    def __init__(
+        self,
+        seq_len: int,
+        n_channels: int,
+        n_static: int,
+        lstm_units: int = 192,
+        num_layers: int = 1,
+        bidirectional: bool = True,
+        use_attention: bool = True,
+        dropout_lstm: float = 0.1,
+        token_dim: int = 64,
+        static_units: int = 512,
+        token_layers: int = 1,
+        token_heads: int = 4,
+        token_ffn_dim: int = 128,
+        token_dropout: float = 0.1,
+        token_pooling: str = "attention",
+        dropout_static: float = 0.05,
+        merge_units: int = 256,
+        dropout_merged: float = 0.0,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        if seq_len <= 0 or n_channels <= 0:
+            raise ValueError("'seq_len' and 'n_channels' must be positive")
+        self.seq_len = int(seq_len)
+        token_dim = _positive_int(token_dim, "token_dim")
+        self.dynamic_projection = nn.Sequential(
+            nn.Linear(n_channels, token_dim),
+            nn.LayerNorm(token_dim),
+            nn.GELU(),
+        )
+        self.lstm = nn.LSTM(
+            input_size=token_dim,
+            hidden_size=lstm_units,
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+            batch_first=True,
+            dropout=dropout_lstm if num_layers > 1 else 0.0,
+        )
+        self.bidirectional = bool(bidirectional)
+        direction_factor = 2 if bidirectional else 1
+        dyn_dim = lstm_units * direction_factor
+        self.attention = AttentionPooling(dyn_dim) if use_attention else None
+        self.dropout_lstm = nn.Dropout(dropout_lstm) if dropout_lstm > 0 else nn.Identity()
+
+        self.static_branch = StaticFeatureTokenBranch(
+            n_static=n_static,
+            output_units=static_units,
+            token_dim=token_dim,
+            token_layers=token_layers,
+            token_heads=token_heads,
+            token_ffn_dim=token_ffn_dim,
+            token_dropout=token_dropout,
+            token_pooling=token_pooling,
+            output_dropout=dropout_static,
+            categorical_embeddings=categorical_embeddings,
+            n_categorical=n_categorical,
+            categorical_mode=categorical_mode,
+        )
+
+        half_units = max(merge_units // 2, 1)
+        quarter_units = max(merge_units // 4, 1)
+        merged_layers: list[nn.Module] = [
+            nn.Linear(dyn_dim + static_units, merge_units, bias=False),
+            nn.BatchNorm1d(merge_units),
+            nn.ReLU(),
+        ]
+        if dropout_merged > 0:
+            merged_layers.append(nn.Dropout(dropout_merged))
+        merged_layers.extend(
+            [
+                nn.Linear(merge_units, half_units, bias=False),
+                nn.BatchNorm1d(half_units),
+                nn.ReLU(),
+                nn.Linear(half_units, quarter_units, bias=False),
+                nn.BatchNorm1d(quarter_units),
+                nn.ReLU(),
+            ]
+        )
+        self.mlp = nn.Sequential(*merged_layers)
+        self.out = nn.Linear(quarter_units, 1, bias=True)
+
+    def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if dyn.size(1) != self.seq_len:
+            raise ValueError(f"Expected sequence length {self.seq_len}, got {dyn.size(1)}")
+        dyn_tokens = self.dynamic_projection(dyn)
+        lstm_out, (hidden, _) = self.lstm(dyn_tokens)
+        if self.attention is not None:
+            dyn_feat = self.attention(lstm_out)
+        elif self.bidirectional:
+            dyn_feat = torch.cat([hidden[-2], hidden[-1]], dim=1)
+        else:
+            dyn_feat = hidden[-1]
+        dyn_feat = self.dropout_lstm(dyn_feat)
+        stat_feat = self.static_branch(stat, cat)
+        logits = self.out(self.mlp(torch.cat([dyn_feat, stat_feat], dim=1)))
+        return logits.squeeze(-1)
+
+
 @register_model("tsn_mlp")
 @register_model("tcn_mlp")
 class TemporalConvNetModel(nn.Module):
@@ -972,6 +1300,133 @@ class TemporalConvNetModel(nn.Module):
         stat_feat = self.static_net(stat)
         merged = torch.cat([dyn_feat, stat_feat], dim=1)
         logits = self.out(self.mlp(merged))
+        return logits.squeeze(-1)
+
+
+@register_model("tsn_embedding_fusion")
+@register_model("tcn_embedding_fusion")
+class TemporalConvEmbeddingFusionNetModel(nn.Module):
+    """Temporal-convolution model with shared latent tokens for static predictors."""
+
+    def __init__(
+        self,
+        seq_len: int,
+        n_channels: int,
+        n_static: int,
+        token_dim: int = 64,
+        tcn_units: int = 192,
+        num_blocks: int = 3,
+        kernel_sizes: tuple[int, ...] | list[int] = (2, 3, 5),
+        dilations: tuple[int, ...] | list[int] = (1, 2, 4),
+        dropout_tcn: float = 0.1,
+        pooling: str = "attention",
+        static_units: int = 512,
+        token_layers: int = 1,
+        token_heads: int = 4,
+        token_ffn_dim: int = 128,
+        token_dropout: float = 0.1,
+        token_pooling: str = "attention",
+        dropout_static: float = 0.0,
+        merge_units: int = 256,
+        dropout_merged: float = 0.0,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        if seq_len <= 0 or n_channels <= 0:
+            raise ValueError("'seq_len' and 'n_channels' must be positive")
+        if tcn_units <= 0 or num_blocks <= 0 or static_units <= 0 or merge_units <= 0:
+            raise ValueError("tcn_units, num_blocks, static_units, and merge_units must be positive")
+
+        self.seq_len = int(seq_len)
+        token_dim = _positive_int(token_dim, "token_dim")
+        kernel_sizes = _as_int_tuple(kernel_sizes, "kernel_sizes")
+        dilations = _as_int_tuple(dilations, "dilations")
+        self.pooling = _normalize_pooling_mode(pooling)
+        self.dynamic_projection = nn.Sequential(
+            nn.Linear(n_channels, token_dim),
+            nn.LayerNorm(token_dim),
+            nn.GELU(),
+        )
+
+        blocks: list[nn.Module] = []
+        in_channels = token_dim
+        for _ in range(num_blocks):
+            blocks.append(
+                DilatedTemporalConvBlock(
+                    in_channels=in_channels,
+                    out_channels=tcn_units,
+                    kernel_sizes=kernel_sizes,
+                    dilations=dilations,
+                    dropout=dropout_tcn,
+                )
+            )
+            in_channels = tcn_units
+        self.temporal_net = nn.Sequential(*blocks)
+        self.attention = AttentionPooling(tcn_units) if self.pooling == "attention" else None
+        dyn_dim = tcn_units * 2 if self.pooling == "mean_max" else tcn_units
+
+        self.static_branch = StaticFeatureTokenBranch(
+            n_static=n_static,
+            output_units=static_units,
+            token_dim=token_dim,
+            token_layers=token_layers,
+            token_heads=token_heads,
+            token_ffn_dim=token_ffn_dim,
+            token_dropout=token_dropout,
+            token_pooling=token_pooling,
+            output_dropout=dropout_static,
+            categorical_embeddings=categorical_embeddings,
+            n_categorical=n_categorical,
+            categorical_mode=categorical_mode,
+        )
+
+        half_units = max(merge_units // 2, 1)
+        quarter_units = max(merge_units // 4, 1)
+        merged_layers: list[nn.Module] = [
+            nn.Linear(dyn_dim + static_units, merge_units, bias=False),
+            nn.BatchNorm1d(merge_units),
+            nn.ReLU(),
+        ]
+        if dropout_merged > 0:
+            merged_layers.append(nn.Dropout(dropout_merged))
+        merged_layers.extend(
+            [
+                nn.Linear(merge_units, half_units, bias=False),
+                nn.BatchNorm1d(half_units),
+                nn.ReLU(),
+                nn.Linear(half_units, quarter_units, bias=False),
+                nn.BatchNorm1d(quarter_units),
+                nn.ReLU(),
+            ]
+        )
+        self.mlp = nn.Sequential(*merged_layers)
+        self.out = nn.Linear(quarter_units, 1, bias=True)
+
+    def _pool_temporal_features(self, encoded: torch.Tensor) -> torch.Tensor:
+        if self.pooling == "attention":
+            if self.attention is None:
+                raise RuntimeError("Attention pooling was not initialized")
+            return self.attention(encoded)
+        if self.pooling == "last":
+            return encoded[:, -1, :]
+        if self.pooling == "mean":
+            return encoded.mean(dim=1)
+        if self.pooling == "max":
+            return torch.amax(encoded, dim=1)
+        if self.pooling == "mean_max":
+            return torch.cat([encoded.mean(dim=1), torch.amax(encoded, dim=1)], dim=1)
+        raise AssertionError(f"Unhandled pooling mode: {self.pooling}")
+
+    def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if dyn.size(1) != self.seq_len:
+            raise ValueError(f"Expected sequence length {self.seq_len}, got {dyn.size(1)}")
+        dyn_tokens = self.dynamic_projection(dyn)
+        encoded = self.temporal_net(dyn_tokens.transpose(1, 2)).transpose(1, 2)
+        dyn_feat = self._pool_temporal_features(encoded)
+        stat_feat = self.static_branch(stat, cat)
+        logits = self.out(self.mlp(torch.cat([dyn_feat, stat_feat], dim=1)))
         return logits.squeeze(-1)
 
 
@@ -1326,6 +1781,173 @@ class SpatialClimateTemporalConvNetModel(nn.Module):
         return logits.squeeze(-1)
 
 
+@register_model("spatial_climate_tsn_embedding_fusion")
+@register_model("tsn_spatial_climate_embedding_fusion")
+class SpatialClimateTemporalEmbeddingFusionModel(nn.Module):
+    """Spatial climate TSN that embeds static predictors into shared latent tokens."""
+
+    def __init__(
+        self,
+        seq_len: int,
+        n_channels: int,
+        n_static: int,
+        spatial_height: int = 3,
+        spatial_width: int = 3,
+        spatial_conv_units: int = 48,
+        spatial_patch_units: int = 96,
+        token_dim: int | None = None,
+        tcn_units: int = 256,
+        num_blocks: int = 3,
+        kernel_sizes: tuple[int, ...] | list[int] = (3, 5, 9),
+        dilations: tuple[int, ...] | list[int] = (1, 2, 4, 8),
+        dropout_spatial: float = 0.05,
+        dropout_tcn: float = 0.12,
+        pooling: str = "attention",
+        static_units: int = 512,
+        token_layers: int = 1,
+        token_heads: int = 4,
+        token_ffn_dim: int = 128,
+        token_dropout: float = 0.1,
+        token_pooling: str = "attention",
+        dropout_static: float = 0.05,
+        merge_units: int = 448,
+        dropout_merged: float = 0.15,
+        categorical_embeddings: Optional[List[Dict]] = None,
+        n_categorical: int = 0,
+        categorical_mode: str = "auto",
+    ) -> None:
+        super().__init__()
+        if seq_len <= 0 or n_channels <= 0:
+            raise ValueError("'seq_len' and 'n_channels' must be positive")
+        if spatial_height <= 0 or spatial_width <= 0:
+            raise ValueError("'spatial_height' and 'spatial_width' must be positive")
+        if spatial_conv_units <= 0 or spatial_patch_units <= 0:
+            raise ValueError("spatial_conv_units and spatial_patch_units must be positive")
+        if tcn_units <= 0 or num_blocks <= 0 or static_units <= 0 or merge_units <= 0:
+            raise ValueError("tcn_units, num_blocks, static_units, and merge_units must be positive")
+
+        self.seq_len = int(seq_len)
+        self.n_channels = int(n_channels)
+        self.spatial_height = int(spatial_height)
+        self.spatial_width = int(spatial_width)
+        token_dim = _positive_int(token_dim or spatial_patch_units, "token_dim")
+        kernel_sizes = _as_int_tuple(kernel_sizes, "kernel_sizes")
+        dilations = _as_int_tuple(dilations, "dilations")
+        self.pooling = _normalize_pooling_mode(pooling)
+
+        patch_layers: list[nn.Module] = [
+            nn.Conv2d(n_channels, spatial_conv_units, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(spatial_conv_units),
+            nn.GELU(),
+            nn.Conv2d(spatial_conv_units, spatial_conv_units, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(spatial_conv_units),
+            nn.GELU(),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(spatial_conv_units, token_dim, bias=True),
+            nn.LayerNorm(token_dim),
+            nn.GELU(),
+        ]
+        if dropout_spatial > 0:
+            patch_layers.append(nn.Dropout(dropout_spatial))
+        self.patch_encoder = nn.Sequential(*patch_layers)
+
+        blocks: list[nn.Module] = []
+        in_channels = token_dim
+        for _ in range(num_blocks):
+            blocks.append(
+                DilatedTemporalConvBlock(
+                    in_channels=in_channels,
+                    out_channels=tcn_units,
+                    kernel_sizes=kernel_sizes,
+                    dilations=dilations,
+                    dropout=dropout_tcn,
+                )
+            )
+            in_channels = tcn_units
+        self.temporal_net = nn.Sequential(*blocks)
+        self.attention = AttentionPooling(tcn_units) if self.pooling == "attention" else None
+        dyn_dim = tcn_units * 2 if self.pooling == "mean_max" else tcn_units
+
+        self.static_branch = StaticFeatureTokenBranch(
+            n_static=n_static,
+            output_units=static_units,
+            token_dim=token_dim,
+            token_layers=token_layers,
+            token_heads=token_heads,
+            token_ffn_dim=token_ffn_dim,
+            token_dropout=token_dropout,
+            token_pooling=token_pooling,
+            output_dropout=dropout_static,
+            categorical_embeddings=categorical_embeddings,
+            n_categorical=n_categorical,
+            categorical_mode=categorical_mode,
+        )
+
+        half_units = max(merge_units // 2, 1)
+        quarter_units = max(merge_units // 4, 1)
+        merged_layers: list[nn.Module] = [
+            nn.Linear(dyn_dim + static_units, merge_units, bias=False),
+            nn.BatchNorm1d(merge_units),
+            nn.ReLU(),
+        ]
+        if dropout_merged > 0:
+            merged_layers.append(nn.Dropout(dropout_merged))
+        merged_layers.extend(
+            [
+                nn.Linear(merge_units, half_units, bias=False),
+                nn.BatchNorm1d(half_units),
+                nn.ReLU(),
+                nn.Linear(half_units, quarter_units, bias=False),
+                nn.BatchNorm1d(quarter_units),
+                nn.ReLU(),
+            ]
+        )
+        self.mlp = nn.Sequential(*merged_layers)
+        self.out = nn.Linear(quarter_units, 1, bias=True)
+
+    def _pool_temporal_features(self, encoded: torch.Tensor) -> torch.Tensor:
+        if self.pooling == "attention":
+            if self.attention is None:
+                raise RuntimeError("Attention pooling was not initialized")
+            return self.attention(encoded)
+        if self.pooling == "last":
+            return encoded[:, -1, :]
+        if self.pooling == "mean":
+            return encoded.mean(dim=1)
+        if self.pooling == "max":
+            return torch.amax(encoded, dim=1)
+        if self.pooling == "mean_max":
+            return torch.cat([encoded.mean(dim=1), torch.amax(encoded, dim=1)], dim=1)
+        raise AssertionError(f"Unhandled pooling mode: {self.pooling}")
+
+    def forward(self, dyn: torch.Tensor, stat: torch.Tensor, cat: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if dyn.ndim != 5:
+            raise ValueError(
+                "SpatialClimateTemporalEmbeddingFusionModel expects dynamic input shaped "
+                "(batch, time, height, width, channels)."
+            )
+        if dyn.size(1) != self.seq_len:
+            raise ValueError(f"Expected sequence length {self.seq_len}, got {dyn.size(1)}")
+        if dyn.size(2) != self.spatial_height or dyn.size(3) != self.spatial_width:
+            raise ValueError(
+                f"Expected spatial patch {(self.spatial_height, self.spatial_width)}, "
+                f"got {(dyn.size(2), dyn.size(3))}"
+            )
+        if dyn.size(4) != self.n_channels:
+            raise ValueError(f"Expected {self.n_channels} climate channels, got {dyn.size(4)}")
+
+        batch_size, seq_len, height, width, channels = dyn.shape
+        patches = dyn.reshape(batch_size * seq_len, height, width, channels)
+        patches = patches.permute(0, 3, 1, 2).contiguous()
+        patch_features = self.patch_encoder(patches).reshape(batch_size, seq_len, -1)
+        encoded = self.temporal_net(patch_features.transpose(1, 2)).transpose(1, 2)
+        dyn_feat = self._pool_temporal_features(encoded)
+        stat_feat = self.static_branch(stat, cat)
+        logits = self.out(self.mlp(torch.cat([dyn_feat, stat_feat], dim=1)))
+        return logits.squeeze(-1)
+
+
 @register_model("lstm_gated_moe")
 class LSTMGatedMoEModel(nn.Module):
     """Global LSTM model with learned mixture-of-experts fusion.
@@ -1448,17 +2070,21 @@ class LSTMGatedMoEModel(nn.Module):
 
 
 __all__ = [
+    "FeatureTokenEncoder",
     "MLPModel",
     "MinimalMLPModel",
     "FTTransformerModel",
     "TemporalConvNetModel",
+    "TemporalConvEmbeddingFusionNetModel",
     "SpatialTemporalConvNetModel",
     "SpatialClimateTemporalConvNetModel",
+    "SpatialClimateTemporalEmbeddingFusionModel",
     "available_models",
     "build_model",
     "register_model",
     "LSTMMlpModel",
     "LSTMEarlyFusionModel",
     "LSTMAttentionModel",
+    "LSTMEmbeddingFusionModel",
     "LSTMGatedMoEModel",
 ]

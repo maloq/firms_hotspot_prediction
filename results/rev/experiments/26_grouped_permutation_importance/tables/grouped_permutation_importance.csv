@@ -1,9 +1,9 @@
 Group,Features,PR-AUC Drop,Drop Error,F1 Drop
-Anthropogenic,16,0.1846,0.004462,0.1353
-Fire-weather / FWI,40,0.0251,0.001779,-0.0105
-Historical fire/proximity/density,6,0.0841,0.003795,0.0147
+Anthropogenic,17,0.0629,0.001876,0.0416
+Fire-weather / FWI,40,0.0139,0.001897,-0.0048
+Historical fire/proximity/density,6,0.0743,0.002169,0.0288
 Other,1,0.0,0.0,0.0
-Seasonality,1,0.0,0.0,0.0
-Terrain/topography,25,0.0,0.0,0.0
-Vegetation/fuel/ecoregion,6,0.007,0.000627,0.0005
-Weather / meteorology history,162,0.146,0.003747,0.0545
+Seasonality,1,0.0004,0.0002,-0.0036
+Terrain/topography,25,0.0,4.8e-05,0.0001
+Vegetation/fuel/ecoregion,6,0.012,0.001615,0.0094
+Weather / meteorology history,162,0.172,0.001274,0.1408

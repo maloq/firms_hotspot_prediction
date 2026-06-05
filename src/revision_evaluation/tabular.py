@@ -531,14 +531,14 @@ def repo_audit(args: Any, output_dir: Path, packages: dict[str, Any]) -> dict[st
             "Linear logistic baseline using train-only ordinal encoding",
             "Poisson point-process GLM baseline using train-only ordinal encoding",
             "Random Forest baseline using train-only ordinal encoding and capped bootstrap rows",
-            "Minimal MLP and FT-Transformer NN baselines via the shared neural training registry when NN inputs are present",
+            "Minimal MLP, FT-Transformer, and explicit neural embedding-fusion baselines via the shared neural training registry when NN inputs are present",
             "Native CatBoost feature importance",
             "Grouped permutation importance",
             "CatBoost-native SHAP values if feasible",
         ],
         "blocked_or_adapter_needed": [
             "Full ERA5-vs-SEAS5 matrix requires an ERA5-derived feature parquet with schema parity; raw ERA5 GRIB is present but not a drop-in feature matrix.",
-            "Neural embedding/fusion ablations require prepared_data.npz metadata, which is not present in the current workspace.",
+            "Neural embedding/fusion experiments are supported by the neural registry but require prepared_data.npz metadata at run time.",
             "No-dilation target sensitivity requires rebuilding target caches with a modified target-generation function.",
         ],
         "small_adapters_added": ["src/revision_evaluation/tabular.py"],
@@ -2919,6 +2919,9 @@ def placeholder_blocked_tables(
                 "Static-only MLP branch",
                 "Minimal MLP baseline",
                 "FT-Transformer baseline",
+                "LSTM shared-token embedding fusion",
+                "TemporalConvNet shared-token embedding fusion",
+                "Spatial climate TSN shared-token embedding fusion",
                 "Dynamic + static without categorical embeddings",
             ]
         ]
@@ -2929,8 +2932,8 @@ def placeholder_blocked_tables(
         {
             "experiment": "Neural embedding/fusion ablations",
             "reason": "No prepared NN `.npz` dataset was present in the expected metadata directory.",
-            "affects_main_claims": "No; CatBoost/data-fusion ablations cover the primary reviewer request.",
-            "suggested_next_action": "Run `make_nn_train_data.py` for the reviewer split, then train/evaluate the listed NN variants.",
+            "affects_main_claims": "No for CatBoost/data-fusion claims; yes for neural embedding-fusion claims until NN artifacts are regenerated.",
+            "suggested_next_action": "Build prepared NN tensors, then run `python -m src.revision_evaluation.neural_training` to train/import the registered embedding-fusion variants.",
         }
     )
 
@@ -3234,7 +3237,7 @@ def generate_interpretation(
         "Lead-time sensitivity was not directly supported by the saved 30-day aggregate feature matrix because it does not retain forecast lead-time metadata.",
         "",
         "## Limitations",
-        "Neural embedding/fusion ablations, no-dilation label sensitivity, stricter target-threshold sensitivity, and full ERA5 parity require regenerated intermediate datasets. These blockers are listed explicitly in `failures.md`.",
+        "Neural embedding/fusion experiments are implemented in the neural registry but require regenerated NN tensors and prediction artifacts; no-dilation label sensitivity, stricter target-threshold sensitivity, and full ERA5 parity also require regenerated intermediate datasets. These blockers are listed explicitly in `failures.md`.",
         "",
     ]
     text = "\n".join(paragraphs)
@@ -3263,7 +3266,7 @@ We added dataset statistics for global train, validation, and test periods and f
 
 ## Reviewer 3: Embedding/Fusion Reproducibility Request
 
-The repository contains neural checkpoints but not the prepared NN `.npz` dataset required to reproduce embedding/fusion ablations. We therefore completed the more stable CatBoost data-fusion ablations and report the neural embedding ablation as blocked until the NN input dataset is regenerated.
+The repository now includes explicit neural embedding-fusion model definitions and revision-evaluation registry entries. Runs still require the prepared NN `.npz` tensors and prediction artifacts, so workspaces without those files report the neural embedding table as blocked until the NN input dataset is regenerated.
 
 ## Reviewer 3: Morphological Expansion / Grid-Size Concern
 

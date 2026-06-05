@@ -1,31 +1,31 @@
 Rank,Feature,Group,Importance,Normalized
-1,night_light_black_marble_observations_recent,Anthropogenic,55.9703,0.5597
-2,population,Anthropogenic,15.0084,0.1501
-3,past_fire_count_r2_last_year,Historical fire/proximity/density,3.1461,0.0315
-4,fire_index_fwinx_mean,Fire-weather / FWI,2.8552,0.0286
-5,fire_index_ffmcode_median,Fire-weather / FWI,2.3786,0.0238
-6,fire_index_fwinx_median,Fire-weather / FWI,2.1427,0.0214
-7,t2m_max_90,Weather / meteorology history,1.9309,0.0193
-8,fire_index_fdsrte_median,Fire-weather / FWI,1.8739,0.0187
-9,tp_min_30,Weather / meteorology history,1.8683,0.0187
-10,lai_hv,Vegetation/fuel/ecoregion,0.7284,0.0073
-11,t2m_ewm_7,Weather / meteorology history,0.7268,0.0073
-12,t2m_pct_change_90,Weather / meteorology history,0.7016,0.007
-13,t2m_min_14,Weather / meteorology history,0.6739,0.0067
-14,t2m_max_30,Weather / meteorology history,0.655,0.0065
-15,night_light_radiance_2024,Anthropogenic,0.603,0.006
-16,t2m_mean_7,Weather / meteorology history,0.596,0.006
-17,t2m_diff_120,Weather / meteorology history,0.5475,0.0055
-18,past_fire_count_r2_last_month,Historical fire/proximity/density,0.5248,0.0052
-19,stl1_std_120,Weather / meteorology history,0.5217,0.0052
-20,d2m_lag_120,Weather / meteorology history,0.4568,0.0046
-21,night_light_black_marble_quality_filtered,Anthropogenic,0.4142,0.0041
-22,tp_max_7,Weather / meteorology history,0.3801,0.0038
-23,stl1_max_7,Weather / meteorology history,0.3316,0.0033
-24,t2m_pct_change_30,Weather / meteorology history,0.3166,0.0032
-25,stl1_trend_slope_90,Weather / meteorology history,0.3157,0.0032
-26,d2m_ewm_7,Weather / meteorology history,0.3116,0.0031
-27,t2m_max_120,Weather / meteorology history,0.2973,0.003
-28,tp_mean_30,Weather / meteorology history,0.2599,0.0026
-29,night_light_black_marble_recent,Anthropogenic,0.2538,0.0025
-30,stl1_min_120,Weather / meteorology history,0.2424,0.0024
+1,population,Anthropogenic,26.4598,0.2646
+2,past_fire_count_r2_last_year,Historical fire/proximity/density,4.7957,0.048
+3,fire_index_ffmcode_median,Fire-weather / FWI,4.6624,0.0466
+4,fire_index_fdsrte_median,Fire-weather / FWI,4.6004,0.046
+5,fire_index_fwinx_median,Fire-weather / FWI,4.0552,0.0406
+6,tp_min_30,Weather / meteorology history,3.2106,0.0321
+7,t2m_max_90,Weather / meteorology history,3.0545,0.0305
+8,lai_hv,Vegetation/fuel/ecoregion,2.7728,0.0277
+9,fire_index_fwinx_mean,Fire-weather / FWI,2.6293,0.0263
+10,t2m_ewm_7,Weather / meteorology history,2.1821,0.0218
+11,night_light_black_marble_observations_recent,Anthropogenic,2.0627,0.0206
+12,night_light_black_marble_recent,Anthropogenic,1.9631,0.0196
+13,stl1_std_30,Weather / meteorology history,1.8053,0.0181
+14,t2m_max_30,Weather / meteorology history,1.2382,0.0124
+15,night_light_radiance_2024,Anthropogenic,1.2044,0.012
+16,t2m_diff_30,Weather / meteorology history,1.1933,0.0119
+17,t2m_max_7,Weather / meteorology history,1.1672,0.0117
+18,d2m_ewm_7,Weather / meteorology history,0.9696,0.0097
+19,t2m_min_14,Weather / meteorology history,0.9237,0.0092
+20,tp_max_7,Weather / meteorology history,0.9024,0.009
+21,t2m_diff_120,Weather / meteorology history,0.844,0.0084
+22,past_fire_count_r2_last_month,Historical fire/proximity/density,0.767,0.0077
+23,stl1_median_7,Weather / meteorology history,0.7636,0.0076
+24,tp_max_30,Weather / meteorology history,0.7463,0.0075
+25,t2m_diff_90,Weather / meteorology history,0.7454,0.0075
+26,t2m_pct_change_30,Weather / meteorology history,0.6583,0.0066
+27,d2m_mean_90,Weather / meteorology history,0.6529,0.0065
+28,stl1_std_120,Weather / meteorology history,0.6524,0.0065
+29,fire_index_drtcode_max,Fire-weather / FWI,0.6343,0.0063
+30,month,Seasonality,0.6167,0.0062

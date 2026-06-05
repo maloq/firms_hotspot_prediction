@@ -1,25 +1,29 @@
 Model,Scale,Rate,AP,AP Error,ROC-AUC,Max F1,F1 Error
-CatBoost,coarse_0.5_degree_cell_day,0.00051834,0.0144,0.0181,0.8862,0.0531,0.0301
-CatBoost,coarse_1_degree_cell_day,0.00156366,0.0229,0.0116,0.8681,0.0765,0.0393
-CatBoost,exact_0.1_degree_cell_day,4.88e-05,0.0037,0.013,0.9431,0.0245,0.0163
-CatBoost,neighborhood_3x3_cell_day,0.00020635,0.0158,0.0499,0.9042,0.0514,0.0965
-FWI-only CatBoost,coarse_0.5_degree_cell_day,0.00051834,0.0021,0.0008,0.8062,0.0122,0.0066
-FWI-only CatBoost,coarse_1_degree_cell_day,0.00156366,0.0057,0.0009,0.7961,0.0289,0.0105
-FWI-only CatBoost,exact_0.1_degree_cell_day,4.88e-05,0.0003,0.0,0.823,0.0015,0.0002
-FWI-only CatBoost,neighborhood_3x3_cell_day,0.00020635,0.0011,0.0005,0.8188,0.0069,0.0043
-Logistic Regression (linear SGD),coarse_0.5_degree_cell_day,0.00051834,0.0031,0.0017,0.8712,0.007,0.0036
-Logistic Regression (linear SGD),coarse_1_degree_cell_day,0.00156366,0.0085,0.0008,0.868,0.0194,0.0016
-Logistic Regression (linear SGD),exact_0.1_degree_cell_day,4.88e-05,0.0003,0.0,0.8744,0.0007,0.0
-Logistic Regression (linear SGD),neighborhood_3x3_cell_day,0.00020635,0.0013,0.0003,0.8648,0.003,0.0007
-Poisson Point-Process GLM,coarse_0.5_degree_cell_day,0.00051834,0.0074,0.0109,0.8587,0.0401,0.0458
-Poisson Point-Process GLM,coarse_1_degree_cell_day,0.00156366,0.017,0.0068,0.8459,0.067,0.0362
-Poisson Point-Process GLM,exact_0.1_degree_cell_day,4.88e-05,0.001,0.0003,0.8711,0.0084,0.0051
-Poisson Point-Process GLM,neighborhood_3x3_cell_day,0.00020635,0.0043,0.0044,0.8645,0.0251,0.0242
-Random Forest,coarse_0.5_degree_cell_day,0.00051834,0.008,0.0122,0.9097,0.0349,0.0309
-Random Forest,coarse_1_degree_cell_day,0.00156366,0.0185,0.0045,0.8952,0.0631,0.0227
-Random Forest,exact_0.1_degree_cell_day,4.88e-05,0.0012,0.0028,0.9243,0.0094,0.0054
-Random Forest,neighborhood_3x3_cell_day,0.00020635,0.0049,0.007,0.9203,0.0264,0.0466
-Weather-only CatBoost,coarse_0.5_degree_cell_day,0.00051834,0.0076,0.0018,0.8568,0.0347,0.0102
-Weather-only CatBoost,coarse_1_degree_cell_day,0.00156366,0.018,0.0042,0.8437,0.0654,0.0215
-Weather-only CatBoost,exact_0.1_degree_cell_day,4.88e-05,0.0009,0.001,0.8704,0.0048,0.0021
-Weather-only CatBoost,neighborhood_3x3_cell_day,0.00020635,0.0041,0.0088,0.8685,0.0202,0.0472
+CatBoost,coarse_0.5_degree_cell_day,0.00051834,0.0135,0.021,0.8984,0.0476,0.0308
+CatBoost,coarse_1_degree_cell_day,0.00156366,0.0238,0.0065,0.8811,0.0801,0.0145
+CatBoost,exact_0.1_degree_cell_day,4.88e-05,0.003,0.0116,0.9112,0.0219,0.0162
+CatBoost,neighborhood_3x3_cell_day,0.00020635,0.0099,0.0226,0.9098,0.0453,0.06
+CatBoost deployment-weighted,coarse_0.5_degree_cell_day,0.00051834,0.0201,0.0199,0.7957,0.1036,0.0588
+CatBoost deployment-weighted,coarse_1_degree_cell_day,0.00156366,0.01,0.0084,0.7867,0.0613,0.043
+CatBoost deployment-weighted,exact_0.1_degree_cell_day,4.88e-05,0.0002,0.0,0.8116,0.0008,0.0001
+CatBoost deployment-weighted,neighborhood_3x3_cell_day,0.00020635,0.0008,0.0003,0.8061,0.003,0.0011
+FWI-only CatBoost,coarse_0.5_degree_cell_day,0.00051834,0.0022,0.0006,0.8066,0.0135,0.0071
+FWI-only CatBoost,coarse_1_degree_cell_day,0.00156366,0.0058,0.0013,0.7964,0.0293,0.0112
+FWI-only CatBoost,exact_0.1_degree_cell_day,4.88e-05,0.0003,0.0,0.8225,0.0018,0.0002
+FWI-only CatBoost,neighborhood_3x3_cell_day,0.00020635,0.0011,0.0006,0.8189,0.0073,0.0052
+Logistic Regression (linear SGD),coarse_0.5_degree_cell_day,0.00051834,0.0043,0.0022,0.8895,0.01,0.0043
+Logistic Regression (linear SGD),coarse_1_degree_cell_day,0.00156366,0.0117,0.0018,0.8842,0.0275,0.0036
+Logistic Regression (linear SGD),exact_0.1_degree_cell_day,4.88e-05,0.0006,0.0,0.8989,0.0013,0.0
+Logistic Regression (linear SGD),neighborhood_3x3_cell_day,0.00020635,0.0017,0.0006,0.8298,0.0045,0.001
+Poisson Point-Process GLM,coarse_0.5_degree_cell_day,0.00051834,0.0089,0.0109,0.8839,0.0466,0.0356
+Poisson Point-Process GLM,coarse_1_degree_cell_day,0.00156366,0.0196,0.0121,0.8637,0.076,0.0337
+Poisson Point-Process GLM,exact_0.1_degree_cell_day,4.88e-05,0.0015,0.0003,0.9321,0.0095,0.0051
+Poisson Point-Process GLM,neighborhood_3x3_cell_day,0.00020635,0.0055,0.0064,0.8707,0.0323,0.0292
+Random Forest,coarse_0.5_degree_cell_day,0.00051834,0.008,0.0145,0.9126,0.0352,0.0335
+Random Forest,coarse_1_degree_cell_day,0.00156366,0.0181,0.0048,0.8971,0.0559,0.0132
+Random Forest,exact_0.1_degree_cell_day,4.88e-05,0.001,0.0073,0.9216,0.0113,0.0103
+Random Forest,neighborhood_3x3_cell_day,0.00020635,0.0043,0.0238,0.9208,0.0232,0.074
+Weather-only CatBoost,coarse_0.5_degree_cell_day,0.00051834,0.0026,0.0018,0.807,0.0138,0.003
+Weather-only CatBoost,coarse_1_degree_cell_day,0.00156366,0.0067,0.0009,0.7965,0.0339,0.0083
+Weather-only CatBoost,exact_0.1_degree_cell_day,4.88e-05,0.0003,0.0,0.8224,0.0015,0.0002
+Weather-only CatBoost,neighborhood_3x3_cell_day,0.00020635,0.0013,0.0004,0.8183,0.0068,0.0028

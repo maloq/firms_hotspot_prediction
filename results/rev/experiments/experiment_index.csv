@@ -11,7 +11,7 @@ Main Model Comparison By Year,08_main_model_comparison_by_year,Reports annual mo
 Feature Ablation Global,09_feature_ablation_global,Measures how CatBoost performance changes when feature sources are removed or restricted on the global combined test set.
 Feature Ablation By Region,10_feature_ablation_by_region,Keeps spatial ablation effects separate from the global ablation table.
 Feature Ablation By Year,11_feature_ablation_by_year,Reports annual ablation effects for 2021-2025 apart from the combined and regional-only summaries.
-Neural Embedding Fusion Global,12_neural_embedding_fusion_global,"Compares temporal-only, static-only, concatenation, one-hot, learned embedding, full fusion, and gated neural variants globally."
+Neural Embedding Fusion Global,12_neural_embedding_fusion_global,"Compares temporal-only, static-only, concatenation, categorical embedding, shared-token embedding fusion, and gated neural variants globally."
 Neural Embedding Fusion By Region,13_neural_embedding_fusion_by_region,Separates spatial neural fusion behavior from the global neural comparison.
 Neural Embedding Fusion By Year,14_neural_embedding_fusion_by_year,Reports annual neural ablation metrics for 2021-2025 separately from regional and global summaries.
 Neural Feature Ablation Global,15_neural_feature_ablation_global,"Ablates dynamic, static, and categorical input branches for the configured best neural architecture on the global combined test set."
@@ -32,3 +32,4 @@ Neural Feature Importance,28_neural_feature_importance,Measures PR-AUC drops aft
 Failures And Limitations,30_failures_and_limitations,Contains only true remaining blockers and limitations after attempted rebuilds and reruns.
 Full-Grid Prediction Overlays,29_full_grid_prediction_overlays,Plots full-grid probability surfaces for the configured best neural prediction periods and overlays observed fire-positive grid-cell days.
 Prediction Time-Series And Risk Error Maps,32_prediction_timeseries_error_maps,"Compares saved test-set predicted fire-positive grid-cell days with observed labels over time, then maps calibrated risk residuals averaged over test years and for each individual test year."
+Fire Period Timeline Plots,33_fire_period_timeline_plots,"Selects centered non-winter 28-day prediction periods, plots forecast-vs-MODIS temporal strips, and optionally saves matching probability overlay maps."
